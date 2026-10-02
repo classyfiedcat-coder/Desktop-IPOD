@@ -609,6 +609,10 @@ function appearanceSettings(app) {
         },
       },
       { label: 'Flip iPod', arrow: false, action: () => app.device.flip() },
+      cycleItem(store, 'Detail', 'detail', [
+        ['high', 'High (3D)'],
+        ['light', 'Light'],
+      ]),
       choiceItem(app, 'Motion', 'motion', [
         ['cursor', 'Follow Pointer'],
         ['hover', 'Only on Hover'],

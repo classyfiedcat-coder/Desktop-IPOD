@@ -12,6 +12,7 @@
     "dev": "electron . --dev",
     "lint": "eslint .",
     "icons": "electron scripts/make-icons.js",
+    "vendor": "node -e \"const fs=require('fs');fs.copyFileSync('node_modules/three/build/three.module.min.js','src/renderer/vendor/three/three.module.min.js');fs.copyFileSync('node_modules/three/LICENSE','src/renderer/vendor/three/LICENSE')\"",
     "dist": "electron-builder --win",
     "dist:portable": "electron-builder --win portable",
     "test": "node --test \"test/**/*.test.js\" \"test/**/*.test.mjs\""
@@ -25,7 +26,8 @@
     "electron": "^44.5.1",
     "electron-builder": "^26.15.3",
     "eslint": "^9.39.5",
-    "globals": "^15.15.0"
+    "globals": "^15.15.0",
+    "three": "^0.169.0"
   },
   "build": {
     "appId": "com.ipoddesktop.app",

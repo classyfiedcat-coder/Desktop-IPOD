@@ -40,10 +40,22 @@ const cache = new Map();
  * @param {boolean} [o.dust] also scatter specks of dust (for the front)
  * @returns {{ mask: string, lines: string } | null} data URLs
  */
-export function makeWear({ w, h, level = 'light', seed = 5, dust = false }) {
+export function makeWear(o) {
+  const c = wearCanvases(o);
+  if (!c) return null;
+  if (!c.urls) c.urls = { mask: c.mask.toDataURL('image/png'), lines: c.lines.toDataURL('image/png') };
+  return c.urls;
+}
+
+/**
+ * The same wear as canvases, plus a roughness map for the 3D body: clean
+ * steel is mirror-smooth (dark), smudges are hazy and scratches rough (light).
+ * @returns {{ mask: HTMLCanvasElement, lines: HTMLCanvasElement, rough: HTMLCanvasElement } | null}
+ */
+export function wearCanvases({ w, h, level = 'light', seed = 5, dust = false, scale: forceScale }) {
   const cfg = LEVELS[level];
   if (!cfg || typeof document === 'undefined') return null;
-  const scale = Math.min(2, window.devicePixelRatio || 1);
+  const scale = forceScale || Math.min(2, window.devicePixelRatio || 1);
   const W = Math.round(w * scale);
   const H = Math.round(h * scale);
   const key = `${W}x${H}:${level}:${seed}:${dust}`;
@@ -166,7 +178,30 @@ export function makeWear({ w, h, level = 'light', seed = 5, dust = false }) {
     lc.globalAlpha = 1;
   }
 
-  const out = { mask: m.toDataURL('image/png'), lines: l.toDataURL('image/png') };
+  // Roughness: dark = polished, light = rough.
+  const g = document.createElement('canvas');
+  g.width = W;
+  g.height = H;
+  const gc = g.getContext('2d');
+  gc.fillStyle = '#1e1e1e';
+  gc.fillRect(0, 0, W, H);
+  for (const s of smudges) {
+    gc.save();
+    gc.translate(s.x, s.y);
+    gc.rotate(s.a);
+    gc.scale(1, s.ry / s.rx);
+    const sg = gc.createRadialGradient(0, 0, 0, 0, 0, s.rx);
+    sg.addColorStop(0, `rgba(90,90,90,${(s.alpha * cfg.strength * 2.4).toFixed(3)})`);
+    sg.addColorStop(1, 'rgba(90,90,90,0)');
+    gc.fillStyle = sg;
+    gc.beginPath();
+    gc.arc(0, 0, s.rx, 0, Math.PI * 2);
+    gc.fill();
+    gc.restore();
+  }
+  draw(gc, '#6e6e6e', cfg.strength * 0.8);
+
+  const out = { mask: m, lines: l, rough: g };
   cache.set(key, out);
   if (cache.size > 6) cache.delete(cache.keys().next().value);
   return out;

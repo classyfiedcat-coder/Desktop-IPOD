@@ -20,6 +20,7 @@ export const DEFAULT_SETTINGS = {
   idleFloat: true,
   wear: 'light', // none | light | worn: scratches and smudges on the steel back
   backFinish: 'auto', // auto | steel | black
+  detail: 'high', // high (3D model, WebGL) | light (CSS)
 
   shuffle: 'off', // off | songs | albums
   repeat: 'off', // off | one | all

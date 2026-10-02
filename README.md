@@ -13,12 +13,14 @@ A free-floating iPod (5th generation) that lives on your Windows desktop. There'
 
 <p align="center"><img src="docs/motion.gif" width="240" alt="The iPod turning toward the pointer, being picked up and flipped over" /></p>
 
-- It's a 3D object, not a flat picture: a steel edge with real thickness (the headphone jack and hold switch are on top, the dock connector underneath) and a polished mirror back.
+- It's a real 3D model, not a flat picture. The body is rendered with WebGL: perfectly smooth rounded edges where the front plastic meets the steel shell, a headphone jack you can see into, a chrome hold slider that moves in its slot, and a dock connector with its row of pins. The screen and click wheel stay pin-sharp HTML on top, lined up to the pixel.
+- The back is polished mirror steel (or glossy black steel) that reflects a studio around it, with matte etched lettering. Settings › Appearance › Wear adds scratches, swirls and smudges that break up the reflections, from Brand New to Well Loved.
 - It turns gently toward your mouse pointer, wherever the pointer is on screen. As it turns, reflections slide across the glossy front, the screen glass and the chrome. The screen sits just behind the glass, so it shifts slightly against the bezel.
 - Pick it up and it lifts off the desktop, its shadow spreads out, and it sways as you carry it. Put it down and it settles with a little bounce.
 - Pressing the wheel pushes that edge in, and spinning it gives the body a slight twist. Left alone, it floats very gently.
 - Double-click it to flip it over and see the back (with your engraving).
 - Settings › Appearance › Motion: Follow Pointer, Only on Hover, or Off (Off keeps it perfectly flat and pixel-sharp). You can also set the Motion Amount (Subtle, Normal or Dramatic), Reflections, and Float When Idle.
+- Settings › Appearance › Detail: High (the 3D model) or Light (a lighter CSS version, also used automatically if your graphics don't support WebGL).
 
 **It feels like the real thing**
 - A frameless, transparent window shaped like the iPod. Clicks pass through the empty space around it, and you drag it by its body.
@@ -116,6 +118,10 @@ scripts/         Icon generator and the development screenshot tour (scripts/e2e
 ```
 
 The device is data-driven (`src/renderer/js/models.js`), so more iPod models can be added later as device themes.
+
+## Credits
+
+The 3D body is drawn with [three.js](https://threejs.org) (MIT licence, included in `src/renderer/vendor/three`).
 
 ## Legal
 

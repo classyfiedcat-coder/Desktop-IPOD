@@ -207,7 +207,9 @@ export class MotionRig {
 
   _frame(now) {
     this._raf = 0;
-    const dt = clamp((now - this._last) / 1000, 0.001, 0.05);
+    // Real time whatever the frame rate: a slow frame is integrated in small
+    // steps rather than slowing the motion down.
+    const dt = clamp((now - this._last) / 1000, 0.001, 0.25);
     this._last = now;
 
     // Sway from being carried around; it fades quickly once you stop.
@@ -235,8 +237,7 @@ export class MotionRig {
     this.ry.target = this.aim.ry + swayY + fy;
     this.lift.target = this.dragging && this.mode !== 'off' ? 1 : fl;
     const springs = [this.rx, this.ry, this.rz, this.lift, this.push, this.flipS];
-    // Sub-step for stability when frames are long.
-    const steps = dt > 0.02 ? 2 : 1;
+    const steps = Math.ceil(dt / 0.012);
     for (let i = 0; i < steps; i++) for (const s of springs) s.step(dt / steps);
     this.apply();
 
@@ -270,15 +271,16 @@ export class MotionRig {
 
     // At rest, drop the 3D transform entirely so the screen stays pixel-sharp.
     const flat = Math.abs(rx) + Math.abs(ry) + Math.abs(rz) + Math.abs(lift) + Math.abs(push) < 0.01 && Math.abs(flip % 360) < 0.01;
+    const half = +(this.T / 2).toFixed(2);
+    // The exact (rounded) numbers the CSS gets, so the 3D body lines up to the pixel.
+    const t = flat ? { rx: 0, yaw: 0, rz: 0, scale: 1 } : { rx: +rx.toFixed(3), yaw: +yaw.toFixed(3), rz: +rz.toFixed(3), scale: +(1 + 0.032 * lift - 0.014 * push - 0.09 * turning).toFixed(4) };
     if (flat) {
       if (!this._flat) flipper.style.transform = 'none';
     } else {
-      const s = 1 + 0.032 * lift - 0.014 * push - 0.09 * turning;
-      const half = this.T / 2;
       flipper.style.transform =
-        `translateZ(${(-half).toFixed(2)}px) rotateX(${rx.toFixed(3)}deg) rotateY(${yaw.toFixed(3)}deg) ` +
-        `rotateZ(${rz.toFixed(3)}deg) translateZ(${half.toFixed(2)}px) scale(${s.toFixed(4)})`;
+        `translateZ(${-half}px) rotateX(${t.rx}deg) rotateY(${t.yaw}deg) ` + `rotateZ(${t.rz}deg) translateZ(${half}px) scale(${t.scale})`;
     }
+    if (this.onApply && !(flat && this._flat)) this.onApply({ ...t, half, room: this.room });
     this._flat = flat;
 
     const showBack = Math.cos(flip * RAD) < 0;

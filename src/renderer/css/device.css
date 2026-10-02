@@ -437,6 +437,24 @@ body {
   left: 46%;
 }
 
+/* --- the high-detail body (WebGL, see body3d.js) ------------------------------- */
+.ipod .body3d {
+  position: absolute;
+  cursor: grab;
+  touch-action: none;
+}
+/* Only the HTML parts catch the mouse; the rest falls through to the 3D body. */
+.ipod.hi .flipper {
+  pointer-events: none;
+}
+.ipod.hi .flipper > * {
+  pointer-events: auto;
+}
+/* The real slider is modelled in 3D; this stays as a bigger, invisible target. */
+.ipod.hi .hold-switch {
+  opacity: 0;
+}
+
 /* --- the 3D body ------------------------------------------------------------------ */
 .ipod .flipper {
   position: absolute;

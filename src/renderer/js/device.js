@@ -7,7 +7,13 @@
 import { getModel, getColor, SIZES, PX_PER_MM } from './models.js';
 import { h, svg, ICONS, shade, Emitter } from './util.js';
 import { MotionRig } from './rig.js';
-import { makeWear } from './wear.js';
+import { makeWear, wearCanvases } from './wear.js';
+import { Body3D } from './body3d.js';
+
+/** Viewer distance in millimetres (CSS perspective and the 3D camera share it). */
+const PERSPECTIVE_MM = 230;
+/** Where the hold switch sits on the top edge, in mm (across, and depth from the front). */
+const HOLD = { x: 10.5, w: 8, z: -3.8 };
 
 /** CSS custom properties for a colour scheme. */
 export function colorVars(color) {
@@ -221,7 +227,7 @@ export class Device extends Emitter {
   }
 
   /** Build (or rebuild) the device. Returns the logical screen element. */
-  build({ model: modelId, color: colorId, size: sizeId, shadow = true, customColors, engraving = '', wheelGlow = false, reflections = true, wear = 'light', backFinish = 'auto' }) {
+  build({ model: modelId, color: colorId, size: sizeId, shadow = true, customColors, engraving = '', wheelGlow = false, reflections = true, wear = 'light', backFinish = 'auto', detail = 'high' }) {
     const model = getModel(modelId);
     const color = getColor(model, colorId, customColors);
     const size = SIZES.find((s) => s.id === sizeId) || SIZES[1];
@@ -231,6 +237,10 @@ export class Device extends Emitter {
     this.color = color;
     this.u = u;
     const finish = backFinishFor(color, backFinish);
+    // High detail: the body is a real 3D model (WebGL). Otherwise, or if WebGL
+    // isn't available, it's built from CSS panels.
+    const hi = detail !== 'light' && !this._noWebGL && Body3D.supported();
+    this.rig.onApply = null;
 
     const [W, H] = model.size;
     const T = model.depth * u;
@@ -305,7 +315,7 @@ export class Device extends Emitter {
     // Hold switch: a little fin standing up out of the top edge.
     const holdEl = h('div', { class: `hold-switch hold-${model.hold}`, title: 'Hold switch' }, h('div', { class: 'hold-track' }, h('div', { class: 'hold-knob' })));
     holdEl.classList.toggle('on', this.hold);
-    holdEl.style.transform = `translateZ(${(-T * 0.3).toFixed(2)}px)`;
+    holdEl.style.transform = `translateZ(${(HOLD.z * u).toFixed(2)}px)`;
 
     // The polished stainless back, shown when you flip the iPod over.
     const lines = String(engraving || color.engraved || '').split('\n').filter(Boolean).slice(0, 2);
@@ -313,7 +323,9 @@ export class Device extends Emitter {
     // smudges), the scratches catch the light, and tipped toward the light
     // the whole back flares. The lettering is etched: matte, so it stays put
     // while the reflections move around it.
-    const back = h(
+    const back = hi
+      ? null
+      : h(
       'div',
       { class: 'back' },
       h('div', { class: 'back-env' }, refl('env', '-10 9')),
@@ -336,7 +348,9 @@ export class Device extends Emitter {
     // The body: the stainless edge is a closed shell of flat panels around
     // the rounded-rectangle outline (four walls plus faceted corners), so it
     // has real thickness from every angle.
-    const shell = buildShell({
+    const shell = hi
+      ? []
+      : buildShell({
       W,
       H,
       R: model.radius,
@@ -345,16 +359,19 @@ export class Device extends Emitter {
       refl,
       jack: { x: W - model.jack, d: 5.2 },
       dock: { w: 21, h: 2.4 },
-      hold: { x: 10.5, w: 8, depth: 0.3 },
+      hold: { x: HOLD.x, w: HOLD.w, depth: -HOLD.z / model.depth },
       profile: edgeProfile(finish, color.front),
     });
 
-    const backFace = h('div', { class: 'face face-back' }, h('div', { class: 'rim' }), back);
-    backFace.style.transform = `translateZ(${(-T).toFixed(2)}px) rotateY(180deg)`;
+    let backFace = null;
+    if (!hi) {
+      backFace = h('div', { class: 'face face-back' }, h('div', { class: 'rim' }), back);
+      backFace.style.transform = `translateZ(${(-T).toFixed(2)}px) rotateY(180deg)`;
+    }
     const flipper = h(
       'div',
       { class: 'flipper' },
-      h('div', { class: 'face face-front' }, h('div', { class: 'rim' }, refl('rim-env', '-6 26', false)), caseEl),
+      h('div', { class: 'face face-front' }, hi ? null : h('div', { class: 'rim' }, refl('rim-env', '-6 26', false)), caseEl),
       ...shell,
       holdEl,
       backFace
@@ -375,8 +392,9 @@ export class Device extends Emitter {
           this.flipped ? 'flipped' : '',
           wheelGlow ? 'glow-on' : '',
           reflections ? '' : 'no-reflect',
+          hi ? 'hi' : '',
         ].join(' '),
-        style: { width: mm(W), height: mm(H), left: `${pad}px`, top: `${pad}px` },
+        style: { width: mm(W), height: mm(H), left: `${pad}px`, top: `${pad}px`, perspective: `${(PERSPECTIVE_MM * u).toFixed(2)}px` },
       },
       ground,
       flipper
@@ -388,6 +406,13 @@ export class Device extends Emitter {
 
     this.stage.replaceChildren(el);
     this.el = el;
+    this.hi = false;
+    if (hi) this.hi = this._mountBody3D({ el, flipper, W, H, u, pad, model, color, finish, wear, engraving: lines });
+    if (hi && !this.hi) {
+      // WebGL refused to start: fall back to the CSS body for good.
+      this._noWebGL = true;
+      return this.build(arguments[0]);
+    }
     this.flipper = flipper;
     this.caseEl = caseEl;
     this.wheel = wheel;
@@ -421,10 +446,61 @@ export class Device extends Emitter {
     });
 
     this._applyWear(el, wear, W * u, H * u);
+    if (this.hi) this._bindBody3D();
 
     this.windowSize = { width: widthPx, height: heightPx, pad };
     if (window.ipod) window.ipod.win.resize(this.windowSize);
     return screen;
+  }
+
+  /** Build the WebGL body and hook it to the motion rig. Returns false if WebGL won't start. */
+  _mountBody3D({ el, flipper, W, H, u, pad, model, color, finish, wear, engraving }) {
+    if (!this.body3d) this.body3d = new Body3D();
+    const body = this.body3d;
+    body.hold = this.hold;
+    const rough = wear !== 'none' ? wearCanvases({ w: W * u, h: H * u, level: wear, seed: 5, scale: 2 }) : null;
+    const ok = body.mount({
+      host: el,
+      W,
+      H,
+      R: model.radius,
+      T: model.depth,
+      u,
+      pad,
+      perspective: PERSPECTIVE_MM * u,
+      color,
+      finish,
+      wear: rough,
+      ports: { jackX: W - model.jack, holdX: HOLD.x, holdW: HOLD.w, holdZ: HOLD.z, dockW: 21, dockH: 2.4 },
+      back: { capacity: this.capacity || '30GB', lines: engraving, serial: serialFor(color.id) },
+    });
+    if (!ok) return false;
+    // Between the shadow on the desk and the HTML face.
+    el.insertBefore(body.canvas, flipper);
+    this.rig.onApply = (t) => body.update(t);
+    body.onLost = () => {
+      // The GPU went away (driver reset, sleep): rebuild, in CSS if it keeps failing.
+      this._lost = (this._lost || 0) + 1;
+      if (this._lost > 2) this._noWebGL = true;
+      this.emit('rebuild');
+    };
+    return true;
+  }
+
+  /** Mouse on the 3D body: drag it, double-click to flip, click the hold slider. */
+  _bindBody3D() {
+    const canvas = this.body3d.canvas;
+    canvas.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0 || !this.body3d.hitTest(e.clientX, e.clientY)) return;
+      if (this.body3d.hitSlider && this.body3d.hitSlider(e.clientX, e.clientY)) {
+        this.setHold(!this.hold, true);
+        return;
+      }
+      this._startDrag(e, canvas);
+    });
+    canvas.addEventListener('dblclick', (e) => {
+      if (this.body3d.hitTest(e.clientX, e.clientY)) this.flip();
+    });
   }
 
   /** Scratches and smudges on the back (and a trace of them on the front gloss). */
@@ -449,6 +525,7 @@ export class Device extends Emitter {
     for (const [k, v] of Object.entries(colorVars(color))) this.el.style.setProperty(k, v);
     this.el.classList.toggle('dark', !!color.dark);
     this.el.classList.toggle('light', !color.dark);
+    if (this.hi) this.body3d.setFrontColor(color.front);
   }
 
   /** Turn the iPod over to see the back (and the engraving). */
@@ -465,6 +542,7 @@ export class Device extends Emitter {
   setHold(on, user = false) {
     this.hold = !!on;
     if (this.holdEl) this.holdEl.classList.toggle('on', this.hold);
+    if (this.hi) this.body3d.setHold(this.hold);
     this.emit('hold', { on: this.hold, user });
   }
 
@@ -598,21 +676,25 @@ export class Device extends Emitter {
     body.addEventListener('pointerdown', (e) => {
       if (e.button !== 0) return;
       if (e.target.closest('.wheel, .hold-switch')) return;
-      e.preventDefault();
-      body.setPointerCapture(e.pointerId);
-      this._dragging = true;
-      this.rig.setDragging(true);
-      if (window.ipod) window.ipod.win.dragStart();
-      const end = () => {
-        this._dragging = false;
-        this.rig.setDragging(false);
-        if (window.ipod) window.ipod.win.dragEnd();
-        body.removeEventListener('pointerup', end);
-        body.removeEventListener('pointercancel', end);
-      };
-      body.addEventListener('pointerup', end);
-      body.addEventListener('pointercancel', end);
+      this._startDrag(e, body);
     });
+  }
+
+  _startDrag(e, target) {
+    e.preventDefault();
+    target.setPointerCapture(e.pointerId);
+    this._dragging = true;
+    this.rig.setDragging(true);
+    if (window.ipod) window.ipod.win.dragStart();
+    const end = () => {
+      this._dragging = false;
+      this.rig.setDragging(false);
+      if (window.ipod) window.ipod.win.dragEnd();
+      target.removeEventListener('pointerup', end);
+      target.removeEventListener('pointercancel', end);
+    };
+    target.addEventListener('pointerup', end);
+    target.addEventListener('pointercancel', end);
   }
 
   _bindGlobal() {
@@ -660,7 +742,7 @@ export class Device extends Emitter {
     // Let clicks fall through the transparent area around the iPod.
     window.addEventListener('mousemove', (e) => {
       if (this._dragging || !window.ipod) return;
-      const over = !!(e.target && e.target.closest && e.target.closest(SOLID));
+      const over = !!(e.target && e.target.closest && e.target.closest(SOLID)) || (this.hi && this.body3d.hitTest(e.clientX, e.clientY));
       if (over !== this._overCase) {
         this._overCase = over;
         window.ipod.win.ignoreMouse(!over);

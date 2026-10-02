@@ -4,7 +4,7 @@ const globals = require('globals');
 
 module.exports = [
   {
-    ignores: ['node_modules/**', 'dist/**'],
+    ignores: ['node_modules/**', 'dist/**', 'src/renderer/vendor/**'],
   },
   {
     files: ['src/main/**/*.js', 'src/preload/**/*.js', 'scripts/**/*.js', 'eslint.config.js'],
