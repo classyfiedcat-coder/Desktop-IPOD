@@ -14,6 +14,10 @@ export const DEFAULT_SETTINGS = {
   engraving: '',
   wheelGlow: false,
   startupAnimation: true,
+  motion: 'cursor', // cursor | hover | off
+  motionAmount: 'normal', // subtle | normal | dramatic
+  reflections: true,
+  idleFloat: true,
 
   shuffle: 'off', // off | songs | albums
   repeat: 'off', // off | one | all

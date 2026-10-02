@@ -55,10 +55,10 @@ module.exports = async ({ app, win }) => {
     for (let i = 0; i < n; i++) await press('menu');
   };
 
-  const scenario = { spotify: spotifyScenario, media: mediaScenario }[process.env.IPOD_E2E_STEPS];
+  const scenario = { spotify: spotifyScenario, media: mediaScenario, motion: motionScenario, reel: reelScenario }[process.env.IPOD_E2E_STEPS];
   if (scenario) {
     try {
-      await scenario({ js, wait, shot, press, scroll, open, menu, select });
+      await scenario({ js, wait, shot, press, scroll, open, menu, select, win });
     } catch (err) {
       console.error('E2E failed', err);
       errors.push(String(err && err.stack));
@@ -327,4 +327,173 @@ async function mediaScenario({ js, wait, shot, press, scroll, open, menu }) {
   await open('Settings');
   await open('Desktop');
   await shot('m12-desktop');
+}
+
+/** The living 3D device: pointer tilt, lifting, flipping, colours. */
+async function motionScenario({ js, wait, shot, win }) {
+  await wait(2500);
+  // Pretend the pointer is at (x, y) relative to the window centre.
+  const pointAt = (dx, dy) =>
+    js(`(() => { const w = innerWidth, h = innerHeight; __ipod.device.rig.cursor({ x: w / 2 + ${dx}, y: h / 2 + ${dy}, w, h, wx: 100, wy: 100, sx: 0, sy: 0 }); __ipod.os.activity(); })()`);
+  const settle = () => js(`new Promise(r => { const t = () => (__ipod.device.rig._raf ? setTimeout(t, 50) : r()); t(); })`);
+
+  await js(`__ipod.store.set('idleFloat', false); __ipod.store.set('color', 'white'); __ipod.store.set('motion', 'cursor'); __ipod.store.set('motionAmount', 'normal')`);
+  await wait(400);
+  await pointAt(0, 0);
+  await settle();
+  await shot('m01-rest');
+  for (const [name, dx, dy] of [
+    ['m02-right', 900, 0],
+    ['m03-left', -900, 0],
+    ['m04-up-left', -700, -600],
+    ['m05-down-right', 700, 700],
+  ]) {
+    await pointAt(dx, dy);
+    await settle();
+    await shot(name);
+  }
+
+  // Real mouse input on the wheel while it's tilted: hit-testing goes through the 3D transform.
+  await pointAt(-900, 700);
+  await settle();
+  const g = await js(`(() => { const r = document.querySelector('.wheel').getBoundingClientRect(); return { cx: r.left + r.width / 2, cy: r.top + r.height / 2, r: r.width / 2 }; })()`);
+  const mouse = (type, x, y) => win.webContents.sendInputEvent({ type, x: Math.round(x), y: Math.round(y), button: 'left', clickCount: 1 });
+  const at = (deg) => [g.cx + Math.sin((deg * Math.PI) / 180) * g.r * 0.72, g.cy - Math.cos((deg * Math.PI) / 180) * g.r * 0.72];
+  await js(`(() => { const v = __ipod.os.current; v.sel = 0; v.paint(); })()`);
+  mouse('mouseDown', ...at(0));
+  for (let d = 0; d <= 100; d += 4) {
+    mouse('mouseMove', ...at(d));
+    await wait(12);
+  }
+  mouse('mouseUp', ...at(100));
+  await wait(300);
+  const spun = await js(`__ipod.os.current.sel`);
+  console.log('tilted wheel spin 100deg -> sel', spun);
+  if (spun < 3) throw new Error(`wheel didn't scroll while tilted (sel ${spun})`);
+  await js(`(() => { const v = __ipod.os.current; v.sel = 0; v.paint(); })()`);
+  mouse('mouseDown', g.cx, g.cy);
+  await wait(60);
+  mouse('mouseUp', g.cx, g.cy);
+  await wait(500);
+  const title = await js(`__ipod.os.current.title`);
+  console.log('tilted centre click ->', title);
+  if (title !== 'Music') throw new Error(`centre click while tilted opened ${title}`);
+  await js(`__ipod.os.pop && __ipod.os.pop()`);
+  await wait(400);
+
+  // The hold switch is a fin on the top edge, behind the front plane: still clickable?
+  for (const [dx, dy] of [
+    [0, 0],
+    [-700, 600],
+  ]) {
+    await pointAt(dx, dy);
+    await settle();
+    const hb = await js(`(() => { const r = document.querySelector('.hold-switch').getBoundingClientRect(); return { x: r.left + r.width * 0.5, y: r.top + r.height * 0.2 }; })()`);
+    const before = await js(`__ipod.device.hold`);
+    mouse('mouseDown', hb.x, hb.y);
+    await wait(40);
+    mouse('mouseUp', hb.x, hb.y);
+    await wait(250);
+    const after = await js(`__ipod.device.hold`);
+    console.log('hold click', dx, dy, before, '->', after);
+    if (after === before) throw new Error('hold switch did not respond to a click');
+    await js(`__ipod.device.setHold(false)`);
+  }
+
+  // Picked up.
+  await pointAt(-500, -400);
+  await js(`__ipod.device.rig.setDragging(true)`);
+  await settle();
+  await shot('m06-lifted');
+  await js(`__ipod.device.rig.setDragging(false)`);
+  await settle();
+
+  // Flip: capture it on the way round, then the back.
+  await js(`__ipod.device.flip(true)`);
+  await wait(170);
+  await shot('m07-flipping-a');
+  await wait(110);
+  await shot('m08-flipping-b');
+  await settle();
+  await pointAt(-600, -300);
+  await settle();
+  await shot('m09-back');
+  await js(`__ipod.device.flip(false)`);
+  await settle();
+
+  // Black and dramatic.
+  await js(`__ipod.store.set('color', 'black')`);
+  await js(`__ipod.store.set('motionAmount', 'dramatic')`);
+  await wait(400);
+  await pointAt(-800, 500);
+  await settle();
+  await shot('m10-black-dramatic');
+  await pointAt(800, -500);
+  await settle();
+  await shot('m11-black-dramatic-2');
+  await js(`__ipod.device.flip(true)`);
+  await wait(240);
+  await shot('m12-black-flipping');
+  await settle();
+
+  // Motion off → flat and pixel sharp.
+  await js(`__ipod.device.flip(false)`);
+  await js(`__ipod.store.set('motion', 'off')`);
+  await settle();
+  const t = await js(`__ipod.device.flipper.style.transform`);
+  console.log('flat transform:', t);
+  if (t !== 'none') throw new Error(`expected a flat device with motion off, got ${t}`);
+  await shot('m13-off');
+  await js(`__ipod.store.set('motion', 'cursor'); __ipod.store.set('color', 'white'); __ipod.store.set('motionAmount', 'normal'); __ipod.store.set('idleFloat', true)`);
+}
+
+/**
+ * Frames for an animated preview: the pointer circles the iPod, it gets
+ * picked up and put down, then flipped over and back. Turn them into a GIF
+ * with ffmpeg (see docs).
+ */
+async function reelScenario({ js, wait, win }) {
+  const out = path.resolve(process.env.IPOD_SHOTS || 'shots');
+  await wait(2500);
+  await js(`__ipod.store.set('idleFloat', false); __ipod.store.set('motion', 'cursor'); __ipod.store.set('motionAmount', ${JSON.stringify(process.env.IPOD_REEL_AMOUNT || 'normal')}); __ipod.store.set('color', ${JSON.stringify(process.env.IPOD_REEL_COLOR || 'white')})`);
+  await wait(500);
+  let n = 0;
+  const frame = async () => {
+    const img = await win.webContents.capturePage();
+    fs.writeFileSync(path.join(out, `f${String(n++).padStart(4, '0')}.png`), img.toPNG());
+  };
+  const pointAt = (dx, dy) =>
+    js(`(() => { const w = innerWidth, h = innerHeight; __ipod.device.rig.cursor({ x: w / 2 + ${dx}, y: h / 2 + ${dy}, w, h, sx: 0, sy: 0 }); __ipod.os.activity(); })()`);
+  // Pointer circling.
+  for (let i = 0; i < 48; i++) {
+    const a = (i / 48) * Math.PI * 2;
+    await pointAt(Math.cos(a) * 700, Math.sin(a) * 600);
+    await wait(30);
+    await frame();
+  }
+  // Pick it up, carry it, put it down.
+  await js(`__ipod.device.rig.setDragging(true)`);
+  for (let i = 0; i < 16; i++) {
+    await js(`__ipod.device.rig._windowMoved(${100 + i * 14}, ${100 + Math.sin(i / 3) * 20})`);
+    await wait(30);
+    await frame();
+  }
+  await js(`__ipod.device.rig.setDragging(false)`);
+  for (let i = 0; i < 12; i++) {
+    await wait(30);
+    await frame();
+  }
+  // Flip over and back.
+  await js(`__ipod.device.flip(true)`);
+  for (let i = 0; i < 26; i++) {
+    await wait(30);
+    await frame();
+  }
+  await js(`__ipod.device.flip(false)`);
+  for (let i = 0; i < 26; i++) {
+    await wait(30);
+    await frame();
+  }
+  await js(`__ipod.store.set('idleFloat', true); __ipod.store.set('motionAmount', 'normal')`);
+  console.log('reel frames', n);
 }

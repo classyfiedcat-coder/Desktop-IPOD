@@ -60,6 +60,7 @@ function registerIpc(ctx) {
   ipcMain.on('win:ignore-mouse', (_e, ignore) => iw.ignoreMouse(ignore));
   ipcMain.on('win:drag-start', () => iw.startDrag());
   ipcMain.on('win:drag-end', () => iw.stopDrag());
+  ipcMain.on('win:track-cursor', (_e, on) => iw.trackCursor(!!on));
   ipcMain.handle('win:resize', (_e, size) => iw.resize(size || {}));
   ipcMain.handle('win:set', (_e, patch) => iw.applyPrefs(patch || {}));
   ipcMain.on('win:minimize', () => win() && win().minimize());

@@ -162,6 +162,7 @@ app.whenReady().then(() => {
   const args = parseArgs(process.argv);
   const win = ctx.ipodWindow.create({ hidden: args.hidden || state.get('window', {}).startHidden === true });
   win.on('closed', () => {
+    ctx.ipodWindow.trackCursor(false);
     ctx.ipodWindow.win = null;
     ctx.quit(true);
   });

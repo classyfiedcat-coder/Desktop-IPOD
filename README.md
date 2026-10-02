@@ -9,6 +9,17 @@ A free-floating iPod (5th generation) that lives on your Windows desktop. There'
 
 ## Features
 
+**It lives on your desktop**
+
+<p align="center"><img src="docs/motion.gif" width="240" alt="The iPod turning toward the pointer, being picked up and flipped over" /></p>
+
+- It's a 3D object, not a flat picture: a steel edge with real thickness (the headphone jack and hold switch are on top, the dock connector underneath) and a polished mirror back.
+- It turns gently toward your mouse pointer, wherever the pointer is on screen. As it turns, reflections slide across the glossy front, the screen glass and the chrome. The screen sits just behind the glass, so it shifts slightly against the bezel.
+- Pick it up and it lifts off the desktop, its shadow spreads out, and it sways as you carry it. Put it down and it settles with a little bounce.
+- Pressing the wheel pushes that edge in, and spinning it gives the body a slight twist. Left alone, it floats very gently.
+- Double-click it to flip it over and see the back (with your engraving).
+- Settings › Appearance › Motion: Follow Pointer, Only on Hover, or Off (Off keeps it perfectly flat and pixel-sharp). You can also set the Motion Amount (Subtle, Normal or Dramatic), Reflections, and Float When Idle.
+
 **It feels like the real thing**
 - A frameless, transparent window shaped like the iPod. Clicks pass through the empty space around it, and you drag it by its body.
 - The click wheel works like the real one: drag around it to scroll, click MENU, ⏮, ⏭ or ▶❚❚, and press the centre button. It makes the clicker sound, and the part you press visibly sinks.

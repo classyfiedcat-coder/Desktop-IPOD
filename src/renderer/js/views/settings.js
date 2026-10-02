@@ -609,6 +609,18 @@ function appearanceSettings(app) {
         },
       },
       { label: 'Flip iPod', arrow: false, action: () => app.device.flip() },
+      choiceItem(app, 'Motion', 'motion', [
+        ['cursor', 'Follow Pointer'],
+        ['hover', 'Only on Hover'],
+        ['off', 'Off'],
+      ]),
+      cycleItem(store, 'Motion Amount', 'motionAmount', [
+        ['subtle', 'Subtle'],
+        ['normal', 'Normal'],
+        ['dramatic', 'Dramatic'],
+      ]),
+      cycleItem(store, 'Reflections', 'reflections', ON_OFF),
+      cycleItem(store, 'Float When Idle', 'idleFloat', ON_OFF),
       cycleItem(store, 'Shadow', 'shadow', ON_OFF),
       cycleItem(store, 'Wheel Glow', 'wheelGlow', ON_OFF),
       cycleItem(store, 'Startup Animation', 'startupAnimation', ON_OFF),

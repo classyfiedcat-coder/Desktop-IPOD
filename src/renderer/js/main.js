@@ -73,7 +73,20 @@ async function boot() {
   const booting = store.settings.startupAnimation ? os.boot() : Promise.resolve();
 
   // Settings that change the device itself.
-  for (const key of ['color', 'size', 'shadow', 'engraving']) store.on(`change:${key}`, () => app.rebuild());
+  for (const key of ['color', 'size', 'shadow', 'engraving', 'reflections']) store.on(`change:${key}`, () => app.rebuild());
+
+  // The iPod turns toward the pointer, wherever it is on screen.
+  const configureMotion = () => {
+    const s = store.settings;
+    device.rig.configure({ mode: s.motion, amount: s.motionAmount, float: s.idleFloat });
+    window.ipod.win.trackCursor(s.motion !== 'off');
+  };
+  configureMotion();
+  for (const key of ['motion', 'motionAmount', 'idleFloat']) store.on(`change:${key}`, configureMotion);
+  window.ipod.win.onCursor((c) => device.rig.cursor(c));
+  os.on('sleep', () => device.rig.setAwake(false));
+  os.on('wake', () => device.rig.setAwake(true));
+  document.addEventListener('visibilitychange', () => device.rig.setAwake(!document.hidden && !os.asleep));
   store.on('change:customColors', (c) => {
     if (store.settings.color === 'custom') device.applyColors(getColor(getModel(store.settings.model), 'custom', c));
   });

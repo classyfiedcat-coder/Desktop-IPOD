@@ -23,6 +23,8 @@ contextBridge.exposeInMainWorld('ipod', {
     ignoreMouse: fire('win:ignore-mouse'),
     dragStart: fire('win:drag-start'),
     dragEnd: fire('win:drag-end'),
+    trackCursor: fire('win:track-cursor'),
+    onCursor: on('win:cursor'),
     resize: invoke('win:resize'),
     set: invoke('win:set'),
     minimize: fire('win:minimize'),

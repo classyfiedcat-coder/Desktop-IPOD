@@ -20,6 +20,8 @@ class IpodWindow {
     this.win = null;
     this.pad = 0;
     this.dragTimer = null;
+    this.cursorTimer = null;
+    this.lastCursor = '';
     this.canClickThrough = process.platform === 'win32' || process.platform === 'darwin';
   }
 
@@ -148,6 +150,33 @@ class IpodWindow {
       }
       w.setBounds({ x, y, width: b.width, height: b.height });
     }, 1000 / 120);
+  }
+
+  /**
+   * Tell the renderer where the pointer is, even when it's far outside the
+   * window, so the iPod can turn toward it. Only sends when something moved.
+   */
+  trackCursor(on) {
+    clearInterval(this.cursorTimer);
+    this.cursorTimer = null;
+    this.lastCursor = '';
+    if (on) this.cursorTimer = setInterval(() => this._pollCursor(), 1000 / 60);
+  }
+
+  _pollCursor() {
+    const w = this.win;
+    if (!w || w.isDestroyed() || !w.isVisible() || w.isMinimized()) return;
+    const p = screen.getCursorScreenPoint();
+    const b = w.getBounds();
+    const key = `${p.x},${p.y},${b.x},${b.y},${b.width},${b.height}`;
+    if (key === this.lastCursor) return;
+    this.lastCursor = key;
+    // Where the iPod sits on its display (-1…1), so reflections can stay put
+    // relative to the "room" while you move it around.
+    const wa = screen.getDisplayNearestPoint({ x: Math.round(b.x + b.width / 2), y: Math.round(b.y + b.height / 2) }).workArea;
+    const sx = (b.x + b.width / 2 - (wa.x + wa.width / 2)) / (wa.width / 2);
+    const sy = (b.y + b.height / 2 - (wa.y + wa.height / 2)) / (wa.height / 2);
+    w.webContents.send('win:cursor', { x: p.x - b.x, y: p.y - b.y, w: b.width, h: b.height, wx: b.x, wy: b.y, sx, sy, dragging: !!this.dragTimer });
   }
 
   stopDrag() {

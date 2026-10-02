@@ -24,23 +24,53 @@ body {
 .ipod {
   position: absolute;
   isolation: isolate;
+  /* Viewer distance in real millimetres (a bit closer than arm's length, for
+     a little drama), so every size has the same depth. */
+  perspective: calc(var(--u) * 230);
 }
 
-/* --- stainless rim peeking around the front ------------------------------- */
+/* Reflection layers are oversized and slid around by the motion rig. */
+.ipod .refl {
+  position: absolute;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+.ipod.no-reflect .refl {
+  display: none;
+}
+
+/* --- stainless rim around the front ------------------------------------------ */
 .ipod .rim {
   position: absolute;
   inset: calc(var(--u) * -0.35);
   border-radius: calc(var(--radius) + var(--u) * 0.35);
   z-index: 1;
+  overflow: hidden;
+  /* Coplanar with the case: in a 3D context Chromium can pick it over the case
+     when hit-testing, which would swallow clicks meant for the wheel. */
+  pointer-events: none;
   background:
     linear-gradient(90deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 14%, rgba(255, 255, 255, 0) 86%, rgba(255, 255, 255, 0.55)),
     linear-gradient(180deg, #fbfbfc 0%, #b7bbc0 16%, #eceef0 42%, #9a9ea4 70%, #e1e3e6 88%, #8d9197 100%);
 }
-.shadowed .rim {
-  box-shadow:
-    0 calc(var(--u) * 2.6) calc(var(--u) * 4.4) rgba(0, 0, 0, 0.3),
-    0 calc(var(--u) * 0.6) calc(var(--u) * 1.2) rgba(0, 0, 0, 0.26),
-    0 0 calc(var(--u) * 0.25) rgba(0, 0, 0, 0.3);
+/* Bands of "room" sliding along the polished steel as it turns. */
+.rim-env {
+  left: 0;
+  right: 0;
+  top: -70%;
+  bottom: -70%;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.75) 18%,
+    rgba(255, 255, 255, 0) 27%,
+    rgba(0, 0, 0, 0.16) 40%,
+    rgba(255, 255, 255, 0.6) 55%,
+    rgba(255, 255, 255, 0) 64%,
+    rgba(0, 0, 0, 0.2) 80%,
+    rgba(255, 255, 255, 0.35) 92%,
+    rgba(255, 255, 255, 0) 100%
+  );
 }
 
 /* --- glossy front ------------------------------------------------------------ */
@@ -71,15 +101,24 @@ body {
   inset: 0;
   pointer-events: none;
   border-radius: inherit;
-  z-index: 4;
-  background:
-    linear-gradient(150deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.1) 33%, rgba(255, 255, 255, 0) 33.4%),
-    radial-gradient(120% 55% at 30% -10%, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 60%);
+  overflow: hidden;
+  /* Under the screen window: the display gets its own, subtler glass reflection. */
+  z-index: 0;
 }
-.dark .case > .gloss {
+/* The classic hard-edged highlight on the glossy front, plus a soft window
+   reflection lower down. Oversized so it can slide as the iPod turns. */
+.gloss-band {
+  inset: -40%;
   background:
-    linear-gradient(150deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.05) 33%, rgba(255, 255, 255, 0) 33.4%),
-    radial-gradient(120% 55% at 30% -10%, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 60%);
+    linear-gradient(150deg, rgba(255, 255, 255, 0) 14%, rgba(255, 255, 255, 0.5) 22.4%, rgba(255, 255, 255, 0.07) 40.2%, rgba(255, 255, 255, 0) 40.5%),
+    radial-gradient(70% 35% at 40% 18%, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0) 60%),
+    radial-gradient(22% 14% at 66% 72%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 70%);
+}
+.dark .gloss-band {
+  background:
+    linear-gradient(150deg, rgba(255, 255, 255, 0) 14%, rgba(255, 255, 255, 0.26) 22.4%, rgba(255, 255, 255, 0.07) 40.2%, rgba(255, 255, 255, 0) 40.5%),
+    radial-gradient(70% 35% at 40% 18%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 60%),
+    radial-gradient(22% 14% at 66% 72%, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0) 70%);
 }
 
 /* --- screen window ------------------------------------------------------------- */
@@ -104,13 +143,31 @@ body {
   background: #000;
   border-radius: calc(var(--u) * 0.25);
 }
-.screen-wrap .glass {
+.screen-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  box-shadow: inset 0 0 calc(var(--u) * 0.45) rgba(0, 0, 0, 0.4);
+}
+/* The clear window over the LCD: its own reflection, moving faster than the
+   gloss on the case, so the screen reads as being under a layer of glass. */
+.bezel .glass {
   position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 2;
-  box-shadow: inset 0 0 calc(var(--u) * 0.45) rgba(0, 0, 0, 0.4);
-  background: linear-gradient(118deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.025) 26%, rgba(255, 255, 255, 0) 38%);
+  overflow: hidden;
+  border-radius: inherit;
+  background: linear-gradient(118deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 26%, rgba(255, 255, 255, 0) 38%);
+}
+.glare {
+  inset: -60%;
+  background:
+    linear-gradient(118deg, rgba(255, 255, 255, 0) 37%, rgba(255, 255, 255, 0.2) 43%, rgba(255, 255, 255, 0.06) 48.5%, rgba(255, 255, 255, 0) 53%),
+    linear-gradient(118deg, rgba(255, 255, 255, 0) 56.5%, rgba(255, 255, 255, 0.08) 58.5%, rgba(255, 255, 255, 0) 61%),
+    radial-gradient(40% 30% at 36% 30%, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0) 70%);
 }
 .screen {
   position: relative;
@@ -137,6 +194,28 @@ body {
     inset 0 calc(var(--u) * -0.3) calc(var(--u) * 0.8) rgba(0, 0, 0, 0.35),
     0 0 0 calc(var(--u) * 0.13) rgba(0, 0, 0, 0.6),
     0 calc(var(--u) * 0.12) calc(var(--u) * 0.15) rgba(255, 255, 255, 0.06);
+}
+.wheel-sheen,
+.center-spec {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  pointer-events: none;
+}
+.sheen {
+  inset: -30%;
+  background: radial-gradient(42% 32% at 40% 32%, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 70%);
+}
+.dark .sheen {
+  background: radial-gradient(42% 32% at 40% 32%, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 70%);
+}
+.spec {
+  inset: -25%;
+  background: radial-gradient(30% 22% at 42% 34%, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0) 75%);
+}
+.dark .spec {
+  background: radial-gradient(30% 22% at 42% 34%, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 75%);
 }
 .wheel .lbl {
   position: absolute;
@@ -239,16 +318,17 @@ body {
   filter: brightness(1.6);
 }
 
-/* --- hold switch (top edge, peeking out above the case) ----------------------- */
+/* --- hold switch (a fin standing up out of the top edge) ---------------------- */
 .hold-switch {
   position: absolute;
-  z-index: 0;
   width: calc(var(--u) * 8);
-  height: calc(var(--u) * 2);
+  height: calc(var(--u) * 2.6);
   cursor: pointer;
 }
+/* Stands a little proud of the top edge (more than the real one, so it's easy
+   to hit with a mouse once perspective has pulled it back). */
 .hold-top-left {
-  top: calc(var(--u) * -1.25);
+  top: calc(var(--u) * -2);
   left: calc(var(--u) * 6.5);
 }
 .hold-track {
@@ -291,26 +371,12 @@ body {
   left: 46%;
 }
 
-/* --- flip to the stainless back -------------------------------------------------- */
-.ipod {
-  perspective: 1800px;
-}
+/* --- the 3D body ------------------------------------------------------------------ */
 .ipod .flipper {
   position: absolute;
   inset: 0;
   transform-style: preserve-3d;
-  transition: transform 0.9s cubic-bezier(0.45, 0.05, 0.2, 1);
-}
-.ipod.flipped .flipper {
-  transform: rotateY(180deg);
-}
-.ipod.flipping {
-  animation: flipdip 0.9s cubic-bezier(0.45, 0.05, 0.2, 1);
-}
-@keyframes flipdip {
-  50% {
-    transform: scale(0.86);
-  }
+  will-change: transform;
 }
 .ipod .face {
   position: absolute;
@@ -318,13 +384,45 @@ body {
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
 }
-.ipod .face-back {
-  transform: rotateY(180deg);
-}
 .ipod.flipped .face-front,
 .ipod:not(.flipped) .face-back {
   pointer-events: none;
 }
+
+/* Panels around the outline (walls + faceted corners), placed by device.js.
+   Local x runs from the back to the front of the iPod. */
+.ipod .side {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: hidden;
+  cursor: grab;
+  transform-origin: 0 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.side .side-hl {
+  top: 0;
+  bottom: 0;
+  left: -80%;
+  right: -80%;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 40%, rgba(255, 255, 255, 0.55) 50%, rgba(255, 255, 255, 0) 60%);
+}
+.side .jack {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, #050505 0 50%, #26282b 56%, #9a9ea4 64%, #eceef0 74%, #8a8e94 100%);
+}
+.side .dock {
+  position: absolute;
+  border-radius: calc(var(--u) * 0.6);
+  background: linear-gradient(180deg, #050506, #1d1e21);
+  box-shadow:
+    inset 0 0 0 calc(var(--u) * 0.25) #34363a,
+    0 0 0 calc(var(--u) * 0.2) rgba(255, 255, 255, 0.35);
+}
+
+/* --- the polished stainless back ----------------------------------------------------- */
 .ipod .back {
   position: absolute;
   inset: 0;
@@ -332,22 +430,63 @@ body {
   border-radius: var(--radius);
   overflow: hidden;
   cursor: grab;
-  background:
-    linear-gradient(112deg, rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, 0.55) 38%, rgba(255, 255, 255, 0) 46%),
-    linear-gradient(180deg, #e8eaed 0%, #b9bdc2 18%, #f4f5f6 36%, #9ea2a8 58%, #dfe1e4 80%, #a6aaaf 100%);
+  background: linear-gradient(180deg, #e8eaed 0%, #b9bdc2 18%, #f4f5f6 36%, #9ea2a8 58%, #dfe1e4 80%, #a6aaaf 100%);
   box-shadow:
     inset 0 0 calc(var(--u) * 1.4) rgba(0, 0, 0, 0.28),
     inset 0 calc(var(--u) * 0.3) calc(var(--u) * 0.4) rgba(255, 255, 255, 0.8);
 }
-.back-shine {
+.back-env {
   position: absolute;
-  inset: -20%;
-  background: radial-gradient(60% 40% at 30% 25%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 70%);
-  transition: transform 1.2s ease;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
 }
-.ipod.flipping .back-shine {
-  transform: translateX(18%);
+/* A mirror: the room (a window, a lamp, a dark corner) slides across it. */
+.env {
+  inset: -45%;
+  background:
+    linear-gradient(112deg, rgba(255, 255, 255, 0) 38%, rgba(255, 255, 255, 0.7) 44%, rgba(255, 255, 255, 0) 50%),
+    linear-gradient(112deg, rgba(255, 255, 255, 0) 52.5%, rgba(255, 255, 255, 0.35) 55.5%, rgba(255, 255, 255, 0) 58.5%),
+    radial-gradient(28% 20% at 32% 28%, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0) 70%),
+    radial-gradient(38% 24% at 70% 76%, rgba(40, 46, 56, 0.35), rgba(40, 46, 56, 0) 70%);
 }
+.back-edge {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 calc(var(--u) * 0.3) rgba(255, 255, 255, 0.45),
+    inset 0 0 calc(var(--u) * 3) calc(var(--u) * 0.6) rgba(0, 0, 0, 0.22);
+}
+
+/* --- shadow on the desktop ------------------------------------------------------------ */
+.ipod .ground {
+  position: absolute;
+  inset: 0;
+  display: none;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+.ipod.shadowed .ground {
+  display: block;
+}
+.ground-soft {
+  position: absolute;
+  inset: 7% 6% 1.5% 6%;
+  border-radius: var(--radius);
+  background: rgba(0, 0, 0, 0.2);
+  box-shadow: 0 0 calc(var(--u) * 5) calc(var(--u) * 1.6) rgba(0, 0, 0, 0.22);
+}
+.ground-near {
+  position: absolute;
+  inset: 1% 1.5% -0.6% 1.5%;
+  border-radius: var(--radius);
+  box-shadow:
+    0 calc(var(--u) * 0.4) calc(var(--u) * 1.4) rgba(0, 0, 0, 0.3),
+    0 0 calc(var(--u) * 0.3) rgba(0, 0, 0, 0.25);
+}
+
 .back-mark {
   position: absolute;
   top: 34%;
