@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:" />
+    <title>Connect Spotify</title>
+    <link rel="stylesheet" href="css/setup.css" />
+    <script type="module" src="js/setup.js"></script>
+  </head>
+  <body>
+    <header>
+      <svg class="logo" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="12" fill="#1ed760" />
+        <path d="M6.2 9.3c3.9-1.1 8.4-.8 11.6 1.1M6.8 12.6c3.2-.9 6.9-.6 9.7 1M7.4 15.7c2.6-.7 5.4-.5 7.6.8" fill="none" stroke="#000" stroke-width="1.7" stroke-linecap="round" />
+      </svg>
+      <div>
+        <h1>Connect Spotify</h1>
+        <p class="lead">Play your playlists, liked songs, albums and podcasts on your iPod.</p>
+      </div>
+    </header>
+
+    <section id="connected" hidden>
+      <div class="card ok">
+        <div class="badge">✓</div>
+        <div>
+          <h2>Connected</h2>
+          <p id="account">Your Spotify account is linked.</p>
+        </div>
+      </div>
+      <div class="row">
+        <button id="done" class="primary">Done</button>
+        <button id="logout" class="ghost">Disconnect</button>
+      </div>
+    </section>
+
+    <section id="setup">
+      <ol class="steps">
+        <li>
+          <h3>Create a Spotify app</h3>
+          <p>Spotify asks every app to have its own key. It takes a minute and is free.</p>
+          <button id="open-dashboard" class="secondary">Open Spotify Developer Dashboard</button>
+          <p class="hint">Sign in, click <b>Create app</b>, and give it any name (for example “My iPod”).</p>
+        </li>
+        <li>
+          <h3>Add this Redirect URI</h3>
+          <div class="copy">
+            <code id="redirect">http://127.0.0.1:43827/callback</code>
+            <button id="copy" class="small">Copy</button>
+          </div>
+          <p class="hint">Under “Which API/SDKs are you planning to use?” tick <b>Web API</b> and <b>Web Playback SDK</b>, then save.</p>
+        </li>
+        <li>
+          <h3>Paste your Client ID</h3>
+          <p class="hint">Open your app’s <b>Settings</b> and copy the <b>Client ID</b>. No secret needed.</p>
+          <div class="field">
+            <input id="client-id" placeholder="e.g. 1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d" spellcheck="false" autocomplete="off" />
+          </div>
+        </li>
+      </ol>
+      <div class="row">
+        <button id="connect" class="primary">Connect to Spotify</button>
+      </div>
+      <p id="status" class="status" role="status"></p>
+      <p class="note">
+        Spotify Premium is required to control playback. Music plays through the Spotify app on this PC (or any Spotify Connect speaker) and your iPod becomes the remote — or straight from the iPod when your build supports it.
+        If sign-in is refused, add your Spotify email under <b>User Management</b> in the dashboard.
+      </p>
+    </section>
+  </body>
+</html>

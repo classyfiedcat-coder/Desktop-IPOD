@@ -1,0 +1,292 @@
+/* ------------------------------------------------------------------------
+   The physical iPod 5th generation: glossy polycarbonate front over a
+   stainless back, screen window, click wheel and hold switch.
+   Everything is sized in real millimetres via --u (px per mm).
+   ------------------------------------------------------------------------ */
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+}
+
+.ipod {
+  position: absolute;
+  isolation: isolate;
+}
+
+/* --- stainless rim peeking around the front ------------------------------- */
+.ipod .rim {
+  position: absolute;
+  inset: calc(var(--u) * -0.35);
+  border-radius: calc(var(--radius) + var(--u) * 0.35);
+  z-index: 1;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 14%, rgba(255, 255, 255, 0) 86%, rgba(255, 255, 255, 0.55)),
+    linear-gradient(180deg, #fbfbfc 0%, #b7bbc0 16%, #eceef0 42%, #9a9ea4 70%, #e1e3e6 88%, #8d9197 100%);
+}
+.shadowed .rim {
+  box-shadow:
+    0 calc(var(--u) * 2.6) calc(var(--u) * 4.4) rgba(0, 0, 0, 0.3),
+    0 calc(var(--u) * 0.6) calc(var(--u) * 1.2) rgba(0, 0, 0, 0.26),
+    0 0 calc(var(--u) * 0.25) rgba(0, 0, 0, 0.3);
+}
+
+/* --- glossy front ------------------------------------------------------------ */
+.ipod .case {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: var(--radius);
+  overflow: hidden;
+  cursor: grab;
+  background: linear-gradient(180deg, var(--front-hi) 0%, var(--front) 22%, var(--front) 72%, var(--front-lo) 100%);
+  box-shadow:
+    inset 0 0 0 calc(var(--u) * 0.5) rgba(255, 255, 255, 0.6),
+    inset 0 0 calc(var(--u) * 0.9) calc(var(--u) * 0.5) rgba(0, 0, 0, 0.05),
+    inset 0 calc(var(--u) * 0.2) calc(var(--u) * 0.2) rgba(255, 255, 255, 0.95);
+}
+.dark .case {
+  box-shadow:
+    inset 0 0 0 calc(var(--u) * 0.45) rgba(255, 255, 255, 0.07),
+    inset 0 0 calc(var(--u) * 1) calc(var(--u) * 0.5) rgba(0, 0, 0, 0.6),
+    inset 0 calc(var(--u) * 0.2) calc(var(--u) * 0.2) rgba(255, 255, 255, 0.16);
+}
+.ipod .case:active {
+  cursor: grabbing;
+}
+.case > .gloss {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  z-index: 4;
+  background:
+    linear-gradient(150deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.1) 33%, rgba(255, 255, 255, 0) 33.4%),
+    radial-gradient(120% 55% at 30% -10%, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 60%);
+}
+.dark .case > .gloss {
+  background:
+    linear-gradient(150deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.05) 33%, rgba(255, 255, 255, 0) 33.4%),
+    radial-gradient(120% 55% at 30% -10%, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 60%);
+}
+
+/* --- screen window ------------------------------------------------------------- */
+.bezel {
+  position: absolute;
+  background: var(--bezel);
+  overflow: hidden;
+  cursor: grab;
+  box-shadow:
+    inset 0 calc(var(--u) * 0.25) calc(var(--u) * 0.6) rgba(0, 0, 0, 0.7),
+    0 0 0 calc(var(--u) * 0.14) rgba(0, 0, 0, 0.22),
+    0 calc(var(--u) * 0.16) 0 rgba(255, 255, 255, 0.4);
+}
+.dark .bezel {
+  box-shadow:
+    inset 0 calc(var(--u) * 0.25) calc(var(--u) * 0.6) rgba(0, 0, 0, 0.9),
+    0 0 0 calc(var(--u) * 0.14) rgba(255, 255, 255, 0.05);
+}
+.screen-wrap {
+  position: absolute;
+  overflow: hidden;
+  background: #000;
+  border-radius: calc(var(--u) * 0.25);
+}
+.screen-wrap .glass {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  box-shadow: inset 0 0 calc(var(--u) * 0.45) rgba(0, 0, 0, 0.4);
+  background: linear-gradient(118deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.025) 26%, rgba(255, 255, 255, 0) 38%);
+}
+.screen {
+  position: relative;
+  overflow: hidden;
+}
+
+/* --- click wheel ----------------------------------------------------------------- */
+.wheel {
+  position: absolute;
+  z-index: 5;
+  border-radius: 50%;
+  cursor: pointer;
+  touch-action: none;
+  background: radial-gradient(circle at 50% 30%, var(--wheel-hi) 0%, var(--wheel) 50%, var(--wheel-lo) 100%);
+  box-shadow:
+    inset 0 calc(var(--u) * 0.2) calc(var(--u) * 0.4) rgba(255, 255, 255, 0.7),
+    inset 0 calc(var(--u) * -0.25) calc(var(--u) * 0.7) rgba(0, 0, 0, 0.07),
+    0 0 0 calc(var(--u) * 0.13) rgba(0, 0, 0, 0.1),
+    0 calc(var(--u) * 0.14) calc(var(--u) * 0.18) rgba(255, 255, 255, 0.6);
+}
+.dark .wheel {
+  box-shadow:
+    inset 0 calc(var(--u) * 0.15) calc(var(--u) * 0.35) rgba(255, 255, 255, 0.1),
+    inset 0 calc(var(--u) * -0.3) calc(var(--u) * 0.8) rgba(0, 0, 0, 0.35),
+    0 0 0 calc(var(--u) * 0.13) rgba(0, 0, 0, 0.6),
+    0 calc(var(--u) * 0.12) calc(var(--u) * 0.15) rgba(255, 255, 255, 0.06);
+}
+.wheel .lbl {
+  position: absolute;
+  color: var(--label);
+  pointer-events: none;
+  line-height: 0;
+  transition: filter 0.1s;
+}
+.wheel .lbl-menu {
+  top: 8.5%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  line-height: 1;
+  font: 700 calc(var(--wheel-d) * 0.064) / 1 'iPod Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  letter-spacing: 0.08em;
+  padding-left: 0.08em;
+}
+.wheel .lbl-prev,
+.wheel .lbl-next,
+.wheel .lbl-play {
+  width: calc(var(--wheel-d) * 0.11);
+}
+.wheel .lbl-prev {
+  left: 8%;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.wheel .lbl-next {
+  right: 8%;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.wheel .lbl-play {
+  bottom: 9%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.svg svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  fill: currentColor;
+}
+
+.wheel .press {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.16s ease-out;
+  background: radial-gradient(circle at var(--px, 50%) var(--py, 50%), rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0) 30%);
+}
+.dark .wheel .press {
+  background: radial-gradient(circle at var(--px, 50%) var(--py, 50%), rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0) 30%);
+}
+.wheel.pressing .press {
+  opacity: 1;
+  transition: opacity 0.03s;
+}
+.wheel.pressing[data-zone='menu'] .lbl-menu,
+.wheel.pressing[data-zone='next'] .lbl-next,
+.wheel.pressing[data-zone='prev'] .lbl-prev,
+.wheel.pressing[data-zone='play'] .lbl-play {
+  filter: brightness(0.82);
+}
+
+.wheel .center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle at 50% 30%, var(--center-hi) 0%, var(--center) 55%, var(--center-lo) 100%);
+  box-shadow:
+    0 0 0 calc(var(--u) * 0.14) rgba(0, 0, 0, 0.1),
+    0 calc(var(--u) * 0.12) calc(var(--u) * 0.35) rgba(0, 0, 0, 0.12),
+    inset 0 calc(var(--u) * 0.15) calc(var(--u) * 0.25) rgba(255, 255, 255, 0.8);
+  transition:
+    transform 0.07s ease-out,
+    filter 0.07s ease-out,
+    box-shadow 0.07s ease-out;
+}
+.dark .wheel .center {
+  background: radial-gradient(circle at 50% 30%, #1c1c1d 0%, var(--center) 60%, #000 100%);
+  box-shadow:
+    0 0 0 calc(var(--u) * 0.14) rgba(0, 0, 0, 0.7),
+    0 calc(var(--u) * 0.1) calc(var(--u) * 0.3) rgba(0, 0, 0, 0.4),
+    inset 0 calc(var(--u) * 0.12) calc(var(--u) * 0.2) rgba(255, 255, 255, 0.07);
+}
+.wheel .center.pressed {
+  transform: translate(-50%, -50%) scale(0.965);
+  filter: brightness(0.93);
+  box-shadow:
+    0 0 0 calc(var(--u) * 0.14) rgba(0, 0, 0, 0.12),
+    inset 0 calc(var(--u) * 0.2) calc(var(--u) * 0.5) rgba(0, 0, 0, 0.12);
+}
+.dark .wheel .center.pressed {
+  filter: brightness(1.6);
+}
+
+/* --- hold switch (top edge, peeking out above the case) ----------------------- */
+.hold-switch {
+  position: absolute;
+  z-index: 0;
+  width: calc(var(--u) * 8);
+  height: calc(var(--u) * 2);
+  cursor: pointer;
+}
+.hold-top-left {
+  top: calc(var(--u) * -1.25);
+  left: calc(var(--u) * 6.5);
+}
+.hold-track {
+  position: absolute;
+  inset: 0;
+  border-radius: calc(var(--u) * 0.6) calc(var(--u) * 0.6) 0 0;
+  overflow: hidden;
+  background: linear-gradient(180deg, #b9bdc2, #7d8187);
+  box-shadow: inset 0 calc(var(--u) * 0.12) calc(var(--u) * 0.25) rgba(0, 0, 0, 0.45);
+}
+.hold-track::before {
+  content: '';
+  position: absolute;
+  left: 8%;
+  top: 0;
+  bottom: 0;
+  width: 34%;
+  background: linear-gradient(180deg, #ffa22e, #ff7a00);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.hold-switch.on .hold-track::before {
+  opacity: 1;
+}
+.hold-knob {
+  position: absolute;
+  top: 12%;
+  bottom: 0;
+  left: 6%;
+  width: 50%;
+  border-radius: calc(var(--u) * 0.45) calc(var(--u) * 0.45) 0 0;
+  background: linear-gradient(180deg, #ffffff, #d2d4d8 60%, #b9bcc1);
+  box-shadow: 0 calc(var(--u) * 0.1) calc(var(--u) * 0.2) rgba(0, 0, 0, 0.4);
+  transition: left 0.2s cubic-bezier(0.3, 1.5, 0.6, 1);
+}
+.dark .hold-knob {
+  background: linear-gradient(180deg, #4a4b4f, #232427);
+}
+.hold-switch.on .hold-knob {
+  left: 46%;
+}
