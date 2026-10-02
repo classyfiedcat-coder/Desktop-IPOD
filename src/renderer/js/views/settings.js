@@ -463,10 +463,10 @@ class ArtworkView extends View {
     this._off = window.ipod.library.onArtProgress((p) => {
       if (!this.mounted) return;
       if (p.total) this.fill.style.width = `${(p.done / p.total) * 100}%`;
-      this.detail.textContent = p.finished ? `Found artwork for ${p.found} of ${p.total} albums` : p.album ? `${p.album} (${p.done + 1} of ${p.total})` : '';
+      this.detail.textContent = p.error || (p.finished ? `Found artwork for ${p.found} of ${p.total} albums` : p.album ? `${p.album} (${p.done + 1} of ${p.total})` : '');
       if (p.finished) {
-        this.label.textContent = p.total ? 'Done' : 'All albums have artwork';
-        this.fill.style.width = '100%';
+        this.label.textContent = p.error ? 'Stopped' : p.total ? 'Done' : 'All albums have artwork';
+        if (!p.error) this.fill.style.width = '100%';
       }
     });
     if (!this.started) {

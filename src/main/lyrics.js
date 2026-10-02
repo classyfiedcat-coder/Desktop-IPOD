@@ -37,6 +37,7 @@ class Lyrics {
       this.cache = {};
     }
     this._saveTimer = null;
+    this._inflight = new Map();
   }
 
   _key(artist, title) {
@@ -53,18 +54,26 @@ class Lyrics {
     clearTimeout(this._saveTimer);
     this._saveTimer = setTimeout(() => {
       try {
-        fs.writeFileSync(this.file, JSON.stringify(this.cache));
+        const tmp = `${this.file}.tmp`;
+        fs.writeFileSync(tmp, JSON.stringify(this.cache));
+        fs.renameSync(tmp, this.file);
       } catch {
-        /* ignore */
+        /* it's only a cache */
       }
     }, 1000);
   }
 
-  async get({ title, artist, album, duration }) {
-    if (!title || !artist) return null;
-    const key = this._key(artist, title);
+  async get(q) {
+    if (!q.title || !q.artist) return null;
+    const key = this._key(q.artist, q.title);
     const hit = this.cache[key];
     if (hit && (hit.found || Date.now() - hit.at < MISS_TTL)) return hit.found ? hit : null;
+    // Now Playing and the prefetch for the next song can ask at the same time.
+    if (!this._inflight.has(key)) this._inflight.set(key, this._fetch(key, q).finally(() => this._inflight.delete(key)));
+    return this._inflight.get(key);
+  }
+
+  async _fetch(key, { title, artist, album, duration }) {
 
     const t = cleanTitle(title);
     const a = firstArtist(artist);
@@ -75,7 +84,9 @@ class Lyrics {
       if (duration) q.set('duration', String(Math.round(duration)));
       rec = await request(`https://lrclib.net/api/get?${q}`, { as: 'json', timeout: 10000 });
     } catch (err) {
-      if (err.status && err.status !== 404) throw err;
+      // Only a real "not found" counts as no lyrics. Offline, a timeout or a
+      // server error must not get the song remembered as having none.
+      if (err.status !== 404) throw err;
     }
     if (!rec || (!rec.syncedLyrics && !rec.plainLyrics && !rec.instrumental)) {
       try {
@@ -88,7 +99,7 @@ class Lyrics {
           if (scored.length && (!duration || scored[0].d < 8)) rec = scored[0].r;
         }
       } catch (err) {
-        if (err.status && err.status !== 404) throw err;
+        if (err.status !== 404) throw err;
       }
     }
     const value = rec

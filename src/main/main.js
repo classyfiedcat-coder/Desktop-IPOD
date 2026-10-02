@@ -103,7 +103,11 @@ ctx.quit = (animated) => {
     return;
   }
   ctx.quitting = true;
-  app.quit();
+  // Give the UI a moment to save anything it hasn't yet (it debounces saves).
+  if (ctx.ready) {
+    send('app:command', { name: 'flush' });
+    setTimeout(() => app.quit(), 150);
+  } else app.quit();
 };
 
 function handleArgs(argv, cwd) {
@@ -202,6 +206,10 @@ app.on('before-quit', () => {
   ctx.quitting = true;
   if (ctx.ipodWindow) ctx.ipodWindow.stopDrag();
   if (ctx.desktop) ctx.desktop.dispose();
+  if (ctx.state) ctx.state.flush();
+});
+
+app.on('will-quit', () => {
   if (ctx.state) ctx.state.flush();
 });
 

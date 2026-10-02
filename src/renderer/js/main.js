@@ -62,7 +62,9 @@ async function boot() {
     os.mount(screen);
   };
   app.shutdown = async () => {
+    store.flush(); // before the animation, in case it's cut short
     await os.shutdown();
+    store.flush();
     window.ipod.win.quit();
   };
   window.__ipod = app; // handy for debugging from DevTools
@@ -120,6 +122,7 @@ async function boot() {
     }
     if (name === 'prefs-changed') return syncWindowPrefs();
     if (name === 'shutdown') return app.shutdown();
+    if (name === 'flush') return store.flush();
     if (name === 'volup' || name === 'voldown') {
       player.setVolume(player.volume + (name === 'volup' ? 0.06 : -0.06));
       os.alert(`Volume ${Math.round(player.volume * 100)}%`, 600);

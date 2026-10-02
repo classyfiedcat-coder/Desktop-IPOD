@@ -52,6 +52,8 @@ function registerIpc(ctx) {
   }));
   ipcMain.handle('state:save', (_e, data) => {
     state.set('app', data);
+    // While quitting there's no time for the store's debounce.
+    if (ctx.quitting) state.flush();
     return true;
   });
   ipcMain.on('app:ready', () => ctx.rendererReady());

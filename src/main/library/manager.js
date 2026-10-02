@@ -20,6 +20,12 @@ const INDEX_VERSION = 4;
 const ART_SIZE = 500;
 const AUDIO_RE = /\.(mp3|m4a|m4b|aac|flac|wav|ogg|oga|opus|weba)$/i;
 const hash = (s) => crypto.createHash('sha1').update(s).digest('hex');
+/** A scanner that says nothing for this long is stuck (a dead network drive, say). */
+const SCANNER_SILENCE_MS = 90 * 1000;
+const inside = (file, folder) => {
+  const rel = path.relative(folder, file);
+  return !!rel && !rel.startsWith('..') && !path.isAbsolute(rel);
+};
 
 class Library extends EventEmitter {
   constructor(userDataDir) {
@@ -33,6 +39,7 @@ class Library extends EventEmitter {
     this.watchers = [];
     this.autoUpdate = true;
     this._artJobs = new Map();
+    this._saving = Promise.resolve();
     this._load();
   }
 
@@ -50,10 +57,15 @@ class Library extends EventEmitter {
     this.byId = new Map(this.data.tracks.map((t) => [t.id, t]));
   }
 
-  async _save() {
-    const tmp = `${this.indexFile}.tmp`;
-    await fsp.writeFile(tmp, JSON.stringify(this.data));
-    await fsp.rename(tmp, this.indexFile);
+  /** Atomic, and one at a time (artwork can arrive in the middle of a scan). */
+  _save() {
+    const run = async () => {
+      const tmp = `${this.indexFile}.tmp`;
+      await fsp.writeFile(tmp, JSON.stringify(this.data));
+      await fsp.rename(tmp, this.indexFile);
+    };
+    this._saving = this._saving.then(run, run);
+    return this._saving;
   }
 
   pathFor(id) {
@@ -87,17 +99,36 @@ class Library extends EventEmitter {
       if (child.stdout) child.stdout.on('data', (d) => log.info('[scanner]', String(d).trim()));
       if (child.stderr) child.stderr.on('data', (d) => log.warn('[scanner]', String(d).trim()));
       let finished = false;
+      let watchdog = null;
+      const alive = () => {
+        clearTimeout(watchdog);
+        watchdog = setTimeout(() => {
+          if (finished) return;
+          finished = true;
+          log.warn('[library] scanner stopped responding; giving up');
+          child.kill();
+          reject(new Error('The library scan stopped responding.'));
+        }, SCANNER_SILENCE_MS);
+      };
+      alive();
       child.on('message', (msg) => {
+        if (finished) return;
+        alive();
         if (msg.type === 'progress') onProgress(msg);
         else if (msg.type === 'done' || msg.type === 'error') {
           finished = true;
+          clearTimeout(watchdog);
           child.kill();
           if (msg.type === 'done') resolve(msg);
           else reject(new Error(msg.message));
         }
       });
       child.on('exit', (code) => {
-        if (!finished) reject(new Error(`Scanner exited (${code})`));
+        clearTimeout(watchdog);
+        if (!finished) {
+          finished = true;
+          reject(new Error(`Scanner exited (${code})`));
+        }
       });
       child.postMessage({ ...message, artDir: this.artDir });
     });
@@ -115,7 +146,13 @@ class Library extends EventEmitter {
         }
       });
       const res = await this._runWorker({ type: 'scan', folders: valid, previous: this.data.tracks }, onProgress);
-      this.data = { version: INDEX_VERSION, folders: folders.slice(), tracks: res.tracks, playlists: res.playlists, scannedAt: Date.now() };
+      // A folder that isn't there right now (an unplugged drive, a sleeping
+      // NAS) keeps its songs until it comes back, instead of emptying them out.
+      const missing = folders.filter((f) => !valid.includes(f));
+      const kept = missing.length ? this.data.tracks.filter((t) => missing.some((f) => inside(t.path, f))) : [];
+      const keptLists = missing.length ? this.data.playlists.filter((p) => p.file && missing.some((f) => inside(p.file, f))) : [];
+      if (kept.length) log.info(`[library] ${missing.length} folder(s) unavailable; keeping their ${kept.length} songs`);
+      this.data = { version: INDEX_VERSION, folders: folders.slice(), tracks: [...res.tracks, ...kept], playlists: [...res.playlists, ...keptLists], scannedAt: Date.now() };
       this._reindex();
       await this._save();
       log.info(`[library] scanned ${res.tracks.length} tracks in ${((Date.now() - started) / 1000).toFixed(1)}s`);

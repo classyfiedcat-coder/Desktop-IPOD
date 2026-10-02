@@ -137,8 +137,11 @@ export class SpotifyEngine extends Emitter {
 
   async refresh() {
     if (!this.api.connected) return;
-    let next = this.active ? (this.playing ? 1500 : 3000) : 6000;
-    if (document.hidden) next = Math.max(next, 6000);
+    // Quick while Spotify is what you're using; otherwise just an occasional
+    // look to notice music started from another device (Spotify rate-limits,
+    // and this runs all day).
+    let next = this.active ? (this.playing ? 1500 : 3000) : 20000;
+    if (document.hidden) next = Math.max(next, this.active && this.playing ? 5000 : 30000);
     if (performance.now() < this._busyUntil) {
       this._schedule(600);
       return;

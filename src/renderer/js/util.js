@@ -93,10 +93,12 @@ export function shuffled(arr) {
 
 export function debounce(fn, ms) {
   let t;
-  return (...args) => {
+  const d = (...args) => {
     clearTimeout(t);
     t = setTimeout(() => fn(...args), ms);
   };
+  d.cancel = () => clearTimeout(t);
+  return d;
 }
 
 export function throttle(fn, ms) {

@@ -23,6 +23,10 @@ const parser = new XMLParser({
 });
 
 const idFor = (s) => crypto.createHash('sha1').update(String(s)).digest('hex').slice(0, 20);
+/** Episode ids are always our own hashes; anything else never touches the disk. */
+const validId = (id) => typeof id === 'string' && /^[a-f0-9]{20}$/.test(id);
+/** No episode is bigger than this; a stream that never ends gets stopped. */
+const MAX_EPISODE_BYTES = 3 * 1024 * 1024 * 1024;
 
 function txt(v) {
   if (v === undefined || v === null) return '';
@@ -138,6 +142,7 @@ class Podcasts {
   }
 
   downloadPath(id) {
+    if (!validId(id)) return null;
     const d = this.downloads[id];
     return d && d.done ? path.join(this.dir, d.file) : null;
   }
@@ -147,7 +152,7 @@ class Podcasts {
   }
 
   async download(ep) {
-    if (!ep || !ep.id || !isPublicUrl(ep.url)) throw new Error('Can’t download this episode.');
+    if (!ep || !validId(ep.id) || !isPublicUrl(ep.url)) throw new Error('Can’t download this episode.');
     if (this.active.has(ep.id)) return this.active.get(ep.id);
     const job = (async () => {
       await fsp.mkdir(this.dir, { recursive: true });
@@ -157,23 +162,32 @@ class Podcasts {
       const res = await request(ep.url, { as: 'response', timeout: 30000, untrusted: true });
       if (!res.ok || !res.body) throw new Error(`Download failed (${res.status})`);
       const total = +res.headers.get('content-length') || ep.size || 0;
+      if (total > MAX_EPISODE_BYTES) throw new Error('That episode is too big to download.');
       const out = fs.createWriteStream(tmp);
       let got = 0;
       let lastEmit = 0;
+      let ok = false;
       const reader = res.body.getReader();
       try {
         for (;;) {
           const { done, value } = await reader.read();
           if (done) break;
           got += value.length;
+          if (got > MAX_EPISODE_BYTES) {
+            reader.cancel().catch(() => {});
+            throw new Error('That episode is too big to download.');
+          }
           if (!out.write(Buffer.from(value))) await new Promise((r) => out.once('drain', r));
           if (Date.now() - lastEmit > 300) {
             lastEmit = Date.now();
             this.onProgress({ id: ep.id, got, total });
           }
         }
+        ok = true;
       } finally {
         await new Promise((r) => out.end(r));
+        // Don't leave half-downloaded files lying around.
+        if (!ok) await fsp.rm(tmp, { force: true }).catch(() => {});
       }
       await fsp.rename(tmp, path.join(this.dir, file));
       this.downloads[ep.id] = { file, done: true, size: got, title: ep.title, at: Date.now() };
@@ -192,6 +206,7 @@ class Podcasts {
   }
 
   async remove(id) {
+    if (!validId(id)) return;
     const d = this.downloads[id];
     if (!d) return;
     await fsp.rm(path.join(this.dir, d.file), { force: true });

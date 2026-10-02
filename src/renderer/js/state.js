@@ -216,6 +216,7 @@ class Store extends Emitter {
   }
 
   flush() {
+    if (this._save.cancel) this._save.cancel();
     window.ipod.state.save({ settings: this.settings, user: this.user });
   }
 }
