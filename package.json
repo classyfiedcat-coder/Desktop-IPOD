@@ -1,0 +1,74 @@
+{
+  "name": "ipod-desktop",
+  "productName": "iPod",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A free-floating iPod (5th generation) for your Windows desktop — click wheel, games, extras and Spotify.",
+  "author": "iPod Desktop contributors",
+  "license": "MIT",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "lint": "eslint .",
+    "icons": "electron scripts/make-icons.js",
+    "dist": "electron-builder --win",
+    "dist:portable": "electron-builder --win portable"
+  },
+  "dependencies": {
+    "music-metadata": "^11.16.1"
+  },
+  "devDependencies": {
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.3",
+    "eslint": "^9.39.5",
+    "globals": "^15.15.0"
+  },
+  "build": {
+    "appId": "com.ipoddesktop.app",
+    "productName": "iPod",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "iPod",
+      "artifactName": "iPod-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "iPod-Portable-${version}.${ext}"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Audio"
+    }
+  }
+}
