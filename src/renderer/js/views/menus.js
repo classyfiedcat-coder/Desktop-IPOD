@@ -1,8 +1,13 @@
-/** Main menu and the local Music library menus, following the 5th gen iPod. */
+/** Main menu and the Music library menus, following the 5th gen iPod. */
 
 import { ListView } from './list.js';
 import { NowPlayingView } from './nowplaying.js';
+import { CoverFlowView } from './coverflow.js';
+import { songOptions, playlistPicker } from './options.js';
 import { showSheet } from './sheet.js';
+import { askText } from './textinput.js';
+import { confirmView } from './common.js';
+import { upNextView } from './upnext.js';
 import { shuffled } from '../util.js';
 
 /** Navigation helpers shared by every screen (attached to app.nav). */
@@ -14,6 +19,9 @@ export function createNav(app) {
       if (app.os.modal) app.os.closeModal();
       push(new NowPlayingView(app));
     },
+    upNext() {
+      push(upNextView(app));
+    },
     album(album) {
       push(songsView(app, album.title, album.tracks));
     },
@@ -24,54 +32,37 @@ export function createNav(app) {
     spotifyAlbum(album) {
       app.spotifyMenus.openAlbum(album);
     },
+    spotifyArtist(artist) {
+      app.spotifyMenus.openArtist(artist);
+    },
+    coverFlow(albums) {
+      push(new CoverFlowView(app, albums ? { albums } : {}));
+    },
   };
 }
 
-export function trackItems(app, tracks, { context, showArtist = false } = {}) {
+const playingIcon = (app, t) => () => {
+  const cur = app.player.track;
+  return cur && (cur.id === t.id || (t.uri && cur.uri === t.uri)) ? 'speaker' : null;
+};
+
+export function trackItems(app, tracks, { context, playlist } = {}) {
   return tracks.map((t, i) => ({
     label: t.title,
-    sub: showArtist ? t.artist : undefined,
     sortName: t.title,
     disabled: t.playable === false,
-    icon: () => {
-      const cur = app.player.track;
-      return cur && (cur.id === t.id || (t.uri && cur.uri === t.uri)) ? 'speaker' : null;
-    },
+    icon: playingIcon(app, t),
     action: () => {
       app.player.playTracks(tracks, i, { context });
       app.nav.nowPlaying();
     },
-    onHold: (_item, view) => trackHold(app, t, view),
+    onHold: (_item, view) => songOptions(app, t, { view, playlist: playlist ? { id: playlist.id, index: i } : null }),
   }));
 }
 
-/** Hold the centre button on a song: On-The-Go (local) or options (Spotify). */
+/** Kept for older call sites. */
 export function trackHold(app, t, view) {
-  if (t.source === 'local') {
-    app.player.addToOnTheGo(t);
-    if (view && view.flashSelected) view.flashSelected();
-    app.os.alert('Added to On-The-Go', 1100);
-    return;
-  }
-  showSheet(app.os, {
-    title: t.title,
-    items: [
-      {
-        label: 'Add to Liked Songs',
-        action: async () => {
-          try {
-            await app.spotifyApi.setLiked(t.uri, true);
-            app.os.alert('Added to Liked Songs');
-          } catch {
-            app.os.alert('Couldn’t update Liked Songs.');
-          }
-        },
-      },
-      ...(t.albumId
-        ? [{ label: 'Browse Album', action: () => app.nav.spotifyAlbum({ id: t.albumId, uri: t.albumUri, title: t.album, artist: t.albumArtist, art: t.art }) }]
-        : []),
-    ],
-  });
+  songOptions(app, t, { view });
 }
 
 export function songsView(app, title, tracks, opts = {}) {
@@ -79,7 +70,11 @@ export function songsView(app, title, tracks, opts = {}) {
     title,
     index: tracks.length > 30,
     empty: opts.empty || 'No songs',
-    items: () => trackItems(app, tracks, opts),
+    refreshOnEnter: !!opts.refresh,
+    items: () => {
+      const list = typeof tracks === 'function' ? tracks() : tracks;
+      return trackItems(app, list, opts);
+    },
   });
 }
 
@@ -112,10 +107,12 @@ function mainItems(app) {
   const m = app.store.settings.mainMenu;
   const items = [];
   if (m.music) items.push({ label: 'Music', view: () => musicMenu(app) });
+  if (m.coverflow) items.push({ label: 'Cover Flow', arrow: true, action: () => app.nav.coverFlow() });
   if (m.spotify && app.store.settings.spotifyEnabled) items.push({ label: 'Spotify', view: () => app.spotifyMenus.root() });
+  if (m.radio) items.push({ label: 'Radio', view: () => app.radioMenus.root() });
+  if (m.podcasts) items.push({ label: 'Podcasts', view: () => app.podcastMenus.root() });
   if (m.photos) items.push({ label: 'Photos', view: () => app.media.photosMenu() });
   if (m.videos) items.push({ label: 'Videos', view: () => app.media.videosMenu() });
-  if (m.podcasts) items.push({ label: 'Podcasts', view: () => podcastsView(app) });
   if (m.extras) items.push({ label: 'Extras', view: () => app.extras.menu() });
   if (m.games) items.push({ label: 'Games', view: () => app.extras.games() });
   if (m.clock) items.push({ label: 'Clock', view: () => app.extras.clock() });
@@ -128,8 +125,7 @@ function mainItems(app) {
 export async function shuffleSongs(app) {
   const music = app.library.music;
   if (music.length) {
-    const i = Math.floor(Math.random() * music.length);
-    app.player.playTracks(music, i, { shuffle: 'songs' });
+    app.player.playTracks(music, Math.floor(Math.random() * music.length), { shuffle: 'songs' });
     app.nav.nowPlaying();
     return;
   }
@@ -137,15 +133,13 @@ export async function shuffleSongs(app) {
     try {
       app.os.alert('Shuffling Liked Songs…', 1200);
       let all = [];
-      let page = await app.spotifyApi.liked(0);
-      all = all.concat(page.items);
-      if (page.more) {
-        page = await app.spotifyApi.liked(all.length);
+      for (let i = 0; i < 4; i++) {
+        const page = await app.spotifyApi.liked(all.length);
         all = all.concat(page.items);
+        if (!page.more) break;
       }
       if (all.length) {
-        const list = shuffled(all);
-        app.player.playTracks(list, 0, { shuffle: 'songs' });
+        app.player.playTracks(shuffled(all), 0, { shuffle: 'songs' });
         app.nav.nowPlaying();
         return;
       }
@@ -154,24 +148,25 @@ export async function shuffleSongs(app) {
       return;
     }
   }
-  app.os.alert('No songs yet. Add a music folder in Settings › Music Library.', 2600);
+  app.os.alert('No songs yet. Drop a music folder onto the iPod, or add one in Settings › Music Library.', 3000);
 }
 
 // ----------------------------------------------------------------- music --
 
 export function musicMenu(app) {
-  const view = new ListView({
+  return new ListView({
     title: 'Music',
     items: () => {
       const m = app.store.settings.musicMenu;
       const lib = app.library;
       const items = [];
+      if (m.coverflow) items.push({ label: 'Cover Flow', arrow: true, action: () => app.nav.coverFlow() });
       if (m.playlists) items.push({ label: 'Playlists', view: () => playlistsView(app) });
       if (m.artists) items.push({ label: 'Artists', view: () => artistsView(app) });
       if (m.albums) items.push({ label: 'Albums', view: () => albumsView(app, 'Albums', lib.albums) });
       if (m.compilations && lib.compilations.length) items.push({ label: 'Compilations', view: () => albumsView(app, 'Compilations', lib.compilations) });
       if (m.songs) items.push({ label: 'Songs', view: () => songsView(app, 'Songs', lib.music, { empty: emptyText(app) }) });
-      if (m.podcasts) items.push({ label: 'Podcasts', view: () => podcastsView(app) });
+      if (m.podcasts) items.push({ label: 'Podcasts', view: () => app.podcastMenus.root() });
       if (m.genres) items.push({ label: 'Genres', view: () => genresView(app) });
       if (m.composers) items.push({ label: 'Composers', view: () => composersView(app) });
       if (m.audiobooks) items.push({ label: 'Audiobooks', view: () => audiobooksView(app) });
@@ -179,29 +174,110 @@ export function musicMenu(app) {
       return items;
     },
   });
-  return view;
 }
 
 function emptyText(app) {
   if (app.library.scanning) return 'Updating Library…';
-  return 'No songs. Add a music folder in Settings › Music Library.';
+  return 'No songs. Drop a music folder onto the iPod, or add one in Settings › Music Library.';
 }
 
+// ------------------------------------------------------------- playlists --
+
 export function playlistsView(app) {
-  return new ListView({
+  const view = new ListView({
     title: 'Playlists',
     refreshOnEnter: true,
     items: () => {
       const lib = app.library;
-      const items = lib.smartPlaylists().map((pl) => ({
-        label: pl.name,
-        view: () => songsView(app, pl.name, pl.tracks, { empty: 'No songs' }),
-      }));
+      const items = [];
+      items.push({
+        label: 'New Playlist…',
+        arrow: false,
+        action: async () => {
+          const name = await askText(app, { title: 'New Playlist', prompt: 'Name your playlist', value: app.playlists.uniqueName() });
+          if (name) app.os.push(userPlaylistView(app, app.playlists.create(name)));
+        },
+      });
+      for (const pl of app.playlists.all) {
+        items.push({ label: pl.name, value: String(pl.trackIds.length), view: () => userPlaylistView(app, pl), onHold: () => playlistActions(app, pl, view) });
+      }
+      for (const pl of lib.smartPlaylists()) items.push({ label: pl.name, view: () => songsView(app, pl.name, pl.tracks, { empty: 'No songs' }) });
       for (const pl of lib.fileplaylists()) items.push({ label: pl.name, view: () => songsView(app, pl.name, pl.tracks) });
       items.push({ label: 'On-The-Go', view: () => onTheGoView(app) });
       return items;
     },
   });
+  return view;
+}
+
+function playlistActions(app, pl, view) {
+  showSheet(app.os, {
+    title: pl.name,
+    items: [
+      {
+        label: 'Play',
+        action: () => {
+          const tracks = app.playlists.tracks(pl);
+          if (tracks.length) (app.player.playTracks(tracks, 0, { shuffle: 'off' }), app.nav.nowPlaying());
+        },
+      },
+      {
+        label: 'Shuffle',
+        action: () => {
+          const tracks = app.playlists.tracks(pl);
+          if (tracks.length) (app.player.playTracks(tracks, Math.floor(Math.random() * tracks.length), { shuffle: 'songs' }), app.nav.nowPlaying());
+        },
+      },
+      { label: 'Play Next', action: () => app.player.playNext(app.playlists.tracks(pl)) },
+      {
+        label: 'Rename…',
+        action: async () => {
+          const name = await askText(app, { title: 'Rename Playlist', value: pl.name });
+          if (name) app.playlists.rename(pl.id, name);
+          view.refresh();
+        },
+      },
+      {
+        label: 'Export as .m3u8…',
+        action: async () => {
+          const n = await window.ipod.library.exportPlaylist({ name: pl.name, trackIds: pl.trackIds });
+          if (n !== null) app.os.alert(`Exported ${n} songs`, 1400);
+        },
+      },
+      {
+        label: 'Delete Playlist',
+        action: () =>
+          setTimeout(
+            () =>
+              app.os.push(
+                confirmView(app, 'Delete', `Delete “${pl.name}”`, () => {
+                  app.playlists.remove(pl.id);
+                  view.refresh();
+                })
+              ),
+            200
+          ),
+      },
+    ],
+  });
+}
+
+function userPlaylistView(app, pl) {
+  const view = new ListView({
+    title: pl.name,
+    refreshOnEnter: true,
+    empty: 'Hold the centre button on any song and choose “Add to Playlist…”.',
+    items: () => {
+      const tracks = app.playlists.tracks(pl);
+      return trackItems(app, tracks, { playlist: pl });
+    },
+  });
+  view.onSelectHold = () => {
+    const item = view.selected;
+    if (item && item.onHold) item.onHold(item, view);
+    else playlistActions(app, pl, view);
+  };
+  return view;
 }
 
 function onTheGoView(app) {
@@ -215,21 +291,20 @@ function onTheGoView(app) {
       return [
         ...trackItems(app, tracks),
         {
+          label: 'Save Playlist',
+          arrow: false,
+          action: () => {
+            const pl = app.playlists.saveOnTheGo();
+            if (pl) app.os.alert(`Saved as “${pl.name}”`, 1400);
+            view.refresh();
+          },
+        },
+        {
           label: 'Clear Playlist',
           view: () =>
-            new ListView({
-              title: 'Clear',
-              items: [
-                { label: 'Cancel', action: () => app.os.pop() },
-                {
-                  label: 'Clear Playlist',
-                  action: () => {
-                    app.store.user.otg = [];
-                    app.store.touchUser();
-                    app.os.pop();
-                  },
-                },
-              ],
+            confirmView(app, 'Clear', 'Clear Playlist', () => {
+              app.store.user.otg = [];
+              app.store.touchUser('otg');
             }),
         },
       ];
@@ -238,16 +313,23 @@ function onTheGoView(app) {
   return view;
 }
 
+// ---------------------------------------------------------------- browse --
+
 export function artistsView(app, artists = app.library.artists, title = 'Artists') {
   return new ListView({
     title,
     index: true,
     empty: emptyText(app),
     items: () => {
-      const items = artists.map((a) => ({ label: a.name, sortName: a.name, view: () => artistView(app, a) }));
+      const items = artists.map((a) => ({
+        label: a.name,
+        sortName: a.name,
+        view: () => artistView(app, a),
+        onHold: () => groupActions(app, a.name, a.tracks),
+      }));
       if (items.length > 1) {
-        const all = artists.flatMap((a) => a.tracks);
-        items.unshift({ label: 'All', sortName: ' ', view: () => songsView(app, title, uniqueTracks(all)) });
+        const all = [...new Set(artists.flatMap((a) => a.tracks))];
+        items.unshift({ label: 'All', sortName: ' ', view: () => songsView(app, title, all) });
       }
       return items;
     },
@@ -258,10 +340,10 @@ export function artistView(app, artist) {
   return new ListView({
     title: artist.name,
     items: () => {
-      const items = artist.albums.map((al) => ({
-        label: al.title,
-        view: () => songsView(app, al.title, al.tracks.filter((t) => artist.tracks.includes(t))),
-      }));
+      const items = artist.albums.map((al) => {
+        const tracks = al.tracks.filter((t) => artist.tracks.includes(t));
+        return { label: al.title, view: () => songsView(app, al.title, tracks), onHold: () => groupActions(app, al.title, tracks) };
+      });
       if (items.length > 1) items.unshift({ label: 'All', view: () => songsView(app, artist.name, artist.albums.flatMap((al) => al.tracks.filter((t) => artist.tracks.includes(t)))) });
       return items;
     },
@@ -273,7 +355,27 @@ export function albumsView(app, title, albums) {
     title,
     index: true,
     empty: emptyText(app),
-    items: () => albums.map((al) => ({ label: al.title, sortName: al.title, view: () => songsView(app, al.title, al.tracks) })),
+    items: () =>
+      albums.map((al) => ({
+        label: al.title,
+        sortName: al.title,
+        view: () => songsView(app, al.title, al.tracks),
+        onHold: () => groupActions(app, al.title, al.tracks),
+      })),
+  });
+}
+
+/** Hold on an album or artist: play / shuffle / queue / add to playlist. */
+function groupActions(app, title, tracks) {
+  showSheet(app.os, {
+    title,
+    items: [
+      { label: 'Play', action: () => (app.player.playTracks(tracks, 0, { shuffle: 'off' }), app.nav.nowPlaying()) },
+      { label: 'Shuffle', action: () => (app.player.playTracks(tracks, Math.floor(Math.random() * tracks.length), { shuffle: 'songs' }), app.nav.nowPlaying()) },
+      { label: 'Play Next', action: async () => (await app.player.playNext(tracks)) && app.os.alert('Playing Next', 1000) },
+      { label: 'Add to Up Next', action: async () => (await app.player.addToUpNext(tracks)) && app.os.alert('Added to Up Next', 1000) },
+      { label: 'Add to Playlist…', action: () => app.os.push(playlistPicker(app, tracks)) },
+    ],
   });
 }
 
@@ -286,16 +388,14 @@ function genresView(app) {
       app.library.genres.map((g) => ({
         label: g.name,
         sortName: g.name,
+        onHold: () => groupActions(app, g.name, g.tracks),
         view: () => {
           const byArtist = new Map();
           for (const t of g.tracks) {
-            if (!byArtist.has(t.artist)) byArtist.set(t.artist, { name: t.artist, tracks: [], albums: new Set() });
+            if (!byArtist.has(t.artist)) byArtist.set(t.artist, { name: t.artist, tracks: [] });
             byArtist.get(t.artist).tracks.push(t);
           }
-          const artists = [...byArtist.values()].map((a) => {
-            const albums = app.library.albums.filter((al) => al.tracks.some((t) => a.tracks.includes(t)));
-            return { ...a, albums };
-          });
+          const artists = [...byArtist.values()].map((a) => ({ ...a, albums: app.library.albums.filter((al) => al.tracks.some((t) => a.tracks.includes(t))) }));
           artists.sort((a, b) => a.name.localeCompare(b.name));
           return artistsView(app, artists, g.name);
         },
@@ -312,18 +412,6 @@ function composersView(app) {
   });
 }
 
-export function podcastsView(app) {
-  return new ListView({
-    title: 'Podcasts',
-    empty: 'No podcasts',
-    items: () =>
-      app.library.shows.map((s) => ({
-        label: s.name,
-        view: () => songsView(app, s.name, s.episodes),
-      })),
-  });
-}
-
 function audiobooksView(app) {
   return new ListView({
     title: 'Audiobooks',
@@ -334,15 +422,13 @@ function audiobooksView(app) {
         if (!books.has(t.album)) books.set(t.album, []);
         books.get(t.album).push(t);
       }
-      return [...books.entries()].map(([name, tracks]) =>
-        tracks.length === 1
-          ? { label: name, action: () => (app.player.playTracks(tracks, 0), app.nav.nowPlaying()) }
-          : { label: name, view: () => songsView(app, name, tracks) }
-      );
+      return [...books.entries()].map(([name, tracks]) => {
+        const bm = app.store.user.bookmarks;
+        const resume = tracks.findIndex((t) => bm[t.id]);
+        return tracks.length === 1
+          ? { label: name, value: bm[tracks[0].id] ? 'Resume' : '', arrow: false, action: () => (app.player.playTracks(tracks, 0), app.nav.nowPlaying()) }
+          : { label: name, value: resume >= 0 ? 'Resume' : '', view: () => songsView(app, name, tracks) };
+      });
     },
   });
-}
-
-function uniqueTracks(list) {
-  return [...new Set(list)];
 }

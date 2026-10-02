@@ -652,3 +652,34 @@
 .quiz-view[data-state='done'] .qz-timer {
   visibility: hidden;
 }
+.video-view.scrub .vv-hud .np-diamond {
+  display: block;
+}
+.vv-mode {
+  font: 700 11px var(--font);
+  color: #9fd2ff;
+}
+.video-view video::cue {
+  font: 600 13px var(--font);
+  background: rgba(0, 0, 0, 0.6);
+}
+.cal-day.has-ev {
+  position: relative;
+}
+.cal-day.has-ev::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: var(--blue);
+}
+.cal-day.sel.has-ev::after {
+  background: #fff;
+}
+.cal-foot.has-ev {
+  color: var(--blue);
+}

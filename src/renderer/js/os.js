@@ -31,6 +31,11 @@ export class OS extends Emitter {
     device.on('scroll', (e) => this._scroll(e));
     device.on('char', ({ key }) => this._char(key));
     device.on('hold', ({ on, user }) => this._hold(on, user));
+    device.on('paste', ({ text }) => {
+      const v = this._target();
+      if (v && v.onPaste && !this.device.hold) v.onPaste(text);
+    });
+    device.on('dragging', (on) => this._dropHint(on));
 
     player.on('state', () => this.refreshStatus());
     player.on('track', () => this.refreshStatus());
@@ -475,6 +480,46 @@ export class OS extends Emitter {
       m.unmount();
       wrap.remove();
     }, 180);
+  }
+
+  _dropHint(on) {
+    if (!this.overlay) return;
+    let el = this.overlay.querySelector('.drop-hint');
+    if (on && !el) {
+      el = h('div', { class: 'drop-hint' }, h('div', { class: 'drop-icon', text: '♫' }), h('div', { text: 'Drop to play or add to your library' }));
+      this.overlay.append(el);
+      requestAnimationFrame(() => el.classList.add('show'));
+      this.activity();
+    } else if (!on && el) {
+      el.classList.remove('show');
+      setTimeout(() => el.remove(), 250);
+    }
+  }
+
+  /** Power-on: black screen, backlight fades up, the iPod wordmark, then the menu. */
+  boot() {
+    if (!this.screen) return Promise.resolve();
+    const el = h('div', { class: 'boot' }, h('div', { class: 'boot-mark' }, 'iPod'), h('div', { class: 'boot-spinner' }));
+    this.screen.append(el);
+    return new Promise((resolve) => {
+      requestAnimationFrame(() => el.classList.add('on'));
+      setTimeout(() => el.classList.add('done'), 1500);
+      setTimeout(() => {
+        el.remove();
+        resolve();
+      }, 1950);
+    });
+  }
+
+  /** Power-off: the screen fades to black before the app quits. */
+  shutdown() {
+    if (!this.screen) return Promise.resolve();
+    this.player.pause();
+    const el = h('div', { class: 'shutdown' });
+    this.screen.append(el);
+    requestAnimationFrame(() => el.classList.add('on'));
+    this.device.setBacklit(false);
+    return new Promise((r) => setTimeout(r, 900));
   }
 
   alert(text, ms = 1600) {

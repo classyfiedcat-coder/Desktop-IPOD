@@ -16,6 +16,8 @@ contextBridge.exposeInMainWorld('ipod', {
   state: {
     load: invoke('state:load'),
     save: invoke('state:save'),
+    exportFile: invoke('state:export'),
+    importFile: invoke('state:import'),
   },
   win: {
     ignoreMouse: fire('win:ignore-mouse'),
@@ -102,6 +104,9 @@ contextBridge.exposeInMainWorld('ipod', {
     check: invoke('update:check'),
     install: fire('update:install'),
     onStatus: on('update:status'),
+  },
+  clipboard: {
+    read: invoke('clipboard:read'),
   },
   onCommand: on('app:command'),
 });

@@ -175,3 +175,34 @@ export const ICONS = {
   spotify:
     '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#1ed760"/><path d="M6.2 9.3c3.9-1.1 8.4-.8 11.6 1.1M6.8 12.6c3.2-.9 6.9-.6 9.7 1M7.4 15.7c2.6-.7 5.4-.5 7.6.8" fill="none" stroke="#000" stroke-width="1.7" stroke-linecap="round"/></svg>',
 };
+
+export function hexToHsl(hex) {
+  const n = parseInt(String(hex).replace('#', ''), 16);
+  const r = ((n >> 16) & 255) / 255;
+  const g = ((n >> 8) & 255) / 255;
+  const b = (n & 255) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  let hh = 0;
+  let s = 0;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) hh = (g - b) / d + (g < b ? 6 : 0);
+    else if (max === g) hh = (b - r) / d + 2;
+    else hh = (r - g) / d + 4;
+    hh *= 60;
+  }
+  return { h: Math.round(hh), s: Math.round(s * 100), l: Math.round(l * 100) };
+}
+
+export function hslToHex({ h: hh, s, l }) {
+  s /= 100;
+  l /= 100;
+  const k = (n) => (n + hh / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  const to = (x) => Math.round(x * 255).toString(16).padStart(2, '0');
+  return `#${to(f(0))}${to(f(8))}${to(f(4))}`;
+}

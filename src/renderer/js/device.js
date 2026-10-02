@@ -7,6 +7,25 @@
 import { getModel, getColor, SIZES, PX_PER_MM } from './models.js';
 import { h, svg, ICONS, shade, Emitter } from './util.js';
 
+/** CSS custom properties for a colour scheme. */
+export function colorVars(color) {
+  const d = !!color.dark;
+  return {
+    '--front': color.front,
+    '--front-hi': shade(color.front, d ? 0.1 : 0.35),
+    '--front-lo': shade(color.front, d ? -0.35 : -0.12),
+    '--front-edge': shade(color.front, d ? -0.5 : -0.28),
+    '--wheel': color.wheel,
+    '--wheel-hi': shade(color.wheel, d ? 0.08 : 0.5),
+    '--wheel-lo': shade(color.wheel, d ? -0.3 : -0.08),
+    '--label': color.label,
+    '--center': color.center,
+    '--center-hi': shade(color.center, d ? 0.12 : 0.4),
+    '--center-lo': shade(color.center, d ? -0.35 : -0.14),
+    '--bezel': color.bezel || (d ? '#050505' : '#1b1c1d'),
+  };
+}
+
 const WHEEL_STEP_DEG = { low: 26, medium: 19, high: 13 };
 const isMac = navigator.platform.toLowerCase().includes('mac');
 
@@ -27,9 +46,9 @@ export class Device extends Emitter {
   }
 
   /** Build (or rebuild) the device. Returns the logical screen element. */
-  build({ model: modelId, color: colorId, size: sizeId, shadow = true }) {
+  build({ model: modelId, color: colorId, size: sizeId, shadow = true, customColors, engraving = '', wheelGlow = false }) {
     const model = getModel(modelId);
-    const color = getColor(model, colorId);
+    const color = getColor(model, colorId, customColors);
     const size = SIZES.find((s) => s.id === sizeId) || SIZES[1];
     const u = PX_PER_MM * size.scale;
     const mm = (v) => `${(v * u).toFixed(2)}px`;
@@ -42,23 +61,7 @@ export class Device extends Emitter {
     const widthPx = Math.round(W * u + pad * 2);
     const heightPx = Math.round(H * u + pad * 2);
 
-    const front = color.front;
-    const vars = {
-      '--u': `${u}px`,
-      '--front': front,
-      '--front-hi': shade(front, color.dark ? 0.1 : 0.35),
-      '--front-lo': shade(front, color.dark ? -0.35 : -0.12),
-      '--front-edge': shade(front, color.dark ? -0.5 : -0.28),
-      '--wheel': color.wheel,
-      '--wheel-hi': shade(color.wheel, color.dark ? 0.08 : 0.5),
-      '--wheel-lo': shade(color.wheel, color.dark ? -0.3 : -0.08),
-      '--label': color.label,
-      '--center': color.center,
-      '--center-hi': shade(color.center, color.dark ? 0.12 : 0.4),
-      '--center-lo': shade(color.center, color.dark ? -0.35 : -0.14),
-      '--bezel': color.bezel,
-      '--radius': mm(model.radius),
-    };
+    const vars = { ...colorVars(color), '--u': `${u}px`, '--radius': mm(model.radius) };
 
     const caseEl = h('div', { class: 'case' }, h('div', { class: 'gloss' }));
 
@@ -100,7 +103,8 @@ export class Device extends Emitter {
       svg(ICONS.prev, 'lbl lbl-prev'),
       svg(ICONS.next, 'lbl lbl-next'),
       svg(ICONS.playpause, 'lbl lbl-play'),
-      h('div', { class: 'press' })
+      h('div', { class: 'press' }),
+      h('div', { class: 'glow' })
     );
     const center = h('div', { class: 'center', style: { width: mm(wd.center), height: mm(wd.center) } });
     wheel.append(center);
@@ -109,6 +113,17 @@ export class Device extends Emitter {
     // Hold switch, peeking out of the case edge.
     const holdEl = h('div', { class: `hold-switch hold-${model.hold}`, title: 'Hold switch' }, h('div', { class: 'hold-track' }, h('div', { class: 'hold-knob' })));
     holdEl.classList.toggle('on', this.hold);
+
+    // The polished stainless back, shown when you flip the iPod over.
+    const lines = String(engraving || color.engraved || '').split('\n').filter(Boolean).slice(0, 2);
+    const back = h(
+      'div',
+      { class: 'back' },
+      h('div', { class: 'back-shine' }),
+      h('div', { class: 'back-mark' }, 'iPod'),
+      lines.length ? h('div', { class: 'back-engraving' }, ...lines.map((l) => h('div', { text: l }))) : null,
+      h('div', { class: 'back-small' }, h('div', { text: `${this.capacity || '30GB'}` }), h('div', { text: 'Made for your desktop' }))
+    );
 
     const el = h(
       'div',
@@ -120,12 +135,12 @@ export class Device extends Emitter {
           `color-${color.id}`,
           shadow ? 'shadowed' : '',
           this.backlit ? 'backlit' : '',
+          this.flipped ? 'flipped' : '',
+          wheelGlow ? 'glow-on' : '',
         ].join(' '),
         style: { width: mm(W), height: mm(H), left: `${pad}px`, top: `${pad}px` },
       },
-      h('div', { class: 'rim' }),
-      caseEl,
-      holdEl
+      h('div', { class: 'flipper' }, h('div', { class: 'face face-front' }, h('div', { class: 'rim' }), caseEl, holdEl), h('div', { class: 'face face-back' }, h('div', { class: 'rim' }), back))
     );
     for (const [k, v] of Object.entries(vars)) el.style.setProperty(k, v);
     // Label sizing relative to the wheel so all models look right.
@@ -144,6 +159,11 @@ export class Device extends Emitter {
 
     this._bindWheel(wheel, center);
     this._bindCase(caseEl);
+    this._bindCase(back);
+    caseEl.addEventListener('dblclick', (e) => {
+      if (!e.target.closest('.wheel, .hold-switch')) this.flip();
+    });
+    back.addEventListener('dblclick', () => this.flip(false));
     holdEl.addEventListener('pointerdown', (e) => {
       e.stopPropagation();
       this.setHold(!this.hold, true);
@@ -152,6 +172,31 @@ export class Device extends Emitter {
     this.windowSize = { width: widthPx, height: heightPx, pad };
     if (window.ipod) window.ipod.win.resize(this.windowSize);
     return screen;
+  }
+
+  /** Live colour changes (custom colour editor) without rebuilding. */
+  applyColors(color) {
+    if (!this.el) return;
+    for (const [k, v] of Object.entries(colorVars(color))) this.el.style.setProperty(k, v);
+    this.el.classList.toggle('dark', !!color.dark);
+    this.el.classList.toggle('light', !color.dark);
+  }
+
+  /** Turn the iPod over to see the back (and the engraving). */
+  flip(show) {
+    this.flipped = show === undefined ? !this.flipped : !!show;
+    if (!this.el) return;
+    this.el.classList.remove('flipping');
+    void this.el.offsetWidth;
+    this.el.classList.add('flipping');
+    this.el.classList.toggle('flipped', this.flipped);
+    clearTimeout(this._flipT);
+    this._flipT = setTimeout(() => this.el && this.el.classList.remove('flipping'), 950);
+    this.emit('flip', this.flipped);
+  }
+
+  setGlow(on) {
+    if (this.el) this.el.classList.toggle('glow-on', !!on);
   }
 
   setHold(on, user = false) {
@@ -208,6 +253,8 @@ export class Device extends Emitter {
       };
       if (isCenter) center.classList.add('pressed');
       else this._showPress(wheel, active.zone);
+      wheel.style.setProperty('--ga', `${((Math.atan2(dx, -dy) * 180) / Math.PI).toFixed(1)}deg`);
+      wheel.classList.toggle('touching', !isCenter);
       this._press(active.zone, true);
     });
 
@@ -224,6 +271,7 @@ export class Device extends Emitter {
       if (d < -Math.PI) d += Math.PI * 2;
       active.angle = angle;
       active.travelled += Math.abs(d);
+      wheel.style.setProperty('--ga', `${((Math.atan2(dx, -dy) * 180) / Math.PI).toFixed(1)}deg`);
       if (active.center && dist < (center.offsetWidth / 2) * 1.05 && !active.scrolling) return;
       active.accum += (d * 180) / Math.PI;
       const step = WHEEL_STEP_DEG[this.wheelSpeed] || 19;
@@ -246,6 +294,7 @@ export class Device extends Emitter {
       if (!active || e.pointerId !== active.id) return;
       if (!active.cancelled) this._press(active.zone, false);
       this._clearPress(wheel, center);
+      wheel.classList.remove('touching');
       active = null;
     };
     wheel.addEventListener('pointerup', end);
@@ -299,6 +348,42 @@ export class Device extends Emitter {
   }
 
   _bindGlobal() {
+    // Drop music files or folders onto the iPod.
+    let dragDepth = 0;
+    const isFiles = (e) => e.dataTransfer && [...(e.dataTransfer.types || [])].includes('Files');
+    window.addEventListener('dragenter', (e) => {
+      if (!isFiles(e)) return;
+      e.preventDefault();
+      dragDepth++;
+      if (this.el) this.el.classList.add('drop-target');
+      this.emit('dragging', true);
+    });
+    window.addEventListener('dragover', (e) => {
+      if (!isFiles(e)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    });
+    window.addEventListener('dragleave', () => {
+      dragDepth = Math.max(0, dragDepth - 1);
+      if (!dragDepth) {
+        if (this.el) this.el.classList.remove('drop-target');
+        this.emit('dragging', false);
+      }
+    });
+    window.addEventListener('drop', (e) => {
+      if (!isFiles(e)) return;
+      e.preventDefault();
+      dragDepth = 0;
+      if (this.el) this.el.classList.remove('drop-target');
+      this.emit('dragging', false);
+      const paths = [...e.dataTransfer.files].map((f) => (window.ipod ? window.ipod.files.pathFor(f) : null)).filter(Boolean);
+      if (paths.length) this.emit('drop', { paths });
+    });
+    window.addEventListener('paste', (e) => {
+      const text = e.clipboardData && e.clipboardData.getData('text/plain');
+      if (text) this.emit('paste', { text });
+    });
+
     window.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       if (e.target.closest('.ipod') && window.ipod) window.ipod.win.contextMenu();
@@ -307,7 +392,7 @@ export class Device extends Emitter {
     // Let clicks fall through the transparent area around the iPod.
     window.addEventListener('mousemove', (e) => {
       if (this._dragging || !window.ipod) return;
-      const over = !!(e.target && e.target.closest && e.target.closest('.case, .hold-switch, .rim'));
+      const over = !!(e.target && e.target.closest && e.target.closest('.case, .hold-switch, .rim, .back'));
       if (over !== this._overCase) {
         this._overCase = over;
         window.ipod.win.ignoreMouse(!over);
@@ -355,6 +440,10 @@ export class Device extends Emitter {
       if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
       if (e.ctrlKey || e.metaKey || e.altKey) {
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'q' && window.ipod) window.ipod.win.quit();
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v' && window.ipod) {
+          e.preventDefault();
+          window.ipod.clipboard.read().then((text) => text && this.emit('paste', { text }));
+        }
         return;
       }
       if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {

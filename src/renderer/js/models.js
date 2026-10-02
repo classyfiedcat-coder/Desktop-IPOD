@@ -46,6 +46,17 @@ export const MODELS = [
         bezel: '#050505',
         dark: true,
       },
+      {
+        id: 'u2',
+        name: 'U2 Special Edition',
+        front: '#111111',
+        wheel: '#c3132f',
+        label: '#161616',
+        center: '#0b0b0b',
+        bezel: '#050505',
+        dark: true,
+        engraved: 'U2',
+      },
     ],
   },
 ];
@@ -63,6 +74,9 @@ export function getModel(id) {
   return MODELS.find((m) => m.id === id) || MODELS[0];
 }
 
-export function getColor(model, colorId) {
+export function getColor(model, colorId, custom) {
+  if (colorId === 'custom' && custom) {
+    return { id: 'custom', name: 'Custom', ...custom, bezel: custom.dark ? '#050505' : '#1b1c1d' };
+  }
   return model.colors.find((c) => c.id === colorId) || model.colors[0];
 }

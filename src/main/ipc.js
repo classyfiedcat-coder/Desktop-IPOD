@@ -5,7 +5,7 @@
 const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
-const { app, ipcMain, dialog, shell } = require('electron');
+const { app, ipcMain, dialog, shell, clipboard } = require('electron');
 const { apiJson } = require('./net');
 const { parseOpml, toOpml } = require('./podcasts');
 const { fillMissing } = require('./artwork');
@@ -36,6 +36,24 @@ function registerIpc(ctx) {
     return true;
   });
   ipcMain.on('app:ready', () => ctx.rendererReady());
+  ipcMain.handle('clipboard:read', () => clipboard.readText().slice(0, 4000));
+  ipcMain.handle('state:export', async (_e, json) => {
+    const res = await dialog.showSaveDialog(win(), {
+      title: 'Back Up iPod Settings',
+      defaultPath: path.join(app.getPath('documents'), `iPod Backup ${new Date().toISOString().slice(0, 10)}.json`),
+      filters: [{ name: 'iPod Backup', extensions: ['json'] }],
+    });
+    if (res.canceled || !res.filePath) return false;
+    await fsp.writeFile(res.filePath, String(json), 'utf8');
+    return true;
+  });
+  ipcMain.handle('state:import', async () => {
+    const res = await dialog.showOpenDialog(win(), { title: 'Restore iPod Backup', properties: ['openFile'], filters: [{ name: 'iPod Backup', extensions: ['json'] }] });
+    if (res.canceled || !res.filePaths[0]) return null;
+    const st = await fsp.stat(res.filePaths[0]);
+    if (st.size > 50 * 1024 * 1024) return null;
+    return fsp.readFile(res.filePaths[0], 'utf8');
+  });
   ipcMain.on('log', (_e, level, ...args) => (rlog[level] || rlog.info)(...args));
 
   // --- window ---------------------------------------------------------------

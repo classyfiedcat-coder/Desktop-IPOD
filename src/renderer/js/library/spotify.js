@@ -370,4 +370,37 @@ export class SpotifyAPI extends Emitter {
   transfer(deviceId, play = true) {
     return this.put('/me/player', { device_ids: [deviceId], play });
   }
+  addToQueue(uri, deviceId) {
+    return this.post('/me/player/queue', null, { uri, device_id: deviceId });
+  }
+  async queue() {
+    const d = await this.get('/me/player/queue');
+    return {
+      current: d && d.currently_playing ? normTrack(d.currently_playing) : null,
+      queue: ((d && d.queue) || []).map((t) => normTrack(t)).filter(Boolean),
+    };
+  }
+
+  /** Playlists the user can add songs to (owned or collaborative). */
+  async editablePlaylists() {
+    const out = [];
+    let offset = 0;
+    for (let i = 0; i < 6; i++) {
+      const page = await this.playlists(offset);
+      out.push(...page.items);
+      if (!page.more) break;
+      offset += page.items.length;
+    }
+    const me = this.user && this.user.id;
+    return out.filter((p) => p.collaborative || !me || p.owner === me);
+  }
+
+  async addToPlaylist(playlistId, uris) {
+    try {
+      await this.post(`/playlists/${playlistId}/items`, { uris });
+    } catch (err) {
+      if (err.status !== 404) throw err;
+      await this.post(`/playlists/${playlistId}/tracks`, { uris });
+    }
+  }
 }
