@@ -297,7 +297,7 @@ export function notesMenu(app) {
       const folder = app.store.settings.notesFolder;
       if (folder) {
         try {
-          notes = await window.ipod.media.notes(folder);
+          notes = (await window.ipod.media.texts(folder, 'notes')).map((n) => ({ title: n.name, body: n.text }));
         } catch {
           notes = [];
         }

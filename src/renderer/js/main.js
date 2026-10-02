@@ -55,12 +55,9 @@ async function boot() {
   const pushWindowPrefs = () => window.ipod.win.set(Object.fromEntries(WINDOW_KEYS.map((k) => [k, store.settings[k]])));
   pushWindowPrefs();
   for (const key of WINDOW_KEYS) store.on(`change:${key}`, pushWindowPrefs);
-  window.ipod.win.onPrefs((prefs) => {
-    for (const key of WINDOW_KEYS) if (key in prefs && prefs[key] !== store.settings[key]) store.set(key, prefs[key]);
-  });
 
   // Tray / context-menu commands.
-  window.ipod.onCommand((cmd) => {
+  window.ipod.onCommand(({ name: cmd }) => {
     if (os.asleep) os.wake();
     os.activity();
     if (app.locked && cmd !== 'playpause' && cmd !== 'next' && cmd !== 'prev') return;
@@ -92,6 +89,7 @@ async function boot() {
   player.on('error', (msg) => os.alert(msg, 2400));
   spotify.on('notice', (msg) => os.alert(msg, 1800));
 
+  window.ipod.ready();
   await library.init();
   player.restoreSession(library);
   spotifyApi.init();

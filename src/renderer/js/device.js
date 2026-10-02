@@ -149,7 +149,7 @@ export class Device extends Emitter {
       this.setHold(!this.hold, true);
     });
 
-    this.windowSize = { width: widthPx, height: heightPx };
+    this.windowSize = { width: widthPx, height: heightPx, pad };
     if (window.ipod) window.ipod.win.resize(this.windowSize);
     return screen;
   }
