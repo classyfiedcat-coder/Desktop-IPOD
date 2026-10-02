@@ -24,7 +24,7 @@ import { ColorEditor } from './views/color-editor.js';
 import { getModel, getColor } from './models.js';
 
 const WINDOW_KEYS = ['alwaysOnTop', 'showInTaskbar', 'openAtLogin', 'opacity', 'snapToEdges', 'startHidden'];
-const DESKTOP_KEYS = ['notifications', 'globalShortcuts', 'color', 'size'];
+const DESKTOP_KEYS = ['notifications', 'globalShortcuts', 'color', 'size', 'motion'];
 
 // Forward renderer errors to the main-process log.
 window.addEventListener('error', (e) => window.ipod && window.ipod.log('error', e.message, e.filename ? `${e.filename}:${e.lineno}` : ''));
@@ -73,7 +73,7 @@ async function boot() {
   const booting = store.settings.startupAnimation ? os.boot() : Promise.resolve();
 
   // Settings that change the device itself.
-  for (const key of ['color', 'size', 'shadow', 'engraving', 'reflections']) store.on(`change:${key}`, () => app.rebuild());
+  for (const key of ['color', 'size', 'shadow', 'engraving', 'reflections', 'wear', 'backFinish']) store.on(`change:${key}`, () => app.rebuild());
 
   // The iPod turns toward the pointer, wherever it is on screen.
   const configureMotion = () => {

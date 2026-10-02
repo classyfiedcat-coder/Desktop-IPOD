@@ -8,7 +8,7 @@ const { createIcyTransform, parseIcyMeta, splitTitle } = require('../../src/main
 const { parseFeed, parseOpml, toOpml, parseDuration, stripHtml } = require('../../src/main/podcasts');
 const { parseM3U, writeM3U } = require('../../src/main/library/playlist-files');
 const { cleanTitle, firstArtist } = require('../../src/main/lyrics');
-const { isPublicUrl, hostAllowed } = require('../../src/main/net');
+const { isPublicUrl, isPrivateIp, hostAllowed } = require('../../src/main/net');
 const { srtToVtt } = require('../../src/main/folders');
 const { similar } = require('../../src/main/artwork');
 const { parseArgs } = require('../../src/main/desktop');
@@ -136,6 +136,19 @@ test('network safety', () => {
   assert.equal(isPublicUrl('http://[::1]/'), false);
   assert.equal(isPublicUrl('file:///etc/passwd'), false);
   assert.equal(isPublicUrl('not a url'), false);
+  // Sneaky spellings of local addresses.
+  assert.equal(isPublicUrl('http://2130706433/'), false, 'decimal 127.0.0.1');
+  assert.equal(isPublicUrl('http://0x7f.1/'), false, 'hex 127.0.0.1');
+  assert.equal(isPublicUrl('http://[::ffff:127.0.0.1]/'), false, 'IPv4-mapped IPv6');
+  assert.equal(isPublicUrl('http://[fe80::1]/'), false);
+  assert.equal(isPublicUrl('http://router/'), false, 'bare LAN name');
+  assert.equal(isPublicUrl('http://nas.local/'), false);
+  assert.equal(isPublicUrl('http://100.64.1.1/'), false, 'carrier-grade NAT');
+  assert.equal(isPublicUrl('https://[2606:4700::1111]/'), true);
+  assert.equal(isPrivateIp('8.8.8.8'), false);
+  assert.equal(isPrivateIp('::ffff:7f00:1'), true);
+  assert.equal(isPrivateIp('fd12::1'), true);
+  assert.equal(isPrivateIp('239.255.255.250'), true);
   assert.equal(hostAllowed('lrclib.net'), true);
   assert.equal(hostAllowed('de1.api.radio-browser.info'), true);
   assert.equal(hostAllowed('evil.example'), false);

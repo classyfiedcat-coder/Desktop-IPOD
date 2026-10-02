@@ -43,7 +43,7 @@ async function findArtwork({ artist, album }) {
     try {
       const url = await source(artist, album);
       if (!url) continue;
-      const { data, type } = await request(url, { as: 'buffer', maxBytes: 6 * 1024 * 1024, timeout: 15000 });
+      const { data, type } = await request(url, { as: 'buffer', maxBytes: 6 * 1024 * 1024, timeout: 15000, untrusted: true });
       if (/^image\//.test(type) && data.length > 1000) return data;
     } catch (err) {
       log.warn('[artwork]', source.name, album, err.message);

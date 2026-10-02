@@ -133,7 +133,7 @@ class Podcasts {
 
   async fetchFeed(url) {
     if (!isPublicUrl(url)) throw new Error('That feed address isn’t allowed.');
-    const xml = await request(url, { as: 'text', maxBytes: 25 * 1024 * 1024, timeout: 25000, headers: { Accept: 'application/rss+xml, application/xml, text/xml, */*' } });
+    const xml = await request(url, { as: 'text', untrusted: true, maxBytes: 25 * 1024 * 1024, timeout: 25000, headers: { Accept: 'application/rss+xml, application/xml, text/xml, */*' } });
     return parseFeed(xml, url);
   }
 
@@ -154,7 +154,7 @@ class Podcasts {
       const ext = (/\.(mp3|m4a|aac|ogg|opus|mp4|m4v)(\?|$)/i.exec(ep.url) || [, 'mp3'])[1].toLowerCase();
       const file = `${ep.id}.${ext}`;
       const tmp = path.join(this.dir, `${file}.part`);
-      const res = await request(ep.url, { as: 'response', timeout: 30000 });
+      const res = await request(ep.url, { as: 'response', timeout: 30000, untrusted: true });
       if (!res.ok || !res.body) throw new Error(`Download failed (${res.status})`);
       const total = +res.headers.get('content-length') || ep.size || 0;
       const out = fs.createWriteStream(tmp);

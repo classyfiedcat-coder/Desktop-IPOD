@@ -130,7 +130,11 @@ app.whenReady().then(() => {
   ctx.podcasts = new Podcasts(userData, (p) => send('podcast:progress', p));
   ctx.lyrics = new Lyrics(userData);
   ctx.spotify = new SpotifyAuth(userData, (status) => send('spotify:changed', status));
-  ctx.updater = new Updater(send);
+  ctx.updater = new Updater(send, {
+    beforeInstall: () => {
+      ctx.quitting = true;
+    },
+  });
   ctx.ipodWindow = new IpodWindow({ state, preload: PRELOAD, icon: icon(), dev: DEV, devTools: DEV || TEST_HOOK });
   ctx.desktop = new Desktop({
     ipodWindow: ctx.ipodWindow,
@@ -152,10 +156,12 @@ app.whenReady().then(() => {
   });
   protocol.handle('app', (req) => proto.handle(req));
 
-  // Allow EME (Widevine) for the Spotify Web Playback SDK when the runtime ships a CDM.
-  session.defaultSession.setPermissionRequestHandler((_wc, permission, cb) => {
-    cb(['media', 'mediaKeySystem', 'fullscreen', 'notifications', 'clipboard-sanitized-write'].includes(permission));
-  });
+  // Only what the iPod needs: EME (Widevine) for the Spotify Web Playback SDK
+  // when the runtime ships a CDM, fullscreen video, notifications and copying.
+  // Notably not 'media' (microphone/camera).
+  const ALLOWED = new Set(['mediaKeySystem', 'fullscreen', 'notifications', 'clipboard-sanitized-write']);
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, cb) => cb(ALLOWED.has(permission)));
+  session.defaultSession.setPermissionCheckHandler((_wc, permission) => ALLOWED.has(permission));
 
   Menu.setApplicationMenu(null);
   registerIpc(ctx);

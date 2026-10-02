@@ -55,7 +55,7 @@ module.exports = async ({ app, win }) => {
     for (let i = 0; i < n; i++) await press('menu');
   };
 
-  const scenario = { spotify: spotifyScenario, media: mediaScenario, motion: motionScenario, reel: reelScenario }[process.env.IPOD_E2E_STEPS];
+  const scenario = { spotify: spotifyScenario, media: mediaScenario, motion: motionScenario, reel: reelScenario, finish: finishScenario }[process.env.IPOD_E2E_STEPS];
   if (scenario) {
     try {
       await scenario({ js, wait, shot, press, scroll, open, menu, select, win });
@@ -496,4 +496,65 @@ async function reelScenario({ js, wait, win }) {
   }
   await js(`__ipod.store.set('idleFloat', true); __ipod.store.set('motionAmount', 'normal')`);
   console.log('reel frames', n);
+}
+
+/** Surface finishes: the worn mirror back and the reflections in the screen glass. */
+async function finishScenario({ js, wait, shot }) {
+  await wait(2500);
+  const pointAt = (dx, dy) =>
+    js(`(() => { const w = innerWidth, h = innerHeight; __ipod.device.rig.cursor({ x: w / 2 + ${dx}, y: h / 2 + ${dy}, w, h, sx: 0, sy: 0 }); })()`);
+  const settle = () => js(`new Promise(r => { const t = () => (__ipod.device.rig._raf ? setTimeout(t, 50) : r()); t(); })`);
+  await js(`__ipod.store.set('idleFloat', false); __ipod.store.set('motion', 'cursor'); __ipod.store.set('motionAmount', 'normal'); __ipod.store.set('color', ${JSON.stringify(process.env.IPOD_REEL_COLOR || 'white')}); __ipod.store.set('wear', ${JSON.stringify(process.env.IPOD_WEAR || 'light')})`);
+  await wait(800);
+  await js(`__ipod.device.flip(true)`);
+  await settle();
+  for (const [name, dx, dy] of [
+    ['f01-back-rest', 0, 0],
+    ['f02-back-right', 900, 100],
+    ['f03-back-left', -900, 100],
+    ['f04-back-up-left', -800, -900],
+    ['f05-back-down', 0, 900],
+  ]) {
+    await pointAt(dx, dy);
+    await settle();
+    await shot(name);
+  }
+  await js(`__ipod.device.flip(false)`);
+  await settle();
+  for (const [name, dx, dy] of [
+    ['f06-screen-rest', 0, 0],
+    ['f07-screen-up-left', -900, -900],
+  ]) {
+    await pointAt(dx, dy);
+    await js(`__ipod.os.activity()`);
+    await settle();
+    await shot(name);
+  }
+  // Screen off: deep black glass showing the reflections.
+  await js(`__ipod.os.sleep()`);
+  await wait(600);
+  for (const [name, dx, dy] of [
+    ['f08-off-rest', 0, 0],
+    ['f09-off-up-left', -900, -900],
+    ['f10-off-left', -900, 0],
+  ]) {
+    await pointAt(dx, dy);
+    await settle();
+    await shot(name);
+  }
+  await js(`__ipod.os.wake()`);
+  // The edges: tip it right over to see the top (hold switch, jack) and the bottom (dock).
+  await js(`__ipod.store.set('motionAmount', 'dramatic')`);
+  await wait(300);
+  for (const [name, rx] of [
+    ['f11-top', -38],
+    ['f12-bottom', 38],
+  ]) {
+    await js(`(() => { const r = __ipod.device.rig; r.aim = { rx: ${rx}, ry: -8 }; r.wake(); })()`);
+    await wait(200);
+    await js(`new Promise(r => { const t = () => (__ipod.device.rig._raf ? setTimeout(t, 50) : r()); t(); })`);
+    console.log(name, await js(`__ipod.device.flipper.style.transform`));
+    await shot(name);
+  }
+  await js(`(() => { const r = __ipod.device.rig; r.rx.snap(0); r.ry.snap(0); })(); __ipod.store.set('motion', 'cursor'); __ipod.store.set('motionAmount', 'normal'); __ipod.store.set('idleFloat', true)`);
 }

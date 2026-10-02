@@ -620,6 +620,16 @@ function appearanceSettings(app) {
         ['dramatic', 'Dramatic'],
       ]),
       cycleItem(store, 'Reflections', 'reflections', ON_OFF),
+      cycleItem(store, 'Back', 'backFinish', [
+        ['auto', 'Auto'],
+        ['steel', 'Polished Steel'],
+        ['black', 'Black'],
+      ]),
+      cycleItem(store, 'Wear', 'wear', [
+        ['none', 'Brand New'],
+        ['light', 'A Few Months'],
+        ['worn', 'Well Loved'],
+      ]),
       cycleItem(store, 'Float When Idle', 'idleFloat', ON_OFF),
       cycleItem(store, 'Shadow', 'shadow', ON_OFF),
       cycleItem(store, 'Wheel Glow', 'wheelGlow', ON_OFF),

@@ -57,6 +57,15 @@ const traySvg = (size) => `<svg xmlns="http://www.w3.org/2000/svg" width="${size
   <circle cx="16" cy="22" r="2" fill="#ffffff" stroke="#6b7076" stroke-width="0.7"/>
 </svg>`;
 
+/** Taskbar thumbnail buttons: white glyphs on the dark preview, 16px at 1x. */
+const glyph = (body) => (size) => `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 16 16"><g fill="#ffffff">${body}</g></svg>`;
+const THUMBS = {
+  'thumb-prev': glyph('<rect x="2" y="3" width="2" height="10" rx="0.6"/><path d="M8.5 8 L14 3.4 V12.6 Z"/><path d="M3.5 8 L9 3.4 V12.6 Z"/>'),
+  'thumb-next': glyph('<rect x="12" y="3" width="2" height="10" rx="0.6"/><path d="M7.5 8 L2 3.4 V12.6 Z"/><path d="M12.5 8 L7 3.4 V12.6 Z"/>'),
+  'thumb-play': glyph('<path d="M4 2.5 L13.5 8 L4 13.5 Z"/>'),
+  'thumb-pause': glyph('<rect x="3.5" y="2.5" width="3.2" height="11" rx="0.8"/><rect x="9.3" y="2.5" width="3.2" height="11" rx="0.8"/>'),
+};
+
 async function render(win, markup, size) {
   await win.setContentSize(size, size);
   await win.loadURL(
@@ -117,8 +126,14 @@ app.whenReady().then(async () => {
   const icoBuf = ico(entries);
   fs.writeFileSync(out('build/icon.ico'), icoBuf);
   fs.writeFileSync(out('src/assets/icon.ico'), icoBuf);
-  fs.writeFileSync(out('src/assets/tray.png'), await render(win, traySvg(32), 32));
-  fs.writeFileSync(out('src/assets/tray@2x.png'), await render(win, traySvg(64), 64));
+  // Tray: 16px at 100% scaling, with sharper versions for 150% and 200%.
+  fs.writeFileSync(out('src/assets/tray.png'), await render(win, traySvg(16), 16));
+  fs.writeFileSync(out('src/assets/tray@1.5x.png'), await render(win, traySvg(24), 24));
+  fs.writeFileSync(out('src/assets/tray@2x.png'), await render(win, traySvg(32), 32));
+  for (const [name, make] of Object.entries(THUMBS)) {
+    fs.writeFileSync(out(`src/assets/${name}.png`), await render(win, make(16), 16));
+    fs.writeFileSync(out(`src/assets/${name}@2x.png`), await render(win, make(32), 32));
+  }
   console.log('icons written');
   app.quit();
 });

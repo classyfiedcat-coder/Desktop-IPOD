@@ -49,9 +49,27 @@ body {
   /* Coplanar with the case: in a 3D context Chromium can pick it over the case
      when hit-testing, which would swallow clicks meant for the wheel. */
   pointer-events: none;
+  /* The edge of the front plastic: the front colour, rounded over, with a
+     bright line where it catches the light. */
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0) 12%, rgba(255, 255, 255, 0) 88%, rgba(255, 255, 255, 0.3)),
+    linear-gradient(180deg, var(--front-hi) 0%, var(--front) 35%, var(--front-lo) 75%, var(--front-edge) 100%);
+  box-shadow: inset 0 0 0 calc(var(--u) * 0.08) rgba(255, 255, 255, 0.35);
+}
+.dark .face-front .rim {
+  box-shadow: inset 0 0 0 calc(var(--u) * 0.08) rgba(255, 255, 255, 0.22);
+}
+/* Seen from behind, the rim is the steel shell's edge. */
+.face-back .rim {
   background:
     linear-gradient(90deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 14%, rgba(255, 255, 255, 0) 86%, rgba(255, 255, 255, 0.55)),
     linear-gradient(180deg, #fbfbfc 0%, #b7bbc0 16%, #eceef0 42%, #9a9ea4 70%, #e1e3e6 88%, #8d9197 100%);
+  box-shadow: none;
+}
+.finish-black .face-back .rim {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 10%, rgba(255, 255, 255, 0) 90%, rgba(255, 255, 255, 0.45)),
+    linear-gradient(180deg, #6f7276 0%, #1d1e20 22%, #111213 60%, #34363a 100%);
 }
 /* Bands of "room" sliding along the polished steel as it turns. */
 .rim-env {
@@ -102,6 +120,9 @@ body {
   pointer-events: none;
   border-radius: inherit;
   overflow: hidden;
+  /* Faint scuffs on the plastic only show up inside the highlight. */
+  -webkit-mask-image: var(--wear-front, none);
+  -webkit-mask-size: 100% 100%;
   /* Under the screen window: the display gets its own, subtler glass reflection. */
   z-index: 0;
 }
@@ -119,6 +140,28 @@ body {
     linear-gradient(150deg, rgba(255, 255, 255, 0) 14%, rgba(255, 255, 255, 0.26) 22.4%, rgba(255, 255, 255, 0.07) 40.2%, rgba(255, 255, 255, 0) 40.5%),
     radial-gradient(70% 35% at 40% 18%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 60%),
     radial-gradient(22% 14% at 66% 72%, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0) 70%);
+}
+
+/* Scratches and dust on the plastic. They show most on black, and catch the
+   light (the rig drives the inner layer's opacity) as the iPod turns. */
+.case-wear {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: 0.16;
+}
+.dark .case-wear {
+  opacity: 0.5;
+}
+.case-wear-lines {
+  position: absolute;
+  inset: 0;
+  background: var(--wear-front-lines, none) 0 0 / 100% 100% no-repeat;
+}
+.ipod:not(.worn) .case-wear {
+  display: none;
 }
 
 /* --- screen window ------------------------------------------------------------- */
@@ -160,7 +203,29 @@ body {
   z-index: 2;
   overflow: hidden;
   border-radius: inherit;
-  background: linear-gradient(118deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 26%, rgba(255, 255, 255, 0) 38%);
+  /* A permanent soft sheen across the glass, clearest when the screen is dark. */
+  background: linear-gradient(155deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.045) 38%, rgba(255, 255, 255, 0.012) 62%, rgba(255, 255, 255, 0) 80%);
+}
+.softbox {
+  /* A big soft light (a window, a lamp shade) reflected in the glass. Starts
+     off the top left; tipping the face toward the light slides it across. */
+  left: -82%;
+  top: -78%;
+  width: 100%;
+  height: 86%;
+  border-radius: 30%;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0.42) 42%, rgba(255, 255, 255, 0.14) 78%, rgba(255, 255, 255, 0));
+}
+/* The polished edge of the glass: a hairline of light along the top, a
+   shadow along the bottom, and a thin matte frame where it meets the bezel. */
+.glass-edge {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 calc(var(--u) * 0.12) 0 rgba(255, 255, 255, 0.16),
+    inset 0 calc(var(--u) * -0.12) 0 rgba(0, 0, 0, 0.35),
+    inset 0 0 0 calc(var(--u) * 0.1) rgba(0, 0, 0, 0.5);
 }
 .glare {
   inset: -60%;
@@ -172,6 +237,7 @@ body {
 .screen {
   position: relative;
   overflow: hidden;
+  isolation: isolate; /* keeps the LCD tint's blend inside the screen */
 }
 
 /* --- click wheel ----------------------------------------------------------------- */
@@ -359,13 +425,13 @@ body {
   bottom: 0;
   left: 6%;
   width: 50%;
-  border-radius: calc(var(--u) * 0.45) calc(var(--u) * 0.45) 0 0;
-  background: linear-gradient(180deg, #ffffff, #d2d4d8 60%, #b9bcc1);
-  box-shadow: 0 calc(var(--u) * 0.1) calc(var(--u) * 0.2) rgba(0, 0, 0, 0.4);
+  border-radius: calc(var(--u) * 0.8) calc(var(--u) * 0.8) 0 0;
+  /* A polished chrome slider, like the real one. */
+  background: linear-gradient(180deg, #ffffff 0%, #e4e6e9 30%, #9ea2a8 52%, #c9ccd0 70%, #f2f3f5 100%);
+  box-shadow:
+    0 calc(var(--u) * 0.1) calc(var(--u) * 0.2) rgba(0, 0, 0, 0.4),
+    inset 0 0 0 calc(var(--u) * 0.06) rgba(0, 0, 0, 0.2);
   transition: left 0.2s cubic-bezier(0.3, 1.5, 0.6, 1);
-}
-.dark .hold-knob {
-  background: linear-gradient(180deg, #4a4b4f, #232427);
 }
 .hold-switch.on .hold-knob {
   left: 46%;
@@ -411,15 +477,52 @@ body {
 .side .jack {
   position: absolute;
   border-radius: 50%;
-  background: radial-gradient(circle, #050505 0 50%, #26282b 56%, #9a9ea4 64%, #eceef0 74%, #8a8e94 100%);
+  /* The hole, inside a polished chrome ring. */
+  background: radial-gradient(circle, #050505 0 46%, #1c1d20 52%, #8e9298 58%, #f4f5f7 66%, #a6aaaf 76%, #e9ebee 84%, #6f7378 100%);
 }
 .side .dock {
   position: absolute;
-  border-radius: calc(var(--u) * 0.6);
-  background: linear-gradient(180deg, #050506, #1d1e21);
+  border-radius: calc(var(--u) * 0.5);
+  background: linear-gradient(90deg, #060607, #1b1c1f 40%, #0b0b0c);
   box-shadow:
-    inset 0 0 0 calc(var(--u) * 0.25) #34363a,
-    0 0 0 calc(var(--u) * 0.2) rgba(255, 255, 255, 0.35);
+    inset 0 0 0 calc(var(--u) * 0.22) #b9bdc2,
+    inset 0 0 0 calc(var(--u) * 0.3) #4a4d52,
+    0 0 0 calc(var(--u) * 0.12) rgba(0, 0, 0, 0.5);
+}
+/* The row of contacts inside the dock connector. */
+.dock-pins {
+  position: absolute;
+  left: 40%;
+  right: 34%;
+  top: 7%;
+  bottom: 7%;
+  border-radius: calc(var(--u) * 0.15);
+  background: repeating-linear-gradient(180deg, #c9ccd0 0 calc(var(--u) * 0.18), #3a3c40 calc(var(--u) * 0.18) calc(var(--u) * 0.5));
+  opacity: 0.85;
+}
+/* The slot the hold switch slides in. */
+.side .hold-slot {
+  position: absolute;
+  border-radius: calc(var(--u) * 1.2);
+  background: linear-gradient(90deg, #040405, #17181a);
+  box-shadow: inset 0 0 calc(var(--u) * 0.3) rgba(0, 0, 0, 0.9);
+}
+/* "HOLD" and the headphone icon, printed on the top edge. */
+.side .edge-label {
+  position: absolute;
+  transform: translate(-50%, -50%) rotate(-90deg);
+  white-space: nowrap;
+  font: 700 calc(var(--u) * 1.5) / 1 'iPod Sans', 'Helvetica Neue', Arial, sans-serif;
+  letter-spacing: 0.06em;
+  color: rgba(70, 74, 80, 0.75);
+}
+.side .edge-label svg {
+  display: block;
+  width: calc(var(--u) * 2);
+  height: calc(var(--u) * 2);
+}
+.finish-black .side .edge-label {
+  color: rgba(225, 228, 232, 0.85);
 }
 
 /* --- the polished stainless back ----------------------------------------------------- */
@@ -430,9 +533,13 @@ body {
   border-radius: var(--radius);
   overflow: hidden;
   cursor: grab;
-  background: linear-gradient(180deg, #e8eaed 0%, #b9bdc2 18%, #f4f5f6 36%, #9ea2a8 58%, #dfe1e4 80%, #a6aaaf 100%);
+  background:
+    /* The curved side edges catch the light. */
+    linear-gradient(90deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0) 4.5%, rgba(0, 0, 0, 0.06) 7%, rgba(0, 0, 0, 0) 12%, rgba(0, 0, 0, 0) 88%, rgba(0, 0, 0, 0.06) 93%, rgba(255, 255, 255, 0) 95.5%, rgba(255, 255, 255, 0.6) 100%),
+    /* The room: bright above, darker toward the floor. Mirror steel has real contrast. */
+    linear-gradient(180deg, #f5f6f8 0%, #dcdfe2 18%, #b4b8be 40%, #858a92 62%, #7a7f87 76%, #969ba2 90%, #b9bdc3 100%);
   box-shadow:
-    inset 0 0 calc(var(--u) * 1.4) rgba(0, 0, 0, 0.28),
+    inset 0 0 calc(var(--u) * 1.4) rgba(0, 0, 0, 0.26),
     inset 0 calc(var(--u) * 0.3) calc(var(--u) * 0.4) rgba(255, 255, 255, 0.8);
 }
 .back-env {
@@ -440,15 +547,36 @@ body {
   inset: 0;
   overflow: hidden;
   pointer-events: none;
+  /* Scratches and smudges break the reflections up. */
+  -webkit-mask-image: var(--wear-mask, none);
+  -webkit-mask-size: 100% 100%;
 }
-/* A mirror: the room (a window, a lamp, a dark corner) slides across it. */
+/* A mirror: the room (the ceiling, a window, the floor) slides across it.
+   Three times the size of the back, and every band fades out well before
+   its edges, so no edge ever comes into view however far it turns. */
 .env {
-  inset: -45%;
+  inset: -100%;
   background:
-    linear-gradient(112deg, rgba(255, 255, 255, 0) 38%, rgba(255, 255, 255, 0.7) 44%, rgba(255, 255, 255, 0) 50%),
-    linear-gradient(112deg, rgba(255, 255, 255, 0) 52.5%, rgba(255, 255, 255, 0.35) 55.5%, rgba(255, 255, 255, 0) 58.5%),
-    radial-gradient(28% 20% at 32% 28%, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0) 70%),
-    radial-gradient(38% 24% at 70% 76%, rgba(40, 46, 56, 0.35), rgba(40, 46, 56, 0) 70%);
+    linear-gradient(180deg, rgba(255, 255, 255, 0) 18%, rgba(255, 255, 255, 0.5) 30%, rgba(255, 255, 255, 0.18) 38%, rgba(255, 255, 255, 0) 45%, rgba(18, 22, 28, 0.3) 53%, rgba(18, 22, 28, 0) 61%, rgba(255, 255, 255, 0.24) 68%, rgba(255, 255, 255, 0) 80%),
+    linear-gradient(112deg, rgba(255, 255, 255, 0) 42%, rgba(255, 255, 255, 0.2) 45.5%, rgba(255, 255, 255, 0.4) 47.5%, rgba(255, 255, 255, 0.2) 49.5%, rgba(255, 255, 255, 0) 53%),
+    linear-gradient(112deg, rgba(255, 255, 255, 0) 53%, rgba(255, 255, 255, 0.14) 54.5%, rgba(255, 255, 255, 0) 56.5%),
+    radial-gradient(10% 7% at 43% 42%, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0) 70%);
+}
+/* The scratches themselves: faint bright hairlines that catch the light. */
+.back-lines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background: var(--wear-lines, none) 0 0 / 100% 100% no-repeat;
+}
+/* Tipped squarely toward the light, polished steel blows out to white. */
+.back-flare {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(130% 90% at 45% 30%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.7) 55%, rgba(255, 255, 255, 0.4));
 }
 .back-edge {
   position: absolute;
@@ -457,7 +585,80 @@ body {
   pointer-events: none;
   box-shadow:
     inset 0 0 0 calc(var(--u) * 0.3) rgba(255, 255, 255, 0.45),
-    inset 0 0 calc(var(--u) * 3) calc(var(--u) * 0.6) rgba(0, 0, 0, 0.22);
+    inset 0 0 calc(var(--u) * 3) calc(var(--u) * 0.6) rgba(0, 0, 0, 0.2);
+}
+
+/* Black steel: glossy black with sharp white highlights where the edges curve
+   over, a broad soft sheen across the top, and light etched lettering. */
+.finish-black .back {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0) 0.8%, rgba(255, 255, 255, 0.6) 2%, rgba(255, 255, 255, 0) 4.5%, rgba(255, 255, 255, 0) 95.5%, rgba(255, 255, 255, 0.45) 98%, rgba(255, 255, 255, 0) 99.2%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0) 0.6%, rgba(255, 255, 255, 0.5) 1.6%, rgba(255, 255, 255, 0) 3.5%, rgba(255, 255, 255, 0) 97%, rgba(255, 255, 255, 0.25) 98.6%, rgba(255, 255, 255, 0) 99.6%),
+    linear-gradient(180deg, #2c2d31 0%, #17181a 26%, #0c0d0e 58%, #101113 84%, #1a1b1e 100%);
+  box-shadow:
+    inset 0 0 calc(var(--u) * 1.6) rgba(0, 0, 0, 0.6),
+    inset 0 calc(var(--u) * 0.3) calc(var(--u) * 0.4) rgba(255, 255, 255, 0.18);
+}
+.finish-black .env {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0) 20%, rgba(255, 255, 255, 0.22) 30%, rgba(255, 255, 255, 0.06) 38%, rgba(255, 255, 255, 0) 45%, rgba(255, 255, 255, 0) 64%, rgba(255, 255, 255, 0.1) 70%, rgba(255, 255, 255, 0) 80%),
+    linear-gradient(112deg, rgba(255, 255, 255, 0) 45.5%, rgba(255, 255, 255, 0.3) 47%, rgba(255, 255, 255, 0.65) 47.6%, rgba(255, 255, 255, 0.3) 48.2%, rgba(255, 255, 255, 0) 50%),
+    linear-gradient(112deg, rgba(255, 255, 255, 0) 53%, rgba(255, 255, 255, 0.12) 54.5%, rgba(255, 255, 255, 0) 56.5%),
+    radial-gradient(12% 6% at 42% 41%, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 70%);
+}
+.finish-black .back-lines {
+  opacity: 0.6;
+}
+.finish-black .back-flare {
+  background: radial-gradient(130% 90% at 45% 30%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.3) 55%, rgba(255, 255, 255, 0.12));
+}
+.finish-black .back-edge {
+  box-shadow:
+    inset 0 0 0 calc(var(--u) * 0.25) rgba(255, 255, 255, 0.18),
+    inset 0 0 calc(var(--u) * 3) calc(var(--u) * 0.6) rgba(0, 0, 0, 0.5);
+}
+.finish-black .back-mark,
+.finish-black .back-engraving,
+.finish-black .back-cap,
+.finish-black .back-small {
+  color: rgba(214, 217, 221, 0.92);
+  text-shadow: 0 0 calc(var(--u) * 0.1) rgba(0, 0, 0, 0.6);
+}
+.finish-black .back-cap {
+  border-color: rgba(214, 217, 221, 0.85);
+  box-shadow: none;
+}
+/* The regulatory marks under the fine print. */
+.back-marks {
+  margin-top: calc(var(--u) * 0.9);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: calc(var(--u) * 1.3);
+  font-weight: 700;
+}
+.back-marks span {
+  display: inline-grid;
+  place-items: center;
+  line-height: 1;
+}
+.back-marks .mk-fc,
+.back-marks .mk-ce {
+  font-size: calc(var(--u) * 2.6);
+  letter-spacing: -0.06em;
+}
+.back-marks .mk-box {
+  font-size: calc(var(--u) * 1.3);
+  padding: calc(var(--u) * 0.25) calc(var(--u) * 0.35);
+  border: calc(var(--u) * 0.2) solid currentColor;
+  border-radius: calc(var(--u) * 0.35);
+}
+.back-marks .mk-tick {
+  width: calc(var(--u) * 2.3);
+  height: calc(var(--u) * 2.3);
+  border-radius: 50%;
+  border: calc(var(--u) * 0.2) solid currentColor;
+  font-size: calc(var(--u) * 1.5);
 }
 
 /* --- shadow on the desktop ------------------------------------------------------------ */
@@ -487,42 +688,56 @@ body {
     0 0 calc(var(--u) * 0.3) rgba(0, 0, 0, 0.25);
 }
 
-.back-mark {
+.back-mark,
+.back-engraving,
+.back-cap,
+.back-small {
+  /* Etched: a matte, light finish that doesn't mirror the room, so it
+     stays the same while reflections move around it. */
   position: absolute;
-  top: 34%;
+  z-index: 1;
+  color: rgba(238, 240, 243, 0.92);
+  text-shadow:
+    0 calc(var(--u) * -0.07) 0 rgba(0, 0, 0, 0.18),
+    0 calc(var(--u) * 0.07) 0 rgba(255, 255, 255, 0.45);
+}
+.back-mark {
+  top: 33%;
   left: 0;
   right: 0;
   text-align: center;
-  font: 600 calc(var(--u) * 9.5) / 1 'iPod Sans', 'Helvetica Neue', Arial, sans-serif;
+  font: 500 calc(var(--u) * 9.5) / 1 'iPod Sans', 'Helvetica Neue', Arial, sans-serif;
   letter-spacing: -0.03em;
-  color: rgba(70, 74, 80, 0.5);
-  text-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.8),
-    0 -1px 0 rgba(0, 0, 0, 0.12);
 }
 .back-engraving {
-  position: absolute;
-  top: 56%;
+  top: 52%;
   left: 8%;
   right: 8%;
   text-align: center;
   font: 400 calc(var(--u) * 3) / 1.45 'iPod Sans', 'Helvetica Neue', Arial, sans-serif;
-  color: rgba(48, 52, 58, 0.62);
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.75);
   letter-spacing: 0.02em;
 }
-.back-small {
-  position: absolute;
-  bottom: 7%;
-  left: 0;
-  right: 0;
-  text-align: center;
-  font: 400 calc(var(--u) * 1.9) / 1.5 'iPod Sans', 'Helvetica Neue', Arial, sans-serif;
-  color: rgba(60, 64, 70, 0.55);
+.back-cap {
+  left: 50%;
+  bottom: 20%;
+  transform: translateX(-50%);
+  padding: calc(var(--u) * 0.55) calc(var(--u) * 1.3) calc(var(--u) * 0.45);
+  border: calc(var(--u) * 0.26) solid rgba(238, 240, 243, 0.88);
+  border-radius: calc(var(--u) * 1.1);
+  font: 600 calc(var(--u) * 2.6) / 1 'iPod Sans', 'Helvetica Neue', Arial, sans-serif;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  box-shadow:
+    0 calc(var(--u) * -0.07) 0 rgba(0, 0, 0, 0.12),
+    inset 0 calc(var(--u) * -0.07) 0 rgba(0, 0, 0, 0.12);
 }
-.back-small div:first-child {
-  font-weight: 600;
-  font-size: calc(var(--u) * 2.6);
+.back-small {
+  bottom: 5%;
+  left: 4%;
+  right: 4%;
+  text-align: center;
+  font: 500 calc(var(--u) * 1.3) / 1.5 'iPod Sans', 'Helvetica Neue', Arial, sans-serif;
+  letter-spacing: 0.01em;
 }
 
 /* --- wheel glow (optional) ---------------------------------------------------------- */

@@ -18,6 +18,8 @@ export const DEFAULT_SETTINGS = {
   motionAmount: 'normal', // subtle | normal | dramatic
   reflections: true,
   idleFloat: true,
+  wear: 'light', // none | light | worn: scratches and smudges on the steel back
+  backFinish: 'auto', // auto | steel | black
 
   shuffle: 'off', // off | songs | albums
   repeat: 'off', // off | one | all

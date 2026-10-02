@@ -11,7 +11,7 @@ const fs = require('fs');
 const http = require('http');
 const path = require('path');
 const crypto = require('crypto');
-const { shell, safeStorage } = require('electron');
+const { shell, safeStorage, net } = require('electron');
 
 const PORT = 43827;
 const REDIRECT_URI = `http://127.0.0.1:${PORT}/callback`;
@@ -242,11 +242,19 @@ class SpotifyAuth {
   }
 
   async _token(params) {
-    const res = await fetch('https://accounts.spotify.com/api/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams(params).toString(),
-    });
+    // Chromium's network stack (system proxy, certificates), with a timeout so
+    // a stalled refresh can never wedge every later request.
+    let res;
+    try {
+      res = await net.fetch('https://accounts.spotify.com/api/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(params).toString(),
+        signal: AbortSignal.timeout(20000),
+      });
+    } catch (err) {
+      throw new Error(err.name === 'TimeoutError' ? 'Spotify didn’t answer. Check your connection and try again.' : `Couldn’t reach Spotify (${err.message}).`);
+    }
     const body = await res.json().catch(() => ({}));
     if (!res.ok) {
       const e = new Error(body.error_description || body.error || `Token request failed (${res.status})`);

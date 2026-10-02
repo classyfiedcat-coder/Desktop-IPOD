@@ -80,14 +80,22 @@ export class MotionRig {
     this.lcdDepth = depth;
     this.pad = pad;
     this.flipS.snap(flipped ? 180 : 0);
-    // data-par is "kx ky" (x follows x, y follows y) or a full "a b c d" mix
-    // (tx = a·lx + b·ly, ty = c·lx + d·ly), optionally followed by a unit.
-    this.layers = [...(reflections ? el.querySelectorAll('[data-par]') : [])].map((n) => {
-      const parts = n.dataset.par.split(' ');
-      const unit = isNaN(+parts[parts.length - 1]) ? parts.pop() : '%';
-      const k = parts.map(Number);
-      const m = k.length === 4 ? k : [k[0], 0, 0, k[1]];
-      return { el: n, m, unit, back: !!n.closest('.face-back'), glint: n.hasAttribute('data-glint') };
+    // Layers the rig drives (all optional, combined freely):
+    //   data-par="kx ky" or "a b c d" [unit]: slide with the light
+    //     (tx = a·lx + b·ly, ty = c·lx + d·ly)
+    //   data-glint: brighten as the surface turns toward the light
+    //   data-flare="threshold gain max": flare up only when it faces the light squarely
+    this.layers = [...(reflections ? el.querySelectorAll('[data-par], [data-glint], [data-flare]') : [])].map((n) => {
+      let m = null;
+      let unit = '%';
+      if (n.dataset.par) {
+        const parts = n.dataset.par.split(' ');
+        if (isNaN(+parts[parts.length - 1])) unit = parts.pop();
+        const k = parts.map(Number);
+        m = k.length === 4 ? k : [k[0], 0, 0, k[1]];
+      }
+      const flare = n.dataset.flare ? n.dataset.flare.split(' ').map(Number) : null;
+      return { el: n, m, unit, back: !!n.closest('.face-back'), glint: n.hasAttribute('data-glint'), flare };
     });
     this._flat = false;
     this.apply();
@@ -292,11 +300,18 @@ export class MotionRig {
     const glint = (l) => clamp(0.66 - l.x * 0.15 + l.y * 0.12 + lift * 0.08, 0.2, 0.85);
     const gf = glint(lf);
     const gb = glint(lb);
+    // How squarely a face points at the light (top left, above the screen).
+    const facing = (l) => l.y * 0.85 - l.x * 0.5;
     for (const L of this.layers) {
       const l = L.back ? lb : lf;
-      const [m0, m1, m2, m3] = L.m;
-      L.el.style.transform = `translate3d(${(l.x * m0 + l.y * m1).toFixed(2)}${L.unit}, ${(l.x * m2 + l.y * m3).toFixed(2)}${L.unit}, 0)`;
-      if (L.glint) L.el.style.opacity = (L.back ? gb : gf).toFixed(3);
+      if (L.m) {
+        const [m0, m1, m2, m3] = L.m;
+        L.el.style.transform = `translate3d(${(l.x * m0 + l.y * m1).toFixed(2)}${L.unit}, ${(l.x * m2 + l.y * m3).toFixed(2)}${L.unit}, 0)`;
+      }
+      if (L.flare) {
+        const [t, g, max] = L.flare;
+        L.el.style.opacity = clamp((facing(l) - t) * g, 0, max).toFixed(3);
+      } else if (L.glint) L.el.style.opacity = (L.back ? gb : gf).toFixed(3);
     }
 
     // The LCD sits a little behind the clear front, so it shifts against the

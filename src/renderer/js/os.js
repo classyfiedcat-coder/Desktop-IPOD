@@ -87,7 +87,10 @@ export class OS extends Emitter {
     this.viewport = h('div', { class: 'viewport' });
     this.overlay = h('div', { class: 'overlays' });
     this.dimmer = h('div', { class: 'dimmer' });
-    screen.replaceChildren(h('div', { class: 'os' }, this.titlebar, this.viewport, this.overlay), this.dimmer);
+    // The 5th generation LCD's cool, slightly blue white (under the dimmer, so
+    // a sleeping screen stays charcoal).
+    const tint = h('div', { class: 'lcd-tint' });
+    screen.replaceChildren(h('div', { class: 'os' }, this.titlebar, this.viewport, this.overlay), tint, this.dimmer);
 
     // Re-mount the current view into the fresh screen.
     const cur = this.current;
