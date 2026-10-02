@@ -6,9 +6,140 @@
 
 import { getModel, getColor, SIZES, PX_PER_MM } from './models.js';
 import { h, svg, ICONS, shade, Emitter } from './util.js';
+import { MotionRig } from './rig.js';
+
+/** CSS custom properties for a colour scheme. */
+export function colorVars(color) {
+  const d = !!color.dark;
+  return {
+    '--front': color.front,
+    '--front-hi': shade(color.front, d ? 0.1 : 0.35),
+    '--front-lo': shade(color.front, d ? -0.35 : -0.12),
+    '--front-edge': shade(color.front, d ? -0.5 : -0.28),
+    '--wheel': color.wheel,
+    '--wheel-hi': shade(color.wheel, d ? 0.08 : 0.5),
+    '--wheel-lo': shade(color.wheel, d ? -0.3 : -0.08),
+    '--label': color.label,
+    '--center': color.center,
+    '--center-hi': shade(color.center, d ? 0.12 : 0.4),
+    '--center-lo': shade(color.center, d ? -0.35 : -0.14),
+    '--bezel': color.bezel || (d ? '#050505' : '#1b1c1d'),
+  };
+}
 
 const WHEEL_STEP_DEG = { low: 26, medium: 19, high: 13 };
 const isMac = navigator.platform.toLowerCase().includes('mac');
+
+/** Parts of the device that catch the mouse (the rest of the window is click-through). */
+const SOLID = '.case, .hold-switch, .back, .side';
+
+/**
+ * The stainless edge from front (0) to back (1): a dark seam where it meets
+ * the front, a bright lip, then darker as the steel curves away to the back.
+ */
+const PROFILE = [
+  [0, '#62666b'],
+  [0.05, '#e6e8eb'],
+  [0.3, '#f3f4f6'],
+  [0.68, '#b3b7bc'],
+  [1, '#7b7f85'],
+];
+
+export const profileGradient = (dir) => `linear-gradient(${dir}, ${PROFILE.map(([t, c]) => `${c} ${(t * 100).toFixed(0)}%`).join(', ')})`;
+
+/** Facets per rounded corner. */
+const CORNER_FACETS = 5;
+/** The steel edge sits this far (mm) outside the front, like the rim. */
+const RIM = 0.35;
+/** Light direction in the plane of the device (from the top left). */
+const LIGHT = [-0.6, -0.8];
+
+/**
+ * Flat panels around the outline. Each one stands perpendicular to the front,
+ * spans the full thickness and faces outward at angle θ (screen coordinates,
+ * y down: 0 = right, 90 = down). Local x runs back → front, local y along
+ * the edge.
+ */
+function buildShell({ W, H, R, T, u, refl, jack, dock }) {
+  const r = (R + RIM) * u;
+  const x0 = -RIM * u;
+  const y0 = -RIM * u;
+  const x1 = (W + RIM) * u;
+  const y1 = (H + RIM) * u;
+  const cx = [R * u, W * u - R * u];
+  const cy = [R * u, H * u - R * u];
+  const panels = [];
+
+  const panel = (theta, px, py, width, cls, ...kids) => {
+    const t = (theta * Math.PI) / 180;
+    const n = [Math.cos(t), Math.sin(t)];
+    const lit = n[0] * LIGHT[0] + n[1] * LIGHT[1]; // -1 (shadow) … 1 (lit)
+    const tint = lit > 0 ? `rgba(255, 255, 255, ${(0.16 * lit).toFixed(3)})` : `rgba(0, 0, 0, ${(0.4 * -lit).toFixed(3)})`;
+    // The reflection band slides along the depth as this face turns toward or away from you.
+    const k = 22;
+    const wall = cls.startsWith('wall');
+    const el = h(
+      'div',
+      {
+        class: `side ${cls}`,
+        style: {
+          width: `${T.toFixed(2)}px`,
+          height: `${(width + 0.6).toFixed(2)}px`, // a hair of overlap hides seams between facets
+          transform: `translate(${px.toFixed(2)}px, ${py.toFixed(2)}px) rotateZ(${(theta - 180).toFixed(2)}deg) rotateY(-90deg) translate(${(-T).toFixed(2)}px, ${(-(width + 0.6) / 2).toFixed(2)}px)`,
+          background: `linear-gradient(${tint}, ${tint}), ${profileGradient('to left')}`,
+        },
+      },
+      // Only the long walls get a moving highlight; on the narrow facets it wouldn't show.
+      wall ? refl('side-hl', `${(-k * n[0]).toFixed(1)} ${(-k * n[1]).toFixed(1)} 0 0`) : null,
+      ...kids
+    );
+    panels.push(el);
+    return el;
+  };
+
+  // Walls along the straight edges.
+  panel(180, x0, (y0 + y1) / 2, cy[1] - cy[0], 'wall wall-l');
+  panel(0, x1, (y0 + y1) / 2, cy[1] - cy[0], 'wall wall-r');
+  const topLen = cx[1] - cx[0];
+  const bottomLen = topLen;
+  panel(
+    270,
+    (x0 + x1) / 2,
+    y0,
+    topLen,
+    'wall wall-t',
+    // Headphone jack. On the top wall local y runs right → left.
+    h('div', { class: 'jack', style: { left: `${(T / 2 - (jack.d / 2) * u).toFixed(2)}px`, top: `${(topLen / 2 + (x1 + x0) / 2 - jack.x * u - (jack.d / 2) * u + 0.3).toFixed(2)}px`, width: `${(jack.d * u).toFixed(2)}px`, height: `${(jack.d * u).toFixed(2)}px` } })
+  );
+  panel(
+    90,
+    (x0 + x1) / 2,
+    y1,
+    bottomLen,
+    'wall wall-b',
+    // Dock connector, centred.
+    h('div', { class: 'dock', style: { left: `${(T / 2 - (dock.h / 2) * u).toFixed(2)}px`, top: `${(bottomLen / 2 - (dock.w / 2) * u + 0.3).toFixed(2)}px`, width: `${(dock.h * u).toFixed(2)}px`, height: `${(dock.w * u).toFixed(2)}px` } })
+  );
+
+  // Faceted corners: chords of the corner arc, so they meet the walls exactly.
+  const corners = [
+    [cx[0], cy[0], 180], // top left
+    [cx[1], cy[0], 270], // top right
+    [cx[1], cy[1], 0], // bottom right
+    [cx[0], cy[1], 90], // bottom left
+  ];
+  const step = 90 / CORNER_FACETS;
+  const chord = 2 * r * Math.sin(((step / 2) * Math.PI) / 180);
+  const reach = r * Math.cos(((step / 2) * Math.PI) / 180);
+  for (const [ccx, ccy, start] of corners) {
+    for (let j = 0; j < CORNER_FACETS; j++) {
+      const theta = start + (j + 0.5) * step;
+      const t = (theta * Math.PI) / 180;
+      panel(theta, ccx + Math.cos(t) * reach, ccy + Math.sin(t) * reach, chord, 'facet');
+    }
+  }
+  return panels;
+}
 
 export class Device extends Emitter {
   constructor(stage) {
@@ -23,13 +154,14 @@ export class Device extends Emitter {
     this._overCase = null;
     this._wheelAccum = 0;
     this._tickTimes = [];
+    this.rig = new MotionRig();
     this._bindGlobal();
   }
 
   /** Build (or rebuild) the device. Returns the logical screen element. */
-  build({ model: modelId, color: colorId, size: sizeId, shadow = true }) {
+  build({ model: modelId, color: colorId, size: sizeId, shadow = true, customColors, engraving = '', wheelGlow = false, reflections = true }) {
     const model = getModel(modelId);
-    const color = getColor(model, colorId);
+    const color = getColor(model, colorId, customColors);
     const size = SIZES.find((s) => s.id === sizeId) || SIZES[1];
     const u = PX_PER_MM * size.scale;
     const mm = (v) => `${(v * u).toFixed(2)}px`;
@@ -38,31 +170,21 @@ export class Device extends Emitter {
     this.u = u;
 
     const [W, H] = model.size;
-    const pad = Math.round(26 * size.scale);
+    const T = model.depth * u;
+    // Room around the device for tilting, lifting and the shadow on the desk.
+    const pad = Math.round(46 * size.scale);
     const widthPx = Math.round(W * u + pad * 2);
     const heightPx = Math.round(H * u + pad * 2);
 
-    const front = color.front;
-    const vars = {
-      '--u': `${u}px`,
-      '--front': front,
-      '--front-hi': shade(front, color.dark ? 0.1 : 0.35),
-      '--front-lo': shade(front, color.dark ? -0.35 : -0.12),
-      '--front-edge': shade(front, color.dark ? -0.5 : -0.28),
-      '--wheel': color.wheel,
-      '--wheel-hi': shade(color.wheel, color.dark ? 0.08 : 0.5),
-      '--wheel-lo': shade(color.wheel, color.dark ? -0.3 : -0.08),
-      '--label': color.label,
-      '--center': color.center,
-      '--center-hi': shade(color.center, color.dark ? 0.12 : 0.4),
-      '--center-lo': shade(color.center, color.dark ? -0.35 : -0.14),
-      '--bezel': color.bezel,
-      '--radius': mm(model.radius),
-    };
+    const vars = { ...colorVars(color), '--u': `${u}px`, '--radius': mm(model.radius), '--thick': `${T.toFixed(2)}px` };
 
-    const caseEl = h('div', { class: 'case' }, h('div', { class: 'gloss' }));
+    // A reflection layer: slides by (kx, ky) per unit of tilt; "glint" layers
+    // also brighten as the surface turns toward the light.
+    const refl = (cls, par, glint = true) => h('div', { class: `refl ${cls}`, 'data-par': par, 'data-glint': glint || null });
 
-    // Screen window.
+    const caseEl = h('div', { class: 'case' }, h('div', { class: 'gloss' }, refl('gloss-band', '-16 13')));
+
+    // Screen window. The LCD sits a little behind the clear front.
     const s = model.screen;
     const [resW, resH] = s.res;
     const innerW = (s.w - s.inset[0] * 2) * u;
@@ -70,21 +192,22 @@ export class Device extends Emitter {
     const innerH = resH * zoom;
     const insetY = (s.h * u - innerH) / 2;
     const screen = h('div', { class: 'screen', style: { width: `${resW}px`, height: `${resH}px`, zoom: String(zoom) } });
+    const screenWrap = h(
+      'div',
+      {
+        class: 'screen-wrap',
+        style: { left: mm(s.inset[0]), top: `${insetY.toFixed(2)}px`, width: `${innerW.toFixed(2)}px`, height: `${innerH.toFixed(2)}px` },
+      },
+      screen
+    );
     const bezel = h(
       'div',
       {
         class: 'bezel',
         style: { left: mm(s.x), top: mm(s.y), width: mm(s.w), height: mm(s.h), borderRadius: mm(s.radius) },
       },
-      h(
-        'div',
-        {
-          class: 'screen-wrap',
-          style: { left: mm(s.inset[0]), top: `${insetY.toFixed(2)}px`, width: `${innerW.toFixed(2)}px`, height: `${innerH.toFixed(2)}px` },
-        },
-        screen,
-        h('div', { class: 'glass' })
-      )
+      screenWrap,
+      h('div', { class: 'glass' }, refl('glare', '-30 24'))
     );
     caseEl.append(bezel);
 
@@ -96,19 +219,51 @@ export class Device extends Emitter {
         class: 'wheel',
         style: { left: mm(W / 2 - wd.d / 2), top: mm(wd.cy - wd.d / 2), width: mm(wd.d), height: mm(wd.d) },
       },
+      h('div', { class: 'wheel-sheen' }, refl('sheen', '-9 8')),
       h('div', { class: 'lbl lbl-menu', text: 'MENU' }),
       svg(ICONS.prev, 'lbl lbl-prev'),
       svg(ICONS.next, 'lbl lbl-next'),
       svg(ICONS.playpause, 'lbl lbl-play'),
-      h('div', { class: 'press' })
+      h('div', { class: 'press' }),
+      h('div', { class: 'glow' })
     );
-    const center = h('div', { class: 'center', style: { width: mm(wd.center), height: mm(wd.center) } });
+    const center = h('div', { class: 'center', style: { width: mm(wd.center), height: mm(wd.center) } }, h('div', { class: 'center-spec' }, refl('spec', '-14 12')));
     wheel.append(center);
     caseEl.append(wheel);
 
-    // Hold switch, peeking out of the case edge.
+    // Hold switch: a little fin standing up out of the top edge.
     const holdEl = h('div', { class: `hold-switch hold-${model.hold}`, title: 'Hold switch' }, h('div', { class: 'hold-track' }, h('div', { class: 'hold-knob' })));
     holdEl.classList.toggle('on', this.hold);
+    holdEl.style.transform = `translateZ(${(-T * 0.3).toFixed(2)}px)`;
+
+    // The polished stainless back, shown when you flip the iPod over.
+    const lines = String(engraving || color.engraved || '').split('\n').filter(Boolean).slice(0, 2);
+    const back = h(
+      'div',
+      { class: 'back' },
+      h('div', { class: 'back-env' }, refl('env', '-36 30')),
+      h('div', { class: 'back-mark' }, 'iPod'),
+      lines.length ? h('div', { class: 'back-engraving' }, ...lines.map((l) => h('div', { text: l }))) : null,
+      h('div', { class: 'back-small' }, h('div', { text: `${this.capacity || '30GB'}` }), h('div', { text: 'Made for your desktop' })),
+      h('div', { class: 'back-edge' })
+    );
+
+    // The body: the stainless edge is a closed shell of flat panels around
+    // the rounded-rectangle outline (four walls plus faceted corners), so it
+    // has real thickness from every angle.
+    const shell = buildShell({ W, H, R: model.radius, T, u, refl, jack: { x: W - model.jack, d: 5.2 }, dock: { w: 21, h: 2.4 } });
+
+    const backFace = h('div', { class: 'face face-back' }, h('div', { class: 'rim' }), back);
+    backFace.style.transform = `translateZ(${(-T).toFixed(2)}px) rotateY(180deg)`;
+    const flipper = h(
+      'div',
+      { class: 'flipper' },
+      h('div', { class: 'face face-front' }, h('div', { class: 'rim' }, refl('rim-env', '-6 26', false)), caseEl),
+      ...shell,
+      holdEl,
+      backFace
+    );
+    const ground = h('div', { class: 'ground' }, h('div', { class: 'ground-soft' }), h('div', { class: 'ground-near' }));
 
     const el = h(
       'div',
@@ -120,12 +275,14 @@ export class Device extends Emitter {
           `color-${color.id}`,
           shadow ? 'shadowed' : '',
           this.backlit ? 'backlit' : '',
+          this.flipped ? 'flipped' : '',
+          wheelGlow ? 'glow-on' : '',
+          reflections ? '' : 'no-reflect',
         ].join(' '),
         style: { width: mm(W), height: mm(H), left: `${pad}px`, top: `${pad}px` },
       },
-      h('div', { class: 'rim' }),
-      caseEl,
-      holdEl
+      ground,
+      flipper
     );
     for (const [k, v] of Object.entries(vars)) el.style.setProperty(k, v);
     // Label sizing relative to the wheel so all models look right.
@@ -134,24 +291,60 @@ export class Device extends Emitter {
 
     this.stage.replaceChildren(el);
     this.el = el;
+    this.flipper = flipper;
     this.caseEl = caseEl;
     this.wheel = wheel;
     this.centerEl = center;
     this.holdEl = holdEl;
     this.screen = screen;
-    this.screenWrap = screen.parentElement;
+    this.screenWrap = screenWrap;
     this.zoom = zoom;
 
     this._bindWheel(wheel, center);
-    this._bindCase(caseEl);
+    this._bindCase(flipper);
+    flipper.addEventListener('dblclick', (e) => {
+      if (e.target.closest('.wheel, .hold-switch')) return;
+      this.flip(e.target.closest('.face-back') ? false : undefined);
+    });
     holdEl.addEventListener('pointerdown', (e) => {
       e.stopPropagation();
       this.setHold(!this.hold, true);
     });
 
-    this.windowSize = { width: widthPx, height: heightPx };
+    this.rig.attach({
+      el,
+      flipper,
+      ground: shadow ? ground : null,
+      lcd: screenWrap,
+      thickness: T,
+      depth: model.screen.depth * u,
+      pad,
+      flipped: !!this.flipped,
+      reflections,
+    });
+
+    this.windowSize = { width: widthPx, height: heightPx, pad };
     if (window.ipod) window.ipod.win.resize(this.windowSize);
     return screen;
+  }
+
+  /** Live colour changes (custom colour editor) without rebuilding. */
+  applyColors(color) {
+    if (!this.el) return;
+    for (const [k, v] of Object.entries(colorVars(color))) this.el.style.setProperty(k, v);
+    this.el.classList.toggle('dark', !!color.dark);
+    this.el.classList.toggle('light', !color.dark);
+  }
+
+  /** Turn the iPod over to see the back (and the engraving). */
+  flip(show) {
+    this.flipped = show === undefined ? !this.flipped : !!show;
+    this.rig.flip(this.flipped);
+    this.emit('flip', this.flipped);
+  }
+
+  setGlow(on) {
+    if (this.el) this.el.classList.toggle('glow-on', !!on);
   }
 
   setHold(on, user = false) {
@@ -168,6 +361,7 @@ export class Device extends Emitter {
   // ---------------------------------------------------------------- input --
 
   _press(button, down) {
+    if (down) this.rig.nudge(button);
     this.emit(down ? 'down' : 'up', { button });
   }
 
@@ -208,6 +402,8 @@ export class Device extends Emitter {
       };
       if (isCenter) center.classList.add('pressed');
       else this._showPress(wheel, active.zone);
+      wheel.style.setProperty('--ga', `${((Math.atan2(dx, -dy) * 180) / Math.PI).toFixed(1)}deg`);
+      wheel.classList.toggle('touching', !isCenter);
       this._press(active.zone, true);
     });
 
@@ -224,6 +420,7 @@ export class Device extends Emitter {
       if (d < -Math.PI) d += Math.PI * 2;
       active.angle = angle;
       active.travelled += Math.abs(d);
+      wheel.style.setProperty('--ga', `${((Math.atan2(dx, -dy) * 180) / Math.PI).toFixed(1)}deg`);
       if (active.center && dist < (center.offsetWidth / 2) * 1.05 && !active.scrolling) return;
       active.accum += (d * 180) / Math.PI;
       const step = WHEEL_STEP_DEG[this.wheelSpeed] || 19;
@@ -246,6 +443,7 @@ export class Device extends Emitter {
       if (!active || e.pointerId !== active.id) return;
       if (!active.cancelled) this._press(active.zone, false);
       this._clearPress(wheel, center);
+      wheel.classList.remove('touching');
       active = null;
     };
     wheel.addEventListener('pointerup', end);
@@ -276,29 +474,69 @@ export class Device extends Emitter {
     this._tickTimes.push(now);
     while (this._tickTimes.length && now - this._tickTimes[0] > 500) this._tickTimes.shift();
     const speed = this._tickTimes.length * 2; // ticks per second over the last half second
+    this.rig.twist(dir);
     this.emit('scroll', { dir, speed });
   }
 
-  _bindCase(caseEl) {
-    caseEl.addEventListener('pointerdown', (e) => {
+  /** Grab the iPod anywhere on its body (not the wheel) to carry it around. */
+  _bindCase(body) {
+    body.addEventListener('pointerdown', (e) => {
       if (e.button !== 0) return;
       if (e.target.closest('.wheel, .hold-switch')) return;
       e.preventDefault();
-      caseEl.setPointerCapture(e.pointerId);
+      body.setPointerCapture(e.pointerId);
       this._dragging = true;
+      this.rig.setDragging(true);
       if (window.ipod) window.ipod.win.dragStart();
       const end = () => {
         this._dragging = false;
+        this.rig.setDragging(false);
         if (window.ipod) window.ipod.win.dragEnd();
-        caseEl.removeEventListener('pointerup', end);
-        caseEl.removeEventListener('pointercancel', end);
+        body.removeEventListener('pointerup', end);
+        body.removeEventListener('pointercancel', end);
       };
-      caseEl.addEventListener('pointerup', end);
-      caseEl.addEventListener('pointercancel', end);
+      body.addEventListener('pointerup', end);
+      body.addEventListener('pointercancel', end);
     });
   }
 
   _bindGlobal() {
+    // Drop music files or folders onto the iPod.
+    let dragDepth = 0;
+    const isFiles = (e) => e.dataTransfer && [...(e.dataTransfer.types || [])].includes('Files');
+    window.addEventListener('dragenter', (e) => {
+      if (!isFiles(e)) return;
+      e.preventDefault();
+      dragDepth++;
+      if (this.el) this.el.classList.add('drop-target');
+      this.emit('dragging', true);
+    });
+    window.addEventListener('dragover', (e) => {
+      if (!isFiles(e)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    });
+    window.addEventListener('dragleave', () => {
+      dragDepth = Math.max(0, dragDepth - 1);
+      if (!dragDepth) {
+        if (this.el) this.el.classList.remove('drop-target');
+        this.emit('dragging', false);
+      }
+    });
+    window.addEventListener('drop', (e) => {
+      if (!isFiles(e)) return;
+      e.preventDefault();
+      dragDepth = 0;
+      if (this.el) this.el.classList.remove('drop-target');
+      this.emit('dragging', false);
+      const paths = [...e.dataTransfer.files].map((f) => (window.ipod ? window.ipod.files.pathFor(f) : null)).filter(Boolean);
+      if (paths.length) this.emit('drop', { paths });
+    });
+    window.addEventListener('paste', (e) => {
+      const text = e.clipboardData && e.clipboardData.getData('text/plain');
+      if (text) this.emit('paste', { text });
+    });
+
     window.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       if (e.target.closest('.ipod') && window.ipod) window.ipod.win.contextMenu();
@@ -307,7 +545,7 @@ export class Device extends Emitter {
     // Let clicks fall through the transparent area around the iPod.
     window.addEventListener('mousemove', (e) => {
       if (this._dragging || !window.ipod) return;
-      const over = !!(e.target && e.target.closest && e.target.closest('.case, .hold-switch, .rim'));
+      const over = !!(e.target && e.target.closest && e.target.closest(SOLID));
       if (over !== this._overCase) {
         this._overCase = over;
         window.ipod.win.ignoreMouse(!over);
@@ -355,6 +593,10 @@ export class Device extends Emitter {
       if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
       if (e.ctrlKey || e.metaKey || e.altKey) {
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'q' && window.ipod) window.ipod.win.quit();
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v' && window.ipod) {
+          e.preventDefault();
+          window.ipod.clipboard.read().then((text) => text && this.emit('paste', { text }));
+        }
         return;
       }
       if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {

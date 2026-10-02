@@ -13,9 +13,12 @@
     "lint": "eslint .",
     "icons": "electron scripts/make-icons.js",
     "dist": "electron-builder --win",
-    "dist:portable": "electron-builder --win portable"
+    "dist:portable": "electron-builder --win portable",
+    "test": "node --test \"test/**/*.test.js\" \"test/**/*.test.mjs\""
   },
   "dependencies": {
+    "electron-updater": "^6.8.9",
+    "fast-xml-parser": "^5.11.2",
     "music-metadata": "^11.16.1"
   },
   "devDependencies": {

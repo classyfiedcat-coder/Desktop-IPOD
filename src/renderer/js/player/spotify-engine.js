@@ -436,6 +436,16 @@ export class SpotifyEngine extends Emitter {
     this._schedule(800);
   }
 
+  async addToQueue(track) {
+    try {
+      await this.api.addToQueue(track.uri);
+      return true;
+    } catch (err) {
+      this.emit('error', this._explain(err));
+      return false;
+    }
+  }
+
   async liked() {
     if (!this.track || !this.track.uri || !this.track.uri.startsWith('spotify:track:')) return false;
     try {

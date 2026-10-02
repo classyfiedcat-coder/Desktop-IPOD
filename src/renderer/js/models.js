@@ -13,8 +13,10 @@ export const MODELS = [
     name: 'iPod',
     era: '5th generation (video)',
     size: [61.8, 103.5],
+    depth: 11, // the 30GB model; the 60/80GB one is 14mm
     radius: 7.4,
     hold: 'top-left',
+    jack: 11, // headphone jack centre, from the right edge
     screen: {
       x: 4.6,
       y: 7.2,
@@ -22,6 +24,7 @@ export const MODELS = [
       h: 41.6,
       inset: [1.5, 1.3],
       radius: 1.8,
+      depth: 2.4, // how far the LCD sits behind the clear front (a touch exaggerated)
       res: [320, 240],
       ui: { title: 22, rows: 9, fs: 16 },
     },
@@ -46,6 +49,17 @@ export const MODELS = [
         bezel: '#050505',
         dark: true,
       },
+      {
+        id: 'u2',
+        name: 'U2 Special Edition',
+        front: '#111111',
+        wheel: '#c3132f',
+        label: '#161616',
+        center: '#0b0b0b',
+        bezel: '#050505',
+        dark: true,
+        engraved: 'U2',
+      },
     ],
   },
 ];
@@ -63,6 +77,9 @@ export function getModel(id) {
   return MODELS.find((m) => m.id === id) || MODELS[0];
 }
 
-export function getColor(model, colorId) {
+export function getColor(model, colorId, custom) {
+  if (colorId === 'custom' && custom) {
+    return { id: 'custom', name: 'Custom', ...custom, bezel: custom.dark ? '#050505' : '#1b1c1d' };
+  }
   return model.colors.find((c) => c.id === colorId) || model.colors[0];
 }

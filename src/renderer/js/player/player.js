@@ -1,56 +1,71 @@
 /**
- * One player for everything: local files (LocalEngine) and Spotify
- * (SpotifyEngine). Handles the queue, shuffle/repeat, play counts, ratings,
- * seeking by holding ⏮/⏭, and Windows media controls via MediaSession.
+ * One player for everything. Local songs, podcast episodes and internet
+ * radio play through the AudioEngine (gapless, crossfade, EQ); Spotify plays
+ * through the SpotifyEngine. The Player owns the queue (with Up Next),
+ * shuffle/repeat, play counts, ratings, resume positions for podcasts and
+ * audiobooks, scanning with ⏮/⏭, and the Windows media controls.
  */
 
-import { Emitter, shuffled, clamp } from '../util.js';
-import { LocalEngine } from './local-engine.js';
+import { Emitter, clamp } from '../util.js';
+import { AudioEngine } from './engine.js';
+import { PlayQueue } from './queue.js';
+
+const RESUMABLE = new Set(['podcast', 'audiobook']);
 
 export class Player extends Emitter {
   constructor(store) {
     super();
     this.store = store;
-    this.local = new LocalEngine();
+    this.engine = new AudioEngine();
+    this.local = this.engine; // older call sites
+    this.queue = new PlayQueue();
     this.spotify = null;
-    this.source = null; // 'local' | 'spotify'
-    this.queue = [];
-    this.order = [];
-    this.pos = -1;
+    this.source = null; // 'local' (engine) | 'spotify'
     this._seek = null;
     this._counted = false;
+    this._playedMarked = false;
+    this.buffering = false;
 
     const s = store.settings;
-    this.local.setEQ(s.eq);
-    this.local.setSoundCheck(s.soundCheck);
-    this.local.setVolume(this.volume);
+    const e = this.engine;
+    e.setEQ(s.eq, s.customEq);
+    e.setSoundCheck(s.soundCheck);
+    e.setCrossfade(s.crossfade);
+    e.setVolume(this.effectiveVolume);
+    e.getNext = () => (this.source === 'local' ? this.queue.peekNext(this.store.settings.repeat) : null);
 
-    this.local.on('ended', () => this._ended());
-    this.local.on('state', () => this.source === 'local' && this.emit('state'));
-    this.local.on('time', () => {
+    e.on('advance', (track) => this._advanced(track));
+    e.on('ended', () => this._ended());
+    e.on('state', () => this.source === 'local' && this.emit('state'));
+    e.on('buffering', (b) => {
+      this.buffering = b;
+      if (this.source === 'local') this.emit('buffering', b);
+    });
+    e.on('time', () => {
       if (this.source !== 'local') return;
       this.emit('time');
-      if (!this._counted && this.local.duration && this.local.position / this.local.duration > 0.5) {
-        this._counted = true;
-        this._countPlay(this.track);
-      }
+      this._progress();
     });
-    this.local.on('duration', () => this.source === 'local' && this.emit('time'));
-    this.local.on('error', (err) => {
+    e.on('duration', () => this.source === 'local' && this.emit('time'));
+    e.on('error', (err) => {
       if (this.source !== 'local') return;
+      const t = this.track;
       console.warn('playback error', err);
-      this.emit('error', 'This song can’t be played.');
+      this.emit('error', t && t.live ? 'Can’t connect to this station.' : 'This song can’t be played.');
       // Skip unplayable files like the iPod does.
-      if (this.queue.length > 1) setTimeout(() => this.next({ auto: true }), 400);
+      if (t && !t.live && this.queue.length > 1) setTimeout(() => this.next({ auto: true }), 500);
     });
 
-    store.on('change:eq', (v) => this.local.setEQ(v));
-    store.on('change:soundCheck', (v) => this.local.setSoundCheck(v));
+    store.on('change:eq', (v) => e.setEQ(v, store.settings.customEq));
+    store.on('change:customEq', (v) => store.settings.eq === 'Custom' && e.setEQ('Custom', v));
+    store.on('change:soundCheck', (v) => e.setSoundCheck(v));
+    store.on('change:crossfade', (v) => e.setCrossfade(v));
     store.on('change:volumeLimit', () => this.setVolume(this.volume));
-    store.on('change:audiobookSpeed', (v) => {
-      const t = this.source === 'local' && this.track;
-      if (t && t.kind === 'audiobook') this.local.audio.playbackRate = v || 1;
-    });
+    store.on('change:audiobookSpeed', () => this._applyRate());
+    store.on('change:podcastSpeed', () => this._applyRate());
+    store.on('change:repeat', () => e.invalidateNext());
+
+    if (window.ipod && window.ipod.radio) window.ipod.radio.onMeta((m) => this._radioMeta(m));
     this._initMediaSession();
   }
 
@@ -66,8 +81,8 @@ export class Player extends Emitter {
     });
     engine.on('takeover', () => {
       // Something started playing on Spotify while we were idle: follow it.
-      if (this.source !== 'local' || !this.local.playing) {
-        this.local.pause();
+      if (this.source !== 'local' || !this.engine.playing) {
+        this.engine.pause();
         this.source = 'spotify';
         this.emit('track');
         this.emit('state');
@@ -80,33 +95,38 @@ export class Player extends Emitter {
 
   get track() {
     if (this.source === 'spotify') return this.spotify ? this.spotify.track : null;
-    if (this.source === 'local') return this.queue[this.order[this.pos]] || null;
+    if (this.source === 'local') return this.queue.current;
     return null;
   }
 
   get playing() {
     if (this.source === 'spotify') return !!(this.spotify && this.spotify.playing);
-    if (this.source === 'local') return this.local.playing;
+    if (this.source === 'local') return this.engine.playing;
     return false;
   }
 
   get position() {
     if (this._seek) return this._seek.pos;
     if (this.source === 'spotify') return this.spotify ? this.spotify.position : 0;
-    if (this.source === 'local') return this.local.position;
+    if (this.source === 'local') return this.engine.position;
     return 0;
   }
 
   get duration() {
     if (this.source === 'spotify') return this.spotify ? this.spotify.duration : 0;
-    if (this.source === 'local') return this.local.duration;
+    if (this.source === 'local') return this.engine.duration;
     return 0;
+  }
+
+  get live() {
+    const t = this.track;
+    return !!(t && t.live);
   }
 
   /** {index, total} for the "3 of 12" line. */
   get queueInfo() {
     if (this.source === 'spotify') return this.spotify ? this.spotify.queueInfo : null;
-    if (this.source === 'local' && this.pos >= 0) return { index: this.pos + 1, total: this.order.length };
+    if (this.source === 'local') return this.queue.info;
     return null;
   }
 
@@ -118,21 +138,42 @@ export class Player extends Emitter {
     return Math.min(this.volume, this.store.settings.volumeLimit);
   }
 
+  get rate() {
+    const t = this.track;
+    if (!t || this.source !== 'local') return 1;
+    return this._rateFor(t);
+  }
+
+  _rateFor(t) {
+    const s = this.store.settings;
+    if (t.kind === 'audiobook') return s.audiobookSpeed || 1;
+    if (t.kind === 'podcast') return s.podcastSpeed || 1;
+    return 1;
+  }
+
+  _applyRate() {
+    const t = this.track;
+    if (t && this.source === 'local') {
+      t.rate = this._rateFor(t);
+      this.engine.setTrackRate(t.rate);
+    }
+  }
+
   // ------------------------------------------------------------ playback --
 
   /**
-   * Play a list of tracks starting at index.
-   * Spotify tracks pass a `context` ({ uri } for albums/playlists) so the
-   * Spotify app keeps the queue; otherwise up to 200 URIs are sent.
+   * Play a list starting at index. Spotify tracks pass a `context`
+   * ({ uri } for albums/playlists) so Spotify keeps the queue.
    */
   async playTracks(tracks, index = 0, { shuffle, context } = {}) {
     if (!tracks || !tracks.length) return;
     index = clamp(index, 0, tracks.length - 1);
     const first = tracks[index];
     this._cancelSeek();
+    this._saveBookmark();
     if (first.source === 'spotify') {
       if (!this.spotify) return;
-      this.local.pause();
+      this.engine.pause();
       this.source = 'spotify';
       this.emit('track');
       await this.spotify.playList(tracks, index, { context, shuffle: shuffle || this.store.settings.shuffle });
@@ -140,49 +181,22 @@ export class Player extends Emitter {
     }
     if (this.source === 'spotify' && this.spotify) this.spotify.pause({ quiet: true });
     this.source = 'local';
-    this.queue = tracks.slice();
-    const { order, pos } = this._buildOrder(index, shuffle || this.store.settings.shuffle);
-    this.order = order;
-    this.pos = pos;
+    // Radio and podcasts play in list order; shuffle is for music.
+    const mode = first.live || first.kind === 'podcast' ? 'off' : shuffle || this.store.settings.shuffle;
+    this.queue.load(tracks, index, mode);
     this._load(true);
   }
 
-  /** Returns { order, pos } for the queue starting at startIdx. */
-  _buildOrder(startIdx, mode) {
-    const n = this.queue.length;
-    const idx = [...Array(n).keys()];
-    if (mode === 'songs') {
-      return { order: [startIdx, ...shuffled(idx.filter((i) => i !== startIdx))], pos: 0 };
-    }
-    if (mode === 'albums') {
-      const groups = new Map();
-      idx.forEach((i) => {
-        const t = this.queue[i];
-        const k = `${t.albumArtist}\u0000${t.album}`;
-        if (!groups.has(k)) groups.set(k, []);
-        groups.get(k).push(i);
-      });
-      const st = this.queue[startIdx];
-      const startKey = `${st.albumArtist}\u0000${st.album}`;
-      const first = groups.get(startKey);
-      groups.delete(startKey);
-      const fromStart = first.slice(first.indexOf(startIdx));
-      return { order: [...fromStart, ...shuffled([...groups.values()]).flat()], pos: 0 };
-    }
-    return { order: idx, pos: startIdx };
-  }
-
-  _load(autoplay, at = 0) {
+  _load(autoplay, at) {
     const t = this.track;
     if (!t) return;
     this._counted = false;
-    this.local.load(t);
-    this.local.setVolume(this.effectiveVolume);
-    const rate = t.kind === 'audiobook' ? this.store.settings.audiobookSpeed || 1 : 1;
-    this.local.audio.defaultPlaybackRate = rate;
-    this.local.audio.playbackRate = rate;
-    if (at) this.local.audio.addEventListener('loadedmetadata', () => this.local.seek(at), { once: true });
-    if (autoplay) this.local.play();
+    this._playedMarked = false;
+    t.rate = this._rateFor(t);
+    if (at === undefined) at = this._bookmarkFor(t);
+    this.engine.setVolume(this.effectiveVolume);
+    this.engine.load(t, { autoplay, at });
+    if (t.live) t.startedAt = Date.now();
     this.emit('track');
     this.emit('state');
     this._updateMediaSession();
@@ -196,8 +210,10 @@ export class Player extends Emitter {
 
   play() {
     if (this.source === 'spotify') return this.spotify && this.spotify.resume();
-    if (this.source === 'local') return this.local.play();
-    // Nothing queued: resume Spotify if it has something, like the iPod resuming last song.
+    if (this.source === 'local') {
+      if (this.track && this.track.live && !this.engine.playing) return this._load(true, 0);
+      return this.engine.play();
+    }
     if (this.spotify && this.spotify.track) {
       this.source = 'spotify';
       this.spotify.resume();
@@ -207,7 +223,10 @@ export class Player extends Emitter {
 
   pause() {
     if (this.source === 'spotify') return this.spotify && this.spotify.pause();
-    if (this.source === 'local') this.local.pause();
+    if (this.source === 'local') {
+      this.engine.pause();
+      this._saveBookmark();
+    }
     this._saveSession();
   }
 
@@ -216,50 +235,60 @@ export class Player extends Emitter {
     if (this.source === 'spotify') return this.spotify && this.spotify.next();
     if (this.source !== 'local') return;
     const t = this.track;
-    if (!auto && t && this.local.position < this.local.duration * 0.5) this._skip(t);
-    if (auto && this.store.settings.repeat === 'one') {
-      this.local.seek(0);
-      this.local.play();
+    if (!auto && t && !t.live && this.engine.position < this.engine.duration * 0.5) this._skip(t);
+    this._saveBookmark();
+    const wasPlaying = auto || this.playing;
+    const res = this.queue.advance({ repeat: this.store.settings.repeat, auto });
+    if (!res.track) return this.stop();
+    if (res.same) {
+      this.engine.seek(0);
+      this.engine.play();
       this._counted = false;
       return;
     }
-    if (this.pos + 1 >= this.order.length) {
-      if (this.store.settings.repeat === 'all' || this.store.settings.repeat === 'one') {
-        if (this.store.settings.shuffle === 'songs') this.order = shuffled(this.order);
-        this.pos = 0;
-        this._load(true);
-      } else if (auto) {
-        this.stop();
-      } else {
-        this.pos = 0;
-        this._load(false);
-      }
-      return;
+    if (res.stop && auto) {
+      // End of the list: stop, ready at the first song (Now Playing closes).
+      return this.stop();
     }
-    const wasPlaying = auto || this.playing;
-    this.pos++;
-    this._load(wasPlaying);
+    this._load(wasPlaying && !res.stop, res.stop ? 0 : undefined);
   }
 
   prev() {
     this._cancelSeek();
     if (this.source === 'spotify') return this.spotify && this.spotify.prev();
     if (this.source !== 'local') return;
-    if (this.local.position > 3 || this.pos === 0) {
-      this.local.seek(0);
+    const t = this.track;
+    if (!t) return;
+    if ((!t.live && this.engine.position > 3) || (this.queue.pos <= 0 && !this.queue.interject)) {
+      if (t.live) return;
+      this.engine.seek(0);
       if (!this.playing) this.emit('time');
       return;
     }
+    this._saveBookmark();
     const wasPlaying = this.playing;
-    this.pos--;
-    this._load(wasPlaying);
+    this.queue.back();
+    this._load(wasPlaying, 0);
+  }
+
+  /** Jump to an entry of the current list (from the Up Next screen). */
+  jumpTo(orderIndex) {
+    if (this.source !== 'local') return;
+    if (this.queue.jumpTo(orderIndex)) this._load(true);
+  }
+
+  playUpNextAt(i) {
+    const t = this.queue.upNext[i];
+    if (!t) return;
+    this.queue.upNext.splice(i, 1);
+    this.queue.interject = t;
+    this._load(true);
   }
 
   stop() {
-    this.local.stop();
-    this.queue = [];
-    this.order = [];
-    this.pos = -1;
+    this._saveBookmark();
+    this.engine.stop();
+    this.queue.clear();
     this.source = null;
     this.emit('track');
     this.emit('state');
@@ -270,24 +299,24 @@ export class Player extends Emitter {
   seek(sec) {
     if (this.source === 'spotify') return this.spotify && this.spotify.seek(sec);
     if (this.source === 'local') {
-      this.local.seek(sec);
+      this.engine.seek(sec);
       this.emit('time');
     }
   }
 
   /** Hold ⏭/⏮: scan through the song, faster the longer you hold. */
   seekStart(dir) {
-    if (!this.track) return;
+    if (!this.track || this.live) return;
     this._cancelSeek();
     const start = performance.now();
-    const st = { dir, pos: this.position, wasPlaying: this.playing };
+    const st = { dir, pos: this.position };
     this._seek = st;
-    if (this.source === 'local') this.local.audio.muted = true;
+    if (this.source === 'local') this.engine.setMuted(true);
     st.timer = setInterval(() => {
       const held = (performance.now() - start) / 1000;
       const rate = held > 4 ? 24 : held > 2 ? 10 : 5;
       st.pos = clamp(st.pos + dir * rate * 0.1, 0, Math.max(0, this.duration - 0.5));
-      if (this.source === 'local') this.local.seek(st.pos);
+      if (this.source === 'local') this.engine.seek(st.pos);
       this.emit('time');
     }, 100);
   }
@@ -296,12 +325,8 @@ export class Player extends Emitter {
     const st = this._seek;
     if (!st) return;
     this._cancelSeek();
-    if (this.source === 'local') {
-      this.local.audio.muted = false;
-      this.local.seek(st.pos);
-    } else if (this.source === 'spotify' && this.spotify) {
-      this.spotify.seek(st.pos);
-    }
+    if (this.source === 'local') this.engine.seek(st.pos);
+    else if (this.source === 'spotify' && this.spotify) this.spotify.seek(st.pos);
     this.emit('time');
   }
 
@@ -309,7 +334,7 @@ export class Player extends Emitter {
     if (this._seek) {
       clearInterval(this._seek.timer);
       this._seek = null;
-      this.local.audio.muted = false;
+      this.engine.setMuted(false);
     }
   }
 
@@ -317,7 +342,7 @@ export class Player extends Emitter {
     v = clamp(v, 0, 1);
     this.store.set('volume', v);
     const eff = this.effectiveVolume;
-    this.local.setVolume(eff);
+    this.engine.setVolume(eff);
     if (this.source === 'spotify' && this.spotify) this.spotify.setVolume(eff);
     this.emit('volume', v);
   }
@@ -325,10 +350,8 @@ export class Player extends Emitter {
   setShuffle(mode) {
     this.store.set('shuffle', mode);
     if (this.source === 'local' && this.queue.length) {
-      const cur = this.order[this.pos];
-      const { order, pos } = this._buildOrder(cur, mode);
-      this.order = order;
-      this.pos = pos;
+      this.queue.setMode(mode);
+      this.engine.invalidateNext();
       this.emit('track');
     } else if (this.source === 'spotify' && this.spotify) {
       this.spotify.setShuffle(mode !== 'off');
@@ -340,15 +363,124 @@ export class Player extends Emitter {
     if (this.source === 'spotify' && this.spotify) this.spotify.setRepeat(mode === 'one' ? 'track' : mode === 'all' ? 'context' : 'off');
   }
 
+  // --------------------------------------------------------------- up next --
+
+  /** "Play Next": local songs go to the iPod's Up Next, Spotify songs to Spotify's queue. */
+  async playNext(tracks, { last = false } = {}) {
+    tracks = (Array.isArray(tracks) ? tracks : [tracks]).filter(Boolean);
+    if (!tracks.length) return false;
+    if (tracks[0].source === 'spotify') {
+      if (!this.spotify) return false;
+      for (const t of tracks) await this.spotify.addToQueue(t);
+      return true;
+    }
+    if (!this.track || this.source !== 'local') {
+      await this.playTracks(tracks, 0);
+      return true;
+    }
+    if (last) this.queue.addToUpNext(tracks);
+    else this.queue.playNext(tracks);
+    this.engine.invalidateNext();
+    this.emit('queue');
+    return true;
+  }
+
+  addToUpNext(tracks) {
+    return this.playNext(tracks, { last: true });
+  }
+
+  removeUpNext(i) {
+    this.queue.removeUpNext(i);
+    this.engine.invalidateNext();
+    this.emit('queue');
+  }
+
+  clearUpNext() {
+    this.queue.clearUpNext();
+    this.engine.invalidateNext();
+    this.emit('queue');
+  }
+
+  // ------------------------------------------------------------ internals --
+
+  _advanced() {
+    // The engine moved to the preloaded song on its own.
+    const prev = this.track;
+    if (prev && !this._counted) this._countPlay(prev);
+    this._markPlayed(prev);
+    const res = this.queue.advance({ repeat: this.store.settings.repeat, auto: true });
+    if (!res.track) return;
+    this._counted = false;
+    this._playedMarked = false;
+    this.emit('track');
+    this.emit('state');
+    this._updateMediaSession();
+    this._saveSession();
+  }
+
   _ended() {
     if (this.source !== 'local') return;
     const t = this.track;
     if (t && !this._counted) this._countPlay(t);
+    this._markPlayed(t);
+    if (t && RESUMABLE.has(t.kind)) this._clearBookmark(t);
     this.next({ auto: true });
   }
 
+  _progress() {
+    const t = this.track;
+    if (!t || t.live) return;
+    const d = this.engine.duration;
+    const p = this.engine.position;
+    if (!d) return;
+    if (!this._counted && p / d > 0.5) {
+      this._counted = true;
+      this._countPlay(t);
+    }
+    if (!this._playedMarked && p / d > 0.95) this._markPlayed(t);
+    if (RESUMABLE.has(t.kind)) {
+      const now = Date.now();
+      if (!this._bmAt || now - this._bmAt > 5000) {
+        this._bmAt = now;
+        this._saveBookmark();
+      }
+    }
+  }
+
+  _bookmarkFor(t) {
+    if (!RESUMABLE.has(t.kind)) return 0;
+    const at = this.store.user.bookmarks[t.id] || 0;
+    const d = t.duration || 0;
+    return at > 5 && (!d || at < d - 15) ? at : 0;
+  }
+
+  _saveBookmark() {
+    const t = this.source === 'local' ? this.track : null;
+    if (!t || !RESUMABLE.has(t.kind)) return;
+    const p = this.engine.position;
+    if (p > 5) {
+      this.store.user.bookmarks[t.id] = Math.round(p);
+      this.store.touchUser();
+    }
+  }
+
+  _clearBookmark(t) {
+    delete this.store.user.bookmarks[t.id];
+    this.store.touchUser();
+  }
+
+  _markPlayed(t) {
+    if (!t || this._playedMarked || t.live) return;
+    this._playedMarked = true;
+    if (t.kind === 'podcast' || t.kind === 'audiobook') {
+      this.store.user.played[t.id] = Date.now();
+      this.store.touchUser();
+      this.emit('played', t);
+    }
+  }
+
   _countPlay(t) {
-    if (!t || t.source !== 'local') return;
+    if (!t || t.live) return;
     const u = this.store.user;
     u.plays[t.id] = (u.plays[t.id] || 0) + 1;
     u.lastPlayed[t.id] = Date.now();
@@ -362,7 +494,23 @@ export class Player extends Emitter {
     this.store.touchUser();
   }
 
-  // -------------------------------------------------------------- extras --
+  _radioMeta(m) {
+    const t = this.track;
+    if (!t || !t.live || m.sid !== t.sid) return;
+    if (m.station && !t.stationName) t.stationName = m.station;
+    if (m.StreamTitle !== undefined) {
+      const title = (m.title || '').trim();
+      const artist = (m.artist || '').trim();
+      t.title = title || t.stationName || t.station.name;
+      t.artist = artist || (title ? t.station.name : t.stationTags || 'Live Radio');
+      t.album = t.station.name;
+      t.nowPlaying = m.StreamTitle;
+      this.emit('meta', t);
+      this._updateMediaSession();
+    }
+  }
+
+  // ---------------------------------------------------------------- extras --
 
   get rating() {
     const t = this.track;
@@ -378,33 +526,25 @@ export class Player extends Emitter {
   }
 
   addToOnTheGo(track) {
-    if (!track) return false;
-    const u = this.store.user;
-    if (track.source === 'local') {
-      u.otg.push(track.id);
-      this.store.touchUser();
-      return true;
-    }
-    return false;
+    if (!track || track.source !== 'local') return false;
+    this.store.user.otg.push(track.id);
+    this.store.touchUser();
+    return true;
   }
 
   _saveSession() {
     if (this.source !== 'local' || !this.queue.length) return;
-    const u = this.store.user;
-    const ids = this.queue.slice(0, 2000).map((t) => t.id);
-    u.lastSession = { ids, order: this.order.filter((i) => i < ids.length), pos: this.pos, at: this.local.position };
+    const cur = this.track;
+    if (cur && cur.source !== 'local') return; // only local music queues are restored
+    this.store.user.lastSession = { ...this.queue.serialize(), at: this.engine.position };
     this.store.touchUser();
   }
 
   /** Bring back the last local queue (paused), like an iPod waking up. */
   restoreSession(library) {
     const s = this.store.user.lastSession;
-    if (!s || !s.ids || !s.ids.length) return;
-    const tracks = s.ids.map((id) => library.get(id));
-    if (tracks.some((t) => !t)) return;
-    this.queue = tracks;
-    this.order = s.order && s.order.length ? s.order : [...tracks.keys()];
-    this.pos = clamp(s.pos || 0, 0, this.order.length - 1);
+    if (!s || !s.ids) return;
+    if (!this.queue.restore(s, (id) => library.get(id))) return;
     this.source = 'local';
     this._load(false, s.at || 0);
   }
@@ -418,10 +558,15 @@ export class Player extends Emitter {
     ms.setActionHandler('previoustrack', () => this.prev());
     try {
       ms.setActionHandler('seekto', (d) => this.seek(d.seekTime));
+      ms.setActionHandler('seekforward', () => this.seek(this.position + 15));
+      ms.setActionHandler('seekbackward', () => this.seek(this.position - 15));
     } catch {
       /* unsupported */
     }
-    window.addEventListener('beforeunload', () => this._saveSession());
+    window.addEventListener('beforeunload', () => {
+      this._saveBookmark();
+      this._saveSession();
+    });
     setInterval(() => this.playing && this._saveSession(), 15000);
   }
 

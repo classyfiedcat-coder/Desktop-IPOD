@@ -1,8 +1,9 @@
 /** Spotify menus: Playlists, Liked Songs, Albums, Artists, Podcasts… */
 
 import { ListView } from './list.js';
-import { trackHold } from './menus.js';
 import { SearchView } from './search.js';
+import { songOptions } from './options.js';
+import { CoverFlowView } from './coverflow.js';
 
 export function createSpotifyMenus(app) {
   const api = app.spotifyApi;
@@ -20,15 +21,26 @@ export function createSpotifyMenus(app) {
       app.player.playTracks(tracks, Math.max(0, i), { context });
       app.nav.nowPlaying();
     },
-    onHold: (_item, view) => trackHold(app, t, view),
+    onHold: (_item, view) => songOptions(app, t, { view }),
   });
 
-  /** A lazily-paged list of tracks sharing one queue array. */
+  /** A lazily-paged list of tracks sharing one queue array, with Shuffle at the top. */
   const tracksView = (title, fetchPage, { context, empty = 'No songs', fallback } = {}) => {
     const tracks = [];
-    const add = (res) => {
+    const shuffle = {
+      label: 'Shuffle',
+      icon: 'shuffle',
+      arrow: false,
+      action: () => {
+        if (!tracks.length) return;
+        app.player.playTracks(tracks, Math.floor(Math.random() * tracks.length), { context, shuffle: 'songs' });
+        app.nav.nowPlaying();
+      },
+    };
+    const add = (res, first) => {
       tracks.push(...res.items);
-      return { items: res.items.map((t) => trackItem(tracks, t, context)), more: res.more };
+      const items = res.items.map((t) => trackItem(tracks, t, context));
+      return { items: first && res.items.length > 1 ? [shuffle, ...items] : items, more: res.more };
     };
     return new ListView({
       title,
@@ -36,7 +48,7 @@ export function createSpotifyMenus(app) {
       load: async () => {
         try {
           tracks.length = 0;
-          return add(await fetchPage(0));
+          return add(await fetchPage(0), true);
         } catch (err) {
           if (fallback && (err.status === 403 || err.status === 404)) return fallback(err);
           throw friendly(err);
@@ -85,7 +97,7 @@ export function createSpotifyMenus(app) {
     });
 
   const playContext = async (uri, shuffle = false) => {
-    app.player.local.pause();
+    app.player.engine.pause();
     app.player.source = 'spotify';
     if (shuffle !== app.spotify.shuffleState) await app.spotify.setShuffle(shuffle);
     app.spotify.list = null;
@@ -210,6 +222,18 @@ export function createSpotifyMenus(app) {
             label: 'Recently Played',
             view: () => tracksView('Recently Played', async () => ({ items: await api.recentlyPlayed(), more: false }), { empty: 'Nothing played recently' }),
           },
+          {
+            label: 'Cover Flow',
+            arrow: true,
+            action: async () => {
+              app.os.alert('Loading albums…', 900);
+              try {
+                app.os.push(await app.spotifyMenus.coverFlow());
+              } catch (err) {
+                app.os.alert(friendly(err).message);
+              }
+            },
+          },
           { label: 'Search', view: () => spotifySearch() },
           { label: 'Devices', view: () => devicesView() },
         ],
@@ -218,7 +242,45 @@ export function createSpotifyMenus(app) {
     openAlbum(al) {
       app.os.push(albumView(al));
     },
+    openArtist(ar) {
+      app.os.push(artistView(ar));
+    },
     devices: devicesView,
+    /** Spotify results for the unified Music › Search. */
+    async searchItems(q) {
+      const r = await api.search(q);
+      const items = [];
+      for (const t of r.tracks) items.push({ ...trackItem(r.tracks, t), value: t.artist });
+      for (const al of r.albums) items.push({ label: al.title, value: 'Album', view: () => albumView(al) });
+      for (const ar of r.artists) items.push({ label: ar.name, value: 'Artist', view: () => artistView(ar) });
+      for (const pl of r.playlists) items.push({ label: pl.name, value: 'Playlist', view: () => playlistView(pl) });
+      return items;
+    },
+    /** Cover Flow over your saved Spotify albums. */
+    async coverFlow() {
+      const all = [];
+      let offset = 0;
+      for (let i = 0; i < 8; i++) {
+        const page = await api.savedAlbums(offset);
+        all.push(...page.items);
+        if (!page.more) break;
+        offset += page.items.length;
+      }
+      return new CoverFlowView(app, {
+        albums: all.map((al) => ({ ...al, spotify: true })),
+        loadTracks: async (al) => {
+          const out = [];
+          let off = 0;
+          for (let i = 0; i < 4; i++) {
+            const page = await api.albumTracks(al, off);
+            out.push(...page.items);
+            if (!page.more) break;
+            off += page.items.length;
+          }
+          return out;
+        },
+      });
+    },
   };
 
   function spotifySearch() {

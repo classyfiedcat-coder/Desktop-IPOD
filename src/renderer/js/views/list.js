@@ -55,6 +55,7 @@ export class ListView extends View {
         'div',
         { class: 'row' },
         h('img', { class: 'thumb', alt: '', draggable: 'false' }),
+        h('span', { class: 'dot' }),
         h('div', { class: 'label' }, h('span', { class: 'label-inner' }), h('span', { class: 'sub' })),
         h('span', { class: 'value' }),
         h('span', { class: 'icon' }),
@@ -76,6 +77,7 @@ export class ListView extends View {
     el.append(this.letterEl);
 
     if (!this.items && typeof this.o.items === 'function') this.items = this.o.items();
+    if (this.items) this.sel = this._selectable(clamp(this.sel, 0, Math.max(0, this.items.length - 1)), 1);
     if (!this.items && this.o.load && !this.loading) this.reload();
     this.paint();
   }
@@ -123,7 +125,17 @@ export class ListView extends View {
     this.items = items || [];
     if (!keepSel) this.sel = 0;
     this.sel = clamp(this.sel, 0, Math.max(0, this.items.length - 1));
+    this.sel = this._selectable(this.sel, 1);
     if (this.mounted) this.paint();
+  }
+
+  /** Nearest index that isn't a section header, searching in dir first. */
+  _selectable(i, dir) {
+    const items = this.items || [];
+    if (!items[i] || !items[i].header) return i;
+    for (let j = i; j >= 0 && j < items.length; j += dir) if (!items[j].header) return j;
+    for (let j = i; j >= 0 && j < items.length; j -= dir) if (!items[j].header) return j;
+    return i;
   }
 
   refresh() {
@@ -166,8 +178,11 @@ export class ListView extends View {
       const checked = typeof item.checked === 'function' ? item.checked() : item.checked;
       const icon = typeof item.icon === 'function' ? item.icon() : item.icon;
       const hasArrow = item.arrow !== undefined ? item.arrow : !!item.view;
+      const dot = typeof item.dot === 'function' ? item.dot() : item.dot;
       row.className = [
         'row',
+        item.header ? 'header' : '',
+        dot ? 'has-dot' : '',
         selected ? 'sel' : '',
         hasArrow ? 'has-arrow' : '',
         value !== undefined && value !== null && value !== '' ? 'has-value' : '',
@@ -243,8 +258,17 @@ export class ListView extends View {
       if (speed > 34) step = items.length > 600 ? 12 : items.length > 150 ? 6 : 3;
       else if (speed > 24) step = items.length > 300 ? 4 : 2;
     }
-    const next = clamp(this.sel + dir * step, 0, items.length - 1);
-    if (next === this.sel) return false;
+    let next = clamp(this.sel + dir * step, 0, items.length - 1);
+    next = this._selectable(next, dir);
+    if (next === this.sel || (items[next] && items[next].header)) {
+      // Show the section header above the first item when scrolling up to the top.
+      if (dir < 0 && this.top > 0) {
+        this.top--;
+        this.paint();
+        return true;
+      }
+      return false;
+    }
     this.sel = next;
     this.paint();
     if (this.o.index && step > 1) this._showLetter();
@@ -277,7 +301,7 @@ export class ListView extends View {
 
   onSelect() {
     const item = this.selected;
-    if (!item || item.disabled) return;
+    if (!item || item.disabled || item.header) return;
     if (item.view) {
       const v = item.view(item, this);
       if (v) this.os.push(v);

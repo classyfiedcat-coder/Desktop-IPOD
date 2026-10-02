@@ -20,12 +20,36 @@ export class LocalLibrary extends Emitter {
       this.progress = p;
       this.emit('progress', p);
     });
+    window.ipod.library.onFoldersChanged(() => {
+      if (this.store.settings.autoUpdateLibrary) this.scan();
+    });
+    window.ipod.library.onArtUpdated(() => this.reload());
+    store.on('change:autoUpdateLibrary', (v) => window.ipod.library.autoUpdate(v));
+  }
+
+  normalize(t) {
+    return { ...t, source: 'local', art: ART_URL(t.art), artKey: t.art || null, src: TRACK_URL(t.id) };
+  }
+
+  /** Re-read the index (after artwork was added). */
+  async reload() {
+    try {
+      this._set(await window.ipod.library.get());
+    } catch {
+      /* ignore */
+    }
+  }
+
+  /** Tracks opened with the iPod that aren't in the library. */
+  transient(tracks) {
+    return tracks.map((t) => this.byId.get(t.id) || this.normalize(t));
   }
 
   async init() {
     try {
       const data = await window.ipod.library.get();
       this._set(data);
+      window.ipod.library.autoUpdate(this.store.settings.autoUpdateLibrary);
       const foldersChanged = JSON.stringify(data.folders || []) !== JSON.stringify(this.store.musicFolders());
       if (!data.scannedAt || foldersChanged) this.scan();
       else if (Date.now() - data.scannedAt > 1000 * 60 * 60 * 6) this.scan(); // background refresh
@@ -34,30 +58,38 @@ export class LocalLibrary extends Emitter {
     }
   }
 
-  async scan() {
-    if (this.scanning) return;
+  scan() {
+    if (this._scanJob) {
+      // A scan is running; run once more afterwards so new folders are included.
+      this._again = true;
+      return this._scanJob;
+    }
     this.scanning = true;
     this.emit('scan', true);
-    try {
-      const data = await window.ipod.library.scan(this.store.musicFolders());
-      this._set(data);
-    } catch (err) {
-      console.warn('scan failed', err);
-    } finally {
-      this.scanning = false;
-      this.progress = null;
-      this.emit('scan', false);
-    }
+    this._scanJob = (async () => {
+      try {
+        do {
+          this._again = false;
+          this._set(await window.ipod.library.scan(this.store.musicFolders()));
+        } while (this._again);
+        if (this.store.settings.autoArtwork && this.albums.some((a) => !a.art && a.title !== 'Unknown Album')) {
+          window.ipod.library.fillArtwork().catch(() => {});
+        }
+      } catch (err) {
+        console.warn('scan failed', err);
+      } finally {
+        this.scanning = false;
+        this.progress = null;
+        this._scanJob = null;
+        this.emit('scan', false);
+      }
+    })();
+    return this._scanJob;
   }
 
   _set(data) {
     this.scannedAt = data.scannedAt || 0;
-    this.tracks = (data.tracks || []).map((t) => ({
-      ...t,
-      source: 'local',
-      art: ART_URL(t.art),
-      src: TRACK_URL(t.id),
-    }));
+    this.tracks = (data.tracks || []).map((t) => this.normalize(t));
     this.byId = new Map(this.tracks.map((t) => [t.id, t]));
     this.playlists = data.playlists || [];
     this._build();

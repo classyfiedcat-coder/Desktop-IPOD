@@ -3,20 +3,23 @@
 import { ListView } from '../list.js';
 import { clocksMenu } from './clock.js';
 import { alarmsMenu, AlarmClock, SleepTimer } from './alarms.js';
-import { StopwatchView, screenLockMenu, CalendarView, notesMenu } from './tools.js';
+import { StopwatchView, screenLockMenu, notesMenu } from './tools.js';
 import { gamesMenu } from './games.js';
+import { createPim } from './pim.js';
 
 export function createExtras(app) {
   app.alarmClock = new AlarmClock(app);
   app.sleepTimer = new SleepTimer(app);
+  const pim = createPim(app);
   return {
     menu() {
       return new ListView({
         title: 'Extras',
         items: [
           { label: 'Alarms', view: () => alarmsMenu(app) },
-          { label: 'Calendar', view: () => new CalendarView() },
+          { label: 'Calendars', view: () => pim.calendars() },
           { label: 'Clocks', view: () => clocksMenu(app) },
+          { label: 'Contacts', view: () => pim.contacts() },
           { label: 'Games', view: () => gamesMenu(app) },
           { label: 'Notes', view: () => notesMenu(app) },
           { label: 'Screen Lock', view: () => screenLockMenu(app) },

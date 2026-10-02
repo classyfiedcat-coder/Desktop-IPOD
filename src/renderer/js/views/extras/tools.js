@@ -202,8 +202,10 @@ export function screenLockMenu(app) {
 // --------------------------------------------------------------- calendar --
 
 export class CalendarView extends View {
-  constructor() {
+  /** @param {{ events?: () => Array, onDay?: (date: Date, events: Array) => void }} [o] */
+  constructor(o = {}) {
     super({ title: 'Calendar' });
+    this.o = o;
     const t = new Date();
     this.date = new Date(t.getFullYear(), t.getMonth(), t.getDate());
   }
@@ -218,21 +220,34 @@ export class CalendarView extends View {
     this.el.replaceChildren(this.head, names, this.grid, this.foot);
     this.paint();
   }
+  eventsOn(y, m, d) {
+    const from = new Date(y, m, d).getTime();
+    return (this._month || []).filter((e) => e.start < from + 86400000 && e.end > from);
+  }
   paint() {
     const d = this.date;
     this.setTitle(d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }));
-    this.head.textContent = '';
     const first = new Date(d.getFullYear(), d.getMonth(), 1);
     const days = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    if (this._monthKey !== key) {
+      this._monthKey = key;
+      this._month = this.o.events ? this.o.events(first.getTime(), new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime()) : [];
+    }
     const today = new Date();
     const cells = [];
     for (let i = 0; i < first.getDay(); i++) cells.push(h('span', { class: 'cal-day blank' }));
     for (let n = 1; n <= days; n++) {
       const isToday = today.getFullYear() === d.getFullYear() && today.getMonth() === d.getMonth() && today.getDate() === n;
-      cells.push(h('span', { class: `cal-day ${n === d.getDate() ? 'sel' : ''} ${isToday ? 'today' : ''}`, text: String(n) }));
+      const has = this.eventsOn(d.getFullYear(), d.getMonth(), n).length;
+      cells.push(h('span', { class: `cal-day ${n === d.getDate() ? 'sel' : ''} ${isToday ? 'today' : ''} ${has ? 'has-ev' : ''}`, text: String(n) }));
     }
     this.grid.replaceChildren(...cells);
-    this.foot.textContent = d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+    const evs = this.eventsOn(d.getFullYear(), d.getMonth(), d.getDate());
+    this.foot.textContent = evs.length
+      ? `${evs[0].summary || 'Event'}${evs.length > 1 ? ` +${evs.length - 1} more` : ''}`
+      : d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+    this.foot.classList.toggle('has-ev', !!evs.length);
   }
   onScroll(dir) {
     this.date = new Date(this.date.getFullYear(), this.date.getMonth(), this.date.getDate() + dir);
@@ -249,10 +264,17 @@ export class CalendarView extends View {
     this.paint();
     return true;
   }
-  onSelect() {
+  onPlay() {
     const t = new Date();
     this.date = new Date(t.getFullYear(), t.getMonth(), t.getDate());
     this.paint();
+    return true;
+  }
+  onSelect() {
+    const d = this.date;
+    const evs = this.eventsOn(d.getFullYear(), d.getMonth(), d.getDate());
+    if (evs.length && this.o.onDay) this.o.onDay(new Date(d), evs);
+    else this.onPlay();
   }
 }
 
@@ -297,7 +319,7 @@ export function notesMenu(app) {
       const folder = app.store.settings.notesFolder;
       if (folder) {
         try {
-          notes = await window.ipod.media.notes(folder);
+          notes = (await window.ipod.media.texts(folder, 'notes')).map((n) => ({ title: n.name, body: n.text }));
         } catch {
           notes = [];
         }
