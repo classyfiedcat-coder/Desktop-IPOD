@@ -142,6 +142,11 @@ export function luminance(hex) {
   return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
 }
 
+/** Who, which album, which year: what tells one version of a song from another. */
+export function versionLine(t) {
+  return [t.artist, t.album, t.year].filter(Boolean).join(' · ');
+}
+
 export class Emitter {
   constructor() {
     this._l = new Map();

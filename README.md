@@ -53,6 +53,7 @@ A free-floating iPod (5th generation) that lives on your desktop, on Windows and
 **Spotify**
 - Playlists, Liked Songs, saved Albums, followed Artists, Podcasts, Recently Played, Search and Devices.
 - Like songs from Now Playing, add them to the queue or to your playlists.
+- Search shows album art, the artist, album and year for every song, so you can pick the version you want. A song picked from search plays on its own, then Spotify carries on with your queue and songs like it, just like in the Spotify app.
 - Plays through the Spotify app on your computer, or any Spotify Connect speaker, with the iPod as the remote. If Spotify isn't open, the iPod opens it for you.
 
 **Extras**

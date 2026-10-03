@@ -66,6 +66,8 @@ export function normTrack(t, album) {
     duration: (t.duration_ms || 0) / 1000,
     trackNo: t.track_number || null,
     discNo: t.disc_number || null,
+    // The album's year tells versions apart (the original, the remaster, the soundtrack…).
+    year: parseInt(String(al.release_date || al.year || '').slice(0, 4), 10) || null,
     explicit: !!t.explicit,
     playable: t.is_playable !== false && !t.is_local,
   };
@@ -249,7 +251,7 @@ export class SpotifyAPI extends Emitter {
 
   async albumTracks(album, offset = 0) {
     const d = await this.page(`/albums/${album.id}/tracks`, offset);
-    const al = { name: album.title, id: album.id, uri: album.uri, images: album.art ? [{ url: album.art }] : [], artists: [{ name: album.artist }] };
+    const al = { name: album.title, id: album.id, uri: album.uri, images: album.art ? [{ url: album.art }] : [], artists: [{ name: album.artist }], year: album.year };
     return { items: (d.items || []).map((t) => normTrack(t, al)).filter(Boolean), more: !!d.next };
   }
 

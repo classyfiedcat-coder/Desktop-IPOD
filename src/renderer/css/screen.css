@@ -384,6 +384,26 @@
 .row .sub:empty {
   display: none;
 }
+/* Rows in a list with artwork that have no picture of their own (headings,
+   recent searches). */
+.row.no-thumb.with-thumb .thumb {
+  display: none;
+}
+.row.no-thumb.with-thumb .label {
+  padding-left: 8px;
+}
+/* An explicit song: Spotify's boxed E. */
+.row.explicit .value {
+  font: 700 calc(var(--fs) * 0.62) / 1.4 var(--font);
+  padding: 0 3px;
+  border-radius: 2px;
+  background: var(--muted);
+  color: #fff;
+}
+.row.explicit.sel .value {
+  background: rgba(255, 255, 255, 0.85);
+  color: #2a74dc;
+}
 .thumbs .row + .row {
   border-top: 1px solid #e3e6e9;
 }

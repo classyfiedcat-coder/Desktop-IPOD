@@ -114,6 +114,15 @@
   top: -4px;
   font: 700 8px / 1 var(--font);
 }
+.np-explicit {
+  /* Spotify's "explicit" mark. */
+  align-self: center;
+  font: 700 9px / 12px var(--font);
+  padding: 0 3px;
+  border-radius: 2px;
+  background: #3a4048;
+  color: #fff;
+}
 .np-device {
   position: absolute;
   right: 12px;

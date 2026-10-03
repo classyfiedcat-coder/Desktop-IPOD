@@ -16,6 +16,11 @@ The iPod comes to the Mac, syncs with your iTunes or Music library, and keeps it
 - Star ratings, play counts, last played and date added come from iTunes, so Top 25 Most Played, Recently Played and My Top Rated reflect years of listening. Plays on the iPod add to iTunes', and a rating you give on the iPod wins. Nothing in iTunes is changed.
 - It's read again whenever iTunes saves it, and matched to your music files by where they are. Settings › Music Library › iTunes Library shows how many songs matched and how to turn on sharing in iTunes or Music.
 
+### Spotify
+- Picking a song from search plays that song, then Spotify carries on the way it would itself: your queue, then songs like it (Spotify's autoplay). Before, the other search results played next, so after Céline Dion's "The Power of Love" came Huey Lewis's.
+- Search results show album art, with the artist, album and year under each song, so you can tell versions apart at a glance: the original, a live version, a remaster, a soundtrack. Music › Search shows your own songs the same way.
+- Explicit songs have Spotify's E in lists, search and Now Playing, and Now Playing shows the album's year.
+
 ### Updates install themselves
 - The Windows app checks for new versions when it starts, every four hours and when your PC wakes up, and downloads them in the background. Then it waits for a quiet moment (nothing playing, no video, game, stopwatch or sleep timer running, not locked, and untouched for three minutes), installs silently and opens again where you left off. Before, it only checked once at startup and installed when you quit.
 - Settings › Software Update is a menu: Check for Updates, Install Automatically (on by default) and the version. After an update, the iPod says "Updated to …" once.

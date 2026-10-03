@@ -271,9 +271,27 @@ async function spotifyScenario({ js, wait, shot, press, scroll, open, menu }) {
   await shot('s07-liked');
   await menu();
   await open('Search');
-  for (const k of 'MOCK') await js(`__ipod.device.emit('char', { key: '${k}' })`);
+  for (const k of 'POWER') await js(`__ipod.device.emit('char', { key: '${k}' })`);
   await wait(900);
   await shot('s08-search');
+  // Two songs called "The Power of Love": the second line says which is which.
+  const found = await js(`__ipod.os.current.results.items.map((it) => ({ label: it.label, sub: it.sub, value: it.value, thumb: !!it.thumb }))`);
+  console.log('SPOTIFY search', JSON.stringify(found));
+  const hl = found.findIndex((it) => it.sub && it.sub.startsWith('Huey Lewis'));
+  if (hl < 0 || !found[hl].sub.includes('Back to the Future') || !found[hl].sub.includes('1985') || found[hl].value !== 'E' || !found[hl].thumb)
+    throw new Error('search results should show artist, album, year, explicit and art');
+  // Choosing it plays just that song (Spotify decides what comes next), not the other results.
+  await js(`(() => { const v = __ipod.os.current.results; v.items[${hl}].action(); })()`);
+  await wait(1500);
+  const play = await js(`window.__plays[window.__plays.length - 1]`);
+  console.log('SPOTIFY play from search', JSON.stringify(play));
+  if (!play || !play.uris || play.uris.length !== 1 || play.uris[0] !== 'spotify:track:pow2' || play.context_uri || play.offset)
+    throw new Error('a song picked from search should be played on its own');
+  const np = await js(`({ album: document.querySelectorAll('.np-line .np-text')[2].textContent, explicit: !!document.querySelector('.np-explicit'), info: __ipod.player.queueInfo })`);
+  console.log('SPOTIFY now playing', JSON.stringify(np));
+  if (!np.album.includes('1985') || !np.explicit || np.info) throw new Error('Now Playing should show the year and the explicit mark, and no "x of y"');
+  await shot('s08b-search-nowplaying');
+  await menu();
   await menu();
   await open('Devices');
   await wait(400);
