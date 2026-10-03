@@ -21,7 +21,7 @@ import { createExtras } from './views/extras/index.js';
 import { localSearch } from './views/search.js';
 import { SyncView } from './views/sync.js';
 import { ColorEditor } from './views/color-editor.js';
-import { getModel, getColor } from './models.js';
+import { MODELS, getModel, getColor, capacityFor } from './models.js';
 import { AutoUpdate, announceUpdate } from './updates.js';
 import { stopwatchRunning } from './views/extras/tools.js';
 
@@ -59,6 +59,9 @@ async function boot() {
   app.settingsMenu = () => settingsMenu(app);
   app.search = (q) => localSearch(app, q);
   app.rebuild = () => {
+    // The back says 4GB, 30GB, 160GB…: the smallest of this model's that
+    // would hold the music drive.
+    app.capacity = capacityFor(getModel(store.settings.model), app.diskGB);
     device.capacity = app.capacity;
     const screen = device.build(store.settings);
     os.mount(screen);
@@ -69,15 +72,12 @@ async function boot() {
     store.flush();
     window.ipod.win.quit();
   };
+  app.models = MODELS;
   window.__ipod = app; // handy for debugging from DevTools
 
-  // The back says 30GB, 60GB or 80GB, like a real 5th generation iPod: the
-  // smallest that would hold the music drive (80GB was the biggest made).
+  // How big the music drive is, for the capacity on the back.
   const info = await Promise.race([window.ipod.system.info(store.musicFolders()[0]).catch(() => null), new Promise((r) => setTimeout(() => r(null), 400))]);
-  if (info && info.disk) {
-    const gb = info.disk.total / 1e9;
-    app.capacity = gb <= 30 ? '30GB' : gb <= 60 ? '60GB' : '80GB';
-  }
+  if (info && info.disk) app.diskGB = info.disk.total / 1e9;
 
   app.rebuild();
   os.push(new MainMenu(app), { animate: false });
@@ -85,7 +85,7 @@ async function boot() {
   const booting = store.settings.startupAnimation ? os.boot() : Promise.resolve();
 
   // Settings that change the device itself.
-  for (const key of ['color', 'size', 'shadow', 'engraving', 'reflections', 'wear', 'backFinish', 'detail']) store.on(`change:${key}`, () => app.rebuild());
+  for (const key of ['model', 'color', 'size', 'shadow', 'engraving', 'reflections', 'wear', 'backFinish', 'detail']) store.on(`change:${key}`, () => app.rebuild());
 
   // The iPod turns toward the pointer, wherever it is on screen.
   const configureMotion = () => {

@@ -85,6 +85,7 @@ module.exports = async ({ app, win }) => {
     finish: finishScenario,
     screens: screensScenario,
     itunes: itunesScenario,
+    models: modelsScenario,
   }[process.env.IPOD_E2E_STEPS];
   if (scenario) {
     try {
@@ -726,4 +727,81 @@ async function screensScenario({ js, wait, shot, press, scroll, open, menu }) {
   await step('v14-playback', ['Settings', 'Playback']);
   await home();
   await js(`__ipod.store.set('idleFloat', true)`);
+}
+
+/**
+ * Every iPod model: built in each of its colours without errors, seen from
+ * the front, tilted, and from the back; the screen style each one runs; and
+ * the original's scroll wheel turning under real mouse input.
+ */
+async function modelsScenario({ js, wait, shot, win, open, menu }) {
+  await wait(1500);
+  const pointAt = (dx, dy) =>
+    js(`(() => { const w = innerWidth, h = innerHeight; __ipod.device.rig.cursor({ x: w / 2 + ${dx}, y: h / 2 + ${dy}, w, h, wx: 100, wy: 100, sx: 0, sy: 0 }); __ipod.os.activity(); })()`);
+  const settle = () => js(`new Promise(r => { const t = () => (__ipod.device.rig._raf ? setTimeout(t, 50) : r()); t(); })`);
+  await js(`__ipod.store.set('idleFloat', false); __ipod.store.set('motion', 'cursor'); __ipod.store.set('size', 'large')`);
+  const models = await js(`__ipod.models.map((m) => ({ id: m.id, colors: m.colors.map((c) => c.id) }))`);
+  if (models.length < 5) throw new Error(`expected at least 5 models, got ${models.length}`);
+  for (const m of models) {
+    // Switch to it in its first colour, then build every other colour, and back.
+    await js(`__ipod.store.settings.color = ${JSON.stringify(m.colors[0])}; __ipod.store.set('model', ${JSON.stringify(m.id)})`);
+    await wait(600);
+    for (const c of m.colors.slice(1)) {
+      await js(`__ipod.store.set('color', ${JSON.stringify(c)})`);
+      await wait(300);
+    }
+    if (m.colors.length > 1) await js(`__ipod.store.set('color', ${JSON.stringify(m.colors[0])})`);
+    await wait(900);
+    const built = await js(`({ model: [...document.querySelector('.ipod').classList].find((c) => c.startsWith('model-')), rows: __ipod.os.ui.rows, w: __ipod.os.ui.width })`);
+    console.log('MODEL', m.id, JSON.stringify(built));
+    if (built.model !== `model-${m.id}`) throw new Error(`model ${m.id} didn't build (${built.model})`);
+    await pointAt(0, 0);
+    await settle();
+    await shot(`x-${m.id}-1-front`);
+    await open('Music');
+    await wait(400);
+    await shot(`x-${m.id}-2-music`);
+    await menu();
+    await pointAt(800, -500);
+    await settle();
+    await shot(`x-${m.id}-3-tilt`);
+    await js(`__ipod.device.flip(true)`);
+    await wait(1600);
+    await settle();
+    await shot(`x-${m.id}-4-back`);
+    await js(`__ipod.device.flip(false)`);
+    await wait(1600);
+  }
+
+  // The original iPod: drag around the inner wheel and it turns and scrolls;
+  // the ring around it is buttons (MENU goes back) and doesn't scroll.
+  await js(`__ipod.store.set('model', 'original')`);
+  await wait(900);
+  await pointAt(0, 0);
+  await settle();
+  const g = await js(`(() => { const r = document.querySelector('.wheel').getBoundingClientRect(); return { cx: r.left + r.width / 2, cy: r.top + r.height / 2, r: r.width / 2 }; })()`);
+  const mouse = (type, x, y) => win.webContents.sendInputEvent({ type, x: Math.round(x), y: Math.round(y), button: 'left', clickCount: 1 });
+  const at = (deg, k) => [g.cx + Math.sin((deg * Math.PI) / 180) * g.r * k, g.cy - Math.cos((deg * Math.PI) / 180) * g.r * k];
+  await js(`(() => { const v = __ipod.os.current; v.sel = 0; v.paint(); })()`);
+  mouse('mouseDown', ...at(20, 0.55));
+  for (let d = 20; d <= 120; d += 4) {
+    mouse('mouseMove', ...at(d, 0.55));
+    await wait(16);
+  }
+  mouse('mouseUp', ...at(120, 0.55));
+  await wait(300);
+  const turned = await js(`({ sel: __ipod.os.current.sel, spin: __ipod.device._spin, title: __ipod.os.current.title })`);
+  console.log('original wheel turned', JSON.stringify(turned));
+  if (turned.sel < 3 || Math.abs(turned.spin) < 60) throw new Error(`the original's wheel didn't turn and scroll (${JSON.stringify(turned)})`);
+  await shot('x-original-5-turned');
+  await open('Music');
+  await wait(300);
+  mouse('mouseDown', ...at(0, 0.88));
+  await wait(60);
+  mouse('mouseUp', ...at(0, 0.88));
+  await wait(500);
+  const back = await js(`__ipod.os.stack.length`);
+  if (back !== 1) throw new Error(`MENU on the original's button ring didn't go back (stack ${back})`);
+  await js(`__ipod.store.set('model', 'video'); __ipod.store.set('color', 'white'); __ipod.store.set('size', 'medium')`);
+  await wait(600);
 }
