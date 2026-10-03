@@ -23,11 +23,12 @@ const DEG = Math.PI / 180;
 
 /** Cross-section, in millimetres: r is outward from the front outline, z is depth (negative = back). */
 const LIP = 0.4; // radius of the rounded front plastic edge
-const PLASTIC_TO = -1.7; // where the plastic band ends
+const CLEAR_TO = -0.9; // the clear acrylic layer over the colour, seen edge-on
+const PLASTIC_TO = -2.0; // where the plastic band ends
 const BAND_R = 0.5; // the flat steel band sticks out this far
-const BAND_FROM = -2.35;
-const BAND_TO = -8.0;
-const BACK_FILLET = 3.0; // the steel's curve over onto the back
+const BAND_FROM = -2.6;
+/** The steel's curve over onto the back: deeper on the thicker 60/80GB back. */
+const backFillet = (T) => (T >= 13 ? 4.4 : 3.0);
 
 const SMOOTH_CORNER = 28; // segments per rounded corner
 const SMOOTH_ARC = 18; // segments per curved part of the cross-section
@@ -164,6 +165,16 @@ export class Body3D {
     const m = {
       // Glossy polycarbonate: a clear coat over the colour.
       plastic: new THREE.MeshPhysicalMaterial({ color: front, roughness: 0.38, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.05 }),
+      // Clear acrylic over the colour: glassier, a little cooler and darker edge-on.
+      clear: new THREE.MeshPhysicalMaterial({
+        color: front.clone().lerp(new THREE.Color(color.dark ? 0x2a2e33 : 0xc9d3dc), color.dark ? 0.35 : 0.45),
+        roughness: 0.06,
+        metalness: 0,
+        clearcoat: 1,
+        clearcoatRoughness: 0.02,
+        ior: 1.49,
+        specularIntensity: 1,
+      }),
       // Under the HTML face, so never really seen: flat colour costs nothing to draw.
       cap: new THREE.MeshBasicMaterial({ color: front }),
       seam: new THREE.MeshStandardMaterial({ color: 0x0b0b0c, roughness: 0.85, metalness: 0 }),
@@ -194,6 +205,7 @@ export class Body3D {
   setFrontColor(hex) {
     if (!this.ok) return;
     this.materials.plastic.color.set(hex);
+    this.materials.clear.color.set(hex).lerp(new THREE.Color(0xc9d3dc), 0.45);
     this.materials.cap.color.set(hex);
     this.render();
   }
@@ -202,6 +214,8 @@ export class Body3D {
 
   _build(o) {
     const { W, H, R, T, u, finish, ports, back } = o;
+    const BACK_FILLET = backFillet(T);
+    const BAND_TO = -(T - BACK_FILLET);
     const mm = (v) => v * u;
     const a = mm(W / 2);
     const b = mm(H / 2);
@@ -252,7 +266,10 @@ export class Body3D {
     };
     const backInset = BAND_R - BACK_FILLET;
     const pieces = [
-      { mat: 'plastic', pts: [...arc(0, -LIP, LIP, 90, 0, 10), ...line(LIP, -LIP, LIP, PLASTIC_TO).slice(1)] },
+      // The front is colour under a layer of clear acrylic: edge-on, the clear
+      // layer reads as a glassy band before the coloured plastic starts.
+      { mat: 'clear', pts: [...arc(0, -LIP, LIP, 90, 0, 10), ...line(LIP, -LIP, LIP, CLEAR_TO).slice(1)] },
+      { mat: 'plastic', pts: line(LIP, CLEAR_TO, LIP, PLASTIC_TO) },
       // The seam: a fine groove where the plastic meets the steel.
       { mat: 'seam', pts: line(LIP, PLASTIC_TO, 0.22, PLASTIC_TO - 0.14) },
       { mat: 'seam', pts: line(0.22, PLASTIC_TO - 0.14, 0.22, PLASTIC_TO - 0.28) },
@@ -561,31 +578,24 @@ export class Body3D {
     // The device's own top is at y = H/2 + inset; position things by fraction of the full height.
     const full = this.o.H * u;
     const top = (frac) => frac * full - (full - h) / 2;
-    g.font = font(500, 9.5);
-    g.fillText('iPod', w / 2, top(0.42));
+    // Laid out like the real back: the wordmark a little above the middle,
+    // any engraving under it, and the capacity and fine print near the bottom.
+    g.font = font(500, 10.5);
+    g.fillText('iPod', w / 2, top(0.47));
     const lines = (back.lines || []).slice(0, 2);
     g.font = font(400, 3);
-    lines.forEach((l, i) => g.fillText(l, w / 2, top(0.52) + i * 4.4 * u));
-    // Capacity in a rounded box.
-    g.font = font(600, 2.6);
-    const cap = back.capacity || '30GB';
-    const tw = g.measureText(cap).width;
-    const bw = tw + 2.8 * u;
-    const bh = 3.6 * u;
-    const by = top(0.78);
-    g.lineWidth = 0.26 * u;
-    roundRectPath(g, w / 2 - bw / 2, by - bh / 2, bw, bh, 1.1 * u);
-    g.stroke();
-    g.textBaseline = 'middle';
-    g.fillText(cap, w / 2, by + 0.1 * u);
+    lines.forEach((l, i) => g.fillText(l, w / 2, top(0.565) + i * 4.4 * u));
+    g.font = font(500, 3.4);
+    g.fillText(back.capacity || '30GB', w / 2, top(0.82));
     // Fine print and marks.
-    g.font = font(500, 1.3);
-    const fy = top(0.88);
-    g.fillText(`Serial No.: ${back.serial || ''}`, w / 2, fy);
-    g.fillText('Designed in California. Assembled on your desktop. Model No.: A1136  EMC No.: 2065', w / 2, fy + 1.95 * u);
-    g.fillText('Rated 5-30V ⎓ 1A Max.', w / 2, fy + 3.9 * u);
+    g.font = font(400, 1.25);
+    const fy = top(0.86);
+    g.fillText('Designed in California. Assembled on your desktop.', w / 2, fy);
+    g.fillText(`Model No.: A1136  EMC No.: 2065  Serial No.: ${back.serial || ''}`, w / 2, fy + 1.85 * u);
+    g.fillText('Rated 5-30V ⎓ 1A Max.', w / 2, fy + 3.7 * u);
     const my = fy + 7 * u;
-    g.font = font(700, 2.6);
+    g.textBaseline = 'middle';
+    g.font = font(700, 2.4);
     g.fillText('FC', w / 2 - 7 * u, my);
     g.fillText('CE', w / 2 - 2.4 * u, my);
     g.lineWidth = 0.2 * u;
@@ -594,9 +604,9 @@ export class Body3D {
     g.font = font(700, 1.3);
     g.fillText('VCI', w / 2 + 2.9 * u, my);
     g.beginPath();
-    g.arc(w / 2 + 7 * u, my, 1.15 * u, 0, Math.PI * 2);
+    g.arc(w / 2 + 7 * u, my, 1.1 * u, 0, Math.PI * 2);
     g.stroke();
-    g.font = font(700, 1.5);
+    g.font = font(700, 1.4);
     g.fillText('✓', w / 2 + 7 * u, my + 0.05 * u);
 
     const tex = new THREE.CanvasTexture(c);
@@ -702,7 +712,7 @@ function studioEnvironment() {
   const scene = new THREE.Scene();
   // A real room is fairly bright: grey walls, a lighter ceiling, a warm desk,
   // and a darker band low down behind you. Mirror steel shows all of it.
-  const room = new THREE.Mesh(new THREE.BoxGeometry(12, 12, 12), new THREE.MeshBasicMaterial({ color: 0x6b6e75, side: THREE.BackSide }));
+  const room = new THREE.Mesh(new THREE.BoxGeometry(12, 12, 12), new THREE.MeshBasicMaterial({ color: 0x55585f, side: THREE.BackSide }));
   scene.add(room);
   const light = (w, h, intensity, pos, look, tint = 0xffffff) => {
     const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(tint).multiplyScalar(intensity), side: THREE.DoubleSide });
@@ -720,7 +730,7 @@ function studioEnvironment() {
   for (const z of [5.95, -5.95]) {
     light(11.8, 5.6, 1.15, [0, 3.2, z], [0, 3.2, 0], 0xf3f5f8);
     light(11.8, 1.0, 0.6, [0, -0.1, z], [0, -0.1, 0], 0xd5d9df);
-    light(11.8, 5.4, 0.2, [0, -3.3, z], [0, -3.3, 0], 0x8f959f);
+    light(11.8, 5.4, 0.12, [0, -3.3, z], [0, -3.3, 0], 0x8f959f);
   }
   light(5, 3.6, 6, [-3.2, 3.4, 3.6], [0, 0, 0]); // key soft box, upper left in front
   light(9, 0.35, 10, [0, 5.4, 0.6], [0, 0, 0.6]); // strip across the ceiling

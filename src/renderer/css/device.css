@@ -100,16 +100,23 @@ body {
   overflow: hidden;
   cursor: grab;
   background: linear-gradient(180deg, var(--front-hi) 0%, var(--front) 22%, var(--front) 72%, var(--front-lo) 100%);
+  /* The colour is under a layer of clear acrylic that runs a little past it:
+     around the edge you look through the clear layer (a cool, glassy band)
+     with a polished hairline of light where it rounds over. */
   box-shadow:
-    inset 0 0 0 calc(var(--u) * 0.5) rgba(255, 255, 255, 0.6),
-    inset 0 0 calc(var(--u) * 0.9) calc(var(--u) * 0.5) rgba(0, 0, 0, 0.05),
-    inset 0 calc(var(--u) * 0.2) calc(var(--u) * 0.2) rgba(255, 255, 255, 0.95);
+    inset 0 0 0 calc(var(--u) * 0.14) rgba(255, 255, 255, 0.95),
+    inset 0 0 0 calc(var(--u) * 0.7) rgba(196, 207, 218, 0.3),
+    inset 0 0 0 calc(var(--u) * 0.78) rgba(120, 130, 140, 0.08),
+    inset 0 0 calc(var(--u) * 1.2) calc(var(--u) * 0.7) rgba(0, 0, 0, 0.035),
+    inset 0 calc(var(--u) * 0.22) calc(var(--u) * 0.2) rgba(255, 255, 255, 0.95);
 }
 .dark .case {
   box-shadow:
-    inset 0 0 0 calc(var(--u) * 0.45) rgba(255, 255, 255, 0.07),
-    inset 0 0 calc(var(--u) * 1) calc(var(--u) * 0.5) rgba(0, 0, 0, 0.6),
-    inset 0 calc(var(--u) * 0.2) calc(var(--u) * 0.2) rgba(255, 255, 255, 0.16);
+    inset 0 0 0 calc(var(--u) * 0.12) rgba(255, 255, 255, 0.2),
+    inset 0 0 0 calc(var(--u) * 0.7) rgba(70, 78, 90, 0.32),
+    inset 0 0 0 calc(var(--u) * 0.78) rgba(0, 0, 0, 0.4),
+    inset 0 0 calc(var(--u) * 1) calc(var(--u) * 0.5) rgba(0, 0, 0, 0.55),
+    inset 0 calc(var(--u) * 0.2) calc(var(--u) * 0.2) rgba(255, 255, 255, 0.18);
 }
 .ipod .case:active {
   cursor: grabbing;
@@ -165,26 +172,28 @@ body {
 }
 
 /* --- screen window ------------------------------------------------------------- */
+/* The window is printed black under the clear front, so it's flush with the
+   case (no raised or sunken edge), just a crisp border where the ink stops. */
 .bezel {
   position: absolute;
-  background: var(--bezel);
+  background: radial-gradient(120% 90% at 50% 40%, #1e1f21 0%, var(--bezel) 70%);
   overflow: hidden;
   cursor: grab;
-  box-shadow:
-    inset 0 calc(var(--u) * 0.25) calc(var(--u) * 0.6) rgba(0, 0, 0, 0.7),
-    0 0 0 calc(var(--u) * 0.14) rgba(0, 0, 0, 0.22),
-    0 calc(var(--u) * 0.16) 0 rgba(255, 255, 255, 0.4);
+  box-shadow: 0 0 0 calc(var(--u) * 0.08) rgba(0, 0, 0, 0.18);
 }
 .dark .bezel {
-  box-shadow:
-    inset 0 calc(var(--u) * 0.25) calc(var(--u) * 0.6) rgba(0, 0, 0, 0.9),
-    0 0 0 calc(var(--u) * 0.14) rgba(255, 255, 255, 0.05);
+  background: radial-gradient(120% 90% at 50% 40%, #0b0b0c 0%, var(--bezel) 70%);
+  box-shadow: 0 0 0 calc(var(--u) * 0.08) rgba(255, 255, 255, 0.04);
 }
+/* The LCD, a little behind the window: its own dark grey border around the
+   picture, and the window's edge casting a soft shadow onto it. */
 .screen-wrap {
   position: absolute;
   overflow: hidden;
   background: #000;
-  border-radius: calc(var(--u) * 0.25);
+  box-shadow:
+    0 0 0 calc(var(--u) * 0.32) #26272a,
+    0 0 0 calc(var(--u) * 0.42) #121314;
 }
 .screen-wrap::after {
   content: '';
@@ -192,7 +201,9 @@ body {
   inset: 0;
   pointer-events: none;
   z-index: 50;
-  box-shadow: inset 0 0 calc(var(--u) * 0.45) rgba(0, 0, 0, 0.4);
+  box-shadow:
+    inset 0 calc(var(--u) * 0.35) calc(var(--u) * 0.5) rgba(0, 0, 0, 0.32),
+    inset 0 0 calc(var(--u) * 0.3) rgba(0, 0, 0, 0.25);
 }
 /* The clear window over the LCD: its own reflection, moving faster than the
    gloss on the case, so the screen reads as being under a layer of glass. */
@@ -247,19 +258,30 @@ body {
   border-radius: 50%;
   cursor: pointer;
   touch-action: none;
-  background: radial-gradient(circle at 50% 30%, var(--wheel-hi) 0%, var(--wheel) 50%, var(--wheel-lo) 100%);
+  /* A flat satin disc, flush with the front: barely any shading, a fine
+     grain, and a hairline gap around it where it meets the case. */
+  background:
+    var(--grain, none),
+    linear-gradient(180deg, var(--wheel-hi) 0%, var(--wheel) 45%, var(--wheel) 70%, var(--wheel-lo) 100%);
+  background-size: calc(var(--u) * 6) calc(var(--u) * 6), 100% 100%;
   box-shadow:
-    inset 0 calc(var(--u) * 0.2) calc(var(--u) * 0.4) rgba(255, 255, 255, 0.7),
-    inset 0 calc(var(--u) * -0.25) calc(var(--u) * 0.7) rgba(0, 0, 0, 0.07),
-    0 0 0 calc(var(--u) * 0.13) rgba(0, 0, 0, 0.1),
-    0 calc(var(--u) * 0.14) calc(var(--u) * 0.18) rgba(255, 255, 255, 0.6);
+    inset 0 calc(var(--u) * 0.12) calc(var(--u) * 0.2) rgba(255, 255, 255, 0.55),
+    inset 0 calc(var(--u) * -0.15) calc(var(--u) * 0.35) rgba(0, 0, 0, 0.05),
+    0 0 0 calc(var(--u) * 0.1) rgba(0, 0, 0, 0.17),
+    0 0 0 calc(var(--u) * 0.2) rgba(0, 0, 0, 0.04),
+    0 calc(var(--u) * 0.12) calc(var(--u) * 0.12) rgba(255, 255, 255, 0.7);
 }
 .dark .wheel {
   box-shadow:
-    inset 0 calc(var(--u) * 0.15) calc(var(--u) * 0.35) rgba(255, 255, 255, 0.1),
-    inset 0 calc(var(--u) * -0.3) calc(var(--u) * 0.8) rgba(0, 0, 0, 0.35),
-    0 0 0 calc(var(--u) * 0.13) rgba(0, 0, 0, 0.6),
-    0 calc(var(--u) * 0.12) calc(var(--u) * 0.15) rgba(255, 255, 255, 0.06);
+    inset 0 calc(var(--u) * 0.12) calc(var(--u) * 0.25) rgba(255, 255, 255, 0.08),
+    inset 0 calc(var(--u) * -0.2) calc(var(--u) * 0.5) rgba(0, 0, 0, 0.3),
+    0 0 0 calc(var(--u) * 0.1) rgba(0, 0, 0, 0.75),
+    0 0 0 calc(var(--u) * 0.2) rgba(0, 0, 0, 0.25),
+    0 calc(var(--u) * 0.12) calc(var(--u) * 0.12) rgba(255, 255, 255, 0.05);
+}
+/* Satin plastic: a very fine, faint grain (the wheel isn't glossy like the front). */
+.ipod .wheel {
+  --grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.6' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 0.09 0'/></filter><rect width='64' height='64' filter='url(%23n)'/></svg>");
 }
 .wheel-sheen,
 .center-spec {
@@ -356,11 +378,13 @@ body {
   top: 50%;
   border-radius: 50%;
   transform: translate(-50%, -50%);
-  background: radial-gradient(circle at 50% 30%, var(--center-hi) 0%, var(--center) 55%, var(--center-lo) 100%);
+  /* Glossy like the front, very slightly dished, in its own hairline gap. */
+  background: linear-gradient(180deg, var(--center-lo) 0%, var(--center) 35%, var(--center) 70%, var(--center-hi) 100%);
   box-shadow:
-    0 0 0 calc(var(--u) * 0.14) rgba(0, 0, 0, 0.1),
-    0 calc(var(--u) * 0.12) calc(var(--u) * 0.35) rgba(0, 0, 0, 0.12),
-    inset 0 calc(var(--u) * 0.15) calc(var(--u) * 0.25) rgba(255, 255, 255, 0.8);
+    0 0 0 calc(var(--u) * 0.1) rgba(0, 0, 0, 0.16),
+    0 0 0 calc(var(--u) * 0.22) rgba(255, 255, 255, 0.6),
+    inset 0 calc(var(--u) * 0.25) calc(var(--u) * 0.45) rgba(0, 0, 0, 0.07),
+    inset 0 calc(var(--u) * -0.12) calc(var(--u) * 0.15) rgba(255, 255, 255, 0.9);
   transition:
     transform 0.07s ease-out,
     filter 0.07s ease-out,

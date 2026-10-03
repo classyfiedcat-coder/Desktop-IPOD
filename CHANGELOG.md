@@ -1,5 +1,25 @@
 # Changelog
 
+## 3.1.0
+
+A closer likeness of the real iPod, and a screen that stays sharp at any angle.
+
+### The iPod
+- Real proportions: a 2.5" screen of exactly the real size in a flush, printed black window, with the LCD's own dark border around the picture.
+- The front looks like the real double layer: colour under clear acrylic, with a glassy band around the edge where you see through the clear layer.
+- A flat satin click wheel with a fine grain and hairline gaps around it and the centre button, a glossy, very slightly dished centre button, and truer label and wheel colours.
+- The 60GB and 80GB iPods are 14mm thick, like the real ones (the 30GB stays 11mm), with a deeper curve on the steel back.
+- The back is laid out like the real one: the wordmark, then the capacity and fine print near the bottom, and the mirror steel reflects with more contrast.
+
+### Fixes
+- Software Update explains why a check failed in one short line (for example, that GitHub hides a private repository's releases) instead of showing the raw server response.
+- The screen no longer goes soft when the iPod is tilted or floating. The whole front is now drawn at twice the resolution, so tilting it doesn't smear the text.
+
+## 3.0.1
+
+### Spotify
+- A song picked from search no longer stops at the end, or when you skip it: your Spotify queue plays next, then a mix of songs like it (more from the same artist, never another version of the same song). If there's nothing like it, the rest of its album plays.
+
 ## 3.0.0
 
 The iPod comes to the Mac, syncs with your iTunes or Music library, and keeps itself up to date.

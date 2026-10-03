@@ -13,12 +13,17 @@ import { Body3D } from './body3d.js';
 /** Viewer distance in millimetres (CSS perspective and the 3D camera share it). */
 const PERSPECTIVE_MM = 230;
 /**
- * The screen is laid out this many times larger than it's shown, then scaled
- * back down. Tilted in 3D, Chromium draws a layer once in its own plane and
- * then resamples it onto the screen; at 1x that smears small text into a
- * blur. With twice the pixels to resample from, text stays crisp at an angle.
+ * The front face is laid out this many times larger than it's shown, then
+ * scaled back down. In a 3D scene Chromium paints each flat face into an
+ * image of its own (a render surface) and then warps that image onto the
+ * screen. With perspective it paints that image at exactly the screen's
+ * resolution, so warping it smears small text into a blur. The image is
+ * painted in the face's own units, so a face laid out at 2x (zoom) and shown
+ * at half size (transform) gets twice the pixels, and stays crisp at an angle.
+ * (Supersampling just the screen doesn't help: it's painted into the face's
+ * image at 1x either way.)
  */
-const SCREEN_SUPERSAMPLE = 2;
+const FACE_SUPERSAMPLE = 2;
 
 /** Where the hold switch sits on the top edge, in mm (across, and depth from the front). */
 const HOLD = { x: 10.5, w: 8, z: -3.8 };
@@ -296,7 +301,9 @@ export class Device extends Emitter {
     if (!hi && this.body3d) this.body3d.dispose();
 
     const [W, H] = model.size;
-    const T = model.depth * u;
+    // 11mm for a 30GB iPod, 14mm for the 60 and 80GB ones.
+    const depthMm = (model.depths && model.depths[this.capacity]) || model.depth;
+    const T = depthMm * u;
     // Room around the device for tilting, lifting and the shadow on the desk.
     const pad = Math.round(46 * size.scale);
     const widthPx = Math.round(W * u + pad * 2);
@@ -325,10 +332,10 @@ export class Device extends Emitter {
     const insetY = (s.h * u - innerH) / 2;
     // Supersampled whenever it can tilt (with motion off it's always flat and pixel-sharp anyway).
     this.flatOnly = motion === 'off';
-    const ss = this.flatOnly ? 1 : SCREEN_SUPERSAMPLE;
+    const ss = this.flatOnly ? 1 : FACE_SUPERSAMPLE;
     const screen = h('div', {
       class: 'screen',
-      style: { width: `${resW}px`, height: `${resH}px`, zoom: String(zoom * ss), transform: ss > 1 ? `scale(${1 / ss})` : '', transformOrigin: '0 0' },
+      style: { width: `${resW}px`, height: `${resH}px`, zoom: String(zoom) },
     });
     const screenWrap = h(
       'div',
@@ -418,7 +425,7 @@ export class Device extends Emitter {
       refl,
       jack: { x: W - model.jack, d: 5.2 },
       dock: { w: 21, h: 2.4 },
-      hold: { x: HOLD.x, w: HOLD.w, depth: -HOLD.z / model.depth },
+      hold: { x: HOLD.x, w: HOLD.w, depth: -HOLD.z / depthMm },
       profile: edgeProfile(finish, color.front),
     });
 
@@ -430,7 +437,16 @@ export class Device extends Emitter {
     const flipper = h(
       'div',
       { class: 'flipper' },
-      h('div', { class: 'face face-front' }, hi ? null : h('div', { class: 'rim' }, refl('rim-env', '-6 26', false)), caseEl),
+      h(
+        'div',
+        {
+          class: 'face face-front',
+          // Laid out at ss times the size (zoom), shown at 1x (scale): see FACE_SUPERSAMPLE.
+          style: ss > 1 ? { inset: 'auto', left: '0', top: '0', width: mm(W), height: mm(H), zoom: String(ss), transform: `scale(${1 / ss})`, transformOrigin: '0 0' } : null,
+        },
+        hi ? null : h('div', { class: 'rim' }, refl('rim-env', '-6 26', false)),
+        caseEl
+      ),
       ...shell,
       holdEl,
       backFace
@@ -466,7 +482,7 @@ export class Device extends Emitter {
     this.stage.replaceChildren(el);
     this.el = el;
     this.hi = false;
-    if (hi) this.hi = this._mountBody3D({ el, flipper, W, H, u, pad, model, color, finish, wear, engraving: lines });
+    if (hi) this.hi = this._mountBody3D({ el, flipper, W, H, u, pad, model, depthMm, color, finish, wear, engraving: lines });
     if (hi && !this.hi) {
       // WebGL refused to start: fall back to the CSS body for good.
       this._noWebGL = true;
@@ -480,6 +496,7 @@ export class Device extends Emitter {
     this.screen = screen;
     this.screenWrap = screenWrap;
     this.zoom = zoom * ss; // canvases (games, visualizer) size their pixels from this
+    this._centerRatio = wd.center / wd.d; // the centre button's radius, as a share of the wheel's
 
     this._bindWheel(wheel, center);
     this._bindCase(flipper);
@@ -513,7 +530,7 @@ export class Device extends Emitter {
   }
 
   /** Build the WebGL body and hook it to the motion rig. Returns false if WebGL won't start. */
-  _mountBody3D({ el, flipper, W, H, u, pad, model, color, finish, wear, engraving }) {
+  _mountBody3D({ el, flipper, W, H, u, pad, model, depthMm, color, finish, wear, engraving }) {
     if (!this.body3d) this.body3d = new Body3D();
     const body = this.body3d;
     body.hold = this.hold;
@@ -523,7 +540,7 @@ export class Device extends Emitter {
       W,
       H,
       R: model.radius,
-      T: model.depth,
+      T: depthMm,
       u,
       pad,
       perspective: PERSPECTIVE_MM * u,
@@ -647,7 +664,7 @@ export class Device extends Emitter {
       const g = geometry();
       const dx = e.clientX - g.cx;
       const dy = e.clientY - g.cy;
-      const isCenter = e.target === center || Math.hypot(dx, dy) < center.offsetWidth / 2;
+      const isCenter = e.target === center || Math.hypot(dx, dy) < g.r * this._centerRatio;
       wheel.setPointerCapture(e.pointerId);
       active = {
         id: e.pointerId,
@@ -681,7 +698,7 @@ export class Device extends Emitter {
       active.angle = angle;
       active.travelled += Math.abs(d);
       wheel.style.setProperty('--ga', `${((Math.atan2(dx, -dy) * 180) / Math.PI).toFixed(1)}deg`);
-      if (active.center && dist < (center.offsetWidth / 2) * 1.05 && !active.scrolling) return;
+      if (active.center && dist < g.r * this._centerRatio * 1.05 && !active.scrolling) return;
       active.accum += (d * 180) / Math.PI;
       const step = WHEEL_STEP_DEG[this.wheelSpeed] || 19;
       if (!active.scrolling && active.travelled > (8 * Math.PI) / 180) {

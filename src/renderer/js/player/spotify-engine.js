@@ -266,8 +266,10 @@ export class SpotifyEngine extends Emitter {
 
   /**
    * Play from a list. With a context (an album or playlist) Spotify keeps
-   * the queue; `single` plays just this song, after which Spotify carries on
-   * the way it would itself: your queue, then songs like it (autoplay).
+   * the queue; `single` plays just this song, then your Spotify queue, then
+   * songs like it (Spotify doesn't start its own radio for songs played this
+   * way, so without them it would just stop). If there's nothing like it,
+   * the rest of its album follows.
    */
   async playList(tracks, index, { context, shuffle, single = false } = {}) {
     this.active = true;
@@ -281,16 +283,23 @@ export class SpotifyEngine extends Emitter {
     this.emit('state');
     this._busyUntil = performance.now() + 2500;
     try {
+      const t = tracks[index];
+      const like = single ? this._songsLike(t) : null;
       const deviceId = await this._targetDevice();
       const want = shuffle && shuffle !== 'off';
       if (!single && want !== this.shuffleState) {
         await this.api.shuffle(want, deviceId).catch(() => {});
         this.shuffleState = want;
       }
-      const t = tracks[index];
       if (single) {
-        await this.api.play({ deviceId, uris: [t.uri] });
-        this.contextUri = null;
+        const after = await like;
+        if (!after.length && t.albumUri) {
+          await this.api.play({ deviceId, contextUri: t.albumUri, offset: { uri: t.uri } });
+          this.contextUri = t.albumUri;
+        } else {
+          await this.api.play({ deviceId, uris: [t.uri, ...after.map((x) => x.uri)] });
+          this.contextUri = null;
+        }
       } else if (context && context.uri) {
         await this.api.play({ deviceId, contextUri: context.uri, offset: { uri: t.uri } });
         this.contextUri = context.uri;
@@ -308,6 +317,12 @@ export class SpotifyEngine extends Emitter {
       this.emit('state');
       this.emit('error', this._explain(err));
     }
+  }
+
+  /** What to play after a song picked on its own; waits at most a few seconds. */
+  _songsLike(track) {
+    const timeout = new Promise((resolve) => setTimeout(() => resolve([]), 4000));
+    return Promise.race([this.api.songsLike(track).catch(() => []), timeout]);
   }
 
   async playContext(contextUri, { offsetUri, positionMs } = {}) {

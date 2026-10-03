@@ -301,6 +301,57 @@ export class SpotifyAPI extends Emitter {
     };
   }
 
+  /**
+   * Songs to play after `track` when it was picked on its own (from search):
+   * Spotify's own radio isn't reachable from the Web API, so this is the next
+   * best thing. Recommendations where the app may use them, otherwise more
+   * by the same artist. Never another song with the same title, so picking
+   * one "The Power of Love" isn't followed by the other.
+   */
+  async songsLike(track, limit = 25) {
+    const name = (t) => String(t.title || '').toLowerCase().replace(/\s*(\(|\[|\s-\s).*$/, '').trim();
+    const same = name(track);
+    const seen = new Set([track.uri]);
+    const out = [];
+    const add = (list) => {
+      for (const t of list) {
+        if (!t || !t.uri || !t.playable || seen.has(t.uri) || name(t) === same) continue;
+        seen.add(t.uri);
+        out.push(t);
+      }
+    };
+    if (track.spotifyId) {
+      try {
+        const d = await this.get('/recommendations', { seed_tracks: track.spotifyId, limit });
+        add(((d && d.tracks) || []).map((t) => normTrack(t)));
+      } catch {
+        /* not available to this app */
+      }
+    }
+    const artistId = track.artistIds && track.artistIds[0];
+    const artist = String(track.artist || '').split(',')[0].trim();
+    if (out.length < limit && artist) {
+      const byArtist = [];
+      for (const offset of [0, 10, 20]) {
+        try {
+          const d = await this.get('/search', { q: `artist:"${artist.replace(/"/g, '')}"`, type: 'track', limit: 10, offset });
+          const items = ((d && d.tracks && d.tracks.items) || []).filter(Boolean).map((t) => normTrack(t));
+          byArtist.push(...items.filter((t) => !artistId || (t.artistIds || []).includes(artistId)));
+          if (items.length < 10) break;
+        } catch {
+          break;
+        }
+      }
+      // Mixed up a little, like a radio station, rather than most popular first.
+      for (let i = byArtist.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [byArtist[i], byArtist[j]] = [byArtist[j], byArtist[i]];
+      }
+      add(byArtist);
+    }
+    return out.slice(0, limit);
+  }
+
   // ------------------------------------------------------- liked songs --
 
   async isLiked(uri) {

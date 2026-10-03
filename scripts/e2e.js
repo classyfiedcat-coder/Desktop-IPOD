@@ -280,13 +280,14 @@ async function spotifyScenario({ js, wait, shot, press, scroll, open, menu }) {
   const hl = found.findIndex((it) => it.sub && it.sub.startsWith('Huey Lewis'));
   if (hl < 0 || !found[hl].sub.includes('Back to the Future') || !found[hl].sub.includes('1985') || found[hl].value !== 'E' || !found[hl].thumb)
     throw new Error('search results should show artist, album, year, explicit and art');
-  // Choosing it plays just that song (Spotify decides what comes next), not the other results.
+  // Choosing it plays that song, then songs like it, not the other results.
   await js(`(() => { const v = __ipod.os.current.results; v.items[${hl}].action(); })()`);
   await wait(1500);
   const play = await js(`window.__plays[window.__plays.length - 1]`);
   console.log('SPOTIFY play from search', JSON.stringify(play));
-  if (!play || !play.uris || play.uris.length !== 1 || play.uris[0] !== 'spotify:track:pow2' || play.context_uri || play.offset)
-    throw new Error('a song picked from search should be played on its own');
+  const after = play && play.uris ? play.uris.slice(1).sort().join(' ') : '';
+  if (!play || !play.uris || play.uris[0] !== 'spotify:track:pow2' || play.context_uri || play.offset || after !== 'spotify:track:hl1 spotify:track:hl3')
+    throw new Error('a song picked from search should play first, followed by more like it (not the other results)');
   const np = await js(`({ album: document.querySelectorAll('.np-line .np-text')[2].textContent, explicit: !!document.querySelector('.np-explicit'), info: __ipod.player.queueInfo })`);
   console.log('SPOTIFY now playing', JSON.stringify(np));
   if (!np.album.includes('1985') || !np.explicit || np.info) throw new Error('Now Playing should show the year and the explicit mark, and no "x of y"');

@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import { AutoUpdate, announceUpdate, QUIET_FOR } from '../../src/renderer/js/updates.js';
 
 const require = createRequire(import.meta.url);
-const { newer } = require('../../src/main/updater.js');
+const { newer, explain } = require('../../src/main/updater.js');
 
 /** An AutoUpdate wired to fakes, with a clock the test controls. */
 function rig({ playing = false, autoUpdate = true, busy = false } = {}) {
@@ -103,4 +103,15 @@ test('version comparison', () => {
   assert.ok(!newer('2.0.1', 'v2.0.2'));
   assert.ok(!newer('2.0.1-beta', '2.0.1'));
   assert.ok(!newer('', '2.0.1'));
+});
+
+test('update errors read as one short sentence', () => {
+  // What electron-updater throws for a private repository's releases: the whole response.
+  const raw = new Error('Cannot find latest.yml in the latest release artifacts (https://github.com/x/y/releases/download/v1/latest.yml): HttpError: 404 \n"method: GET url: ..."\nHeaders: { "content-security-policy": "default-src none" }');
+  assert.match(explain(raw), /private/);
+  assert.match(explain(Object.assign(new Error('HTTP 404 for api.github.com'), { status: 404 })), /private/);
+  assert.match(explain(Object.assign(new Error('Timed out contacting api.github.com'), { status: 408 })), /internet/);
+  assert.match(explain(new Error('net::ERR_INTERNET_DISCONNECTED')), /internet/);
+  assert.match(explain(Object.assign(new Error('rate limited'), { statusCode: 403 })), /busy/);
+  assert.equal(explain(new Error('Something odd\nwith details')), 'Something odd');
 });

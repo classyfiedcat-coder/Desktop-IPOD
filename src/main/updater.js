@@ -38,6 +38,22 @@ function newer(a, b) {
   return false;
 }
 
+/**
+ * A short, readable reason an update check failed. electron-updater's errors
+ * carry the whole HTTP response (headers and all), which is no use on an
+ * iPod screen.
+ */
+function explain(err) {
+  const msg = String((err && err.message) || err || '');
+  const status = (err && (err.statusCode || err.status)) || (/\b(4\d\d|5\d\d)\b/.exec(msg) || [])[1];
+  if (+status === 404) return 'No releases found. GitHub hides the releases of a private repository.';
+  if (+status === 403 || +status === 429) return 'GitHub is busy. Try again in a while.';
+  if (status >= 500) return 'GitHub isn’t responding. Try again later.';
+  if (+status === 408 || /ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ECONNRESET|ETIMEDOUT|net::ERR_|offline|socket/i.test(msg)) return 'Couldn’t reach GitHub. Check your internet connection.';
+  if (/sha512|checksum|signature/i.test(msg)) return 'The download was damaged. It will try again later.';
+  return msg.split('\n')[0].slice(0, 120) || 'Update failed';
+}
+
 /** The GitHub repository releases are published to (package.json › build.publish). */
 function releaseRepo() {
   try {
@@ -89,7 +105,10 @@ class Updater {
     au.on('update-not-available', () => this._set({ state: 'current', version: app.getVersion(), checkedAt: Date.now() }));
     au.on('download-progress', (p) => this._set({ ...this.status, state: 'downloading', percent: Math.round(p.percent) }));
     au.on('update-downloaded', (i) => this._set({ state: 'ready', version: i.version }));
-    au.on('error', (err) => this._set({ state: 'error', message: err ? err.message : 'Update failed' }));
+    au.on('error', (err) => {
+      log.warn('[updater]', err ? err.message : 'error');
+      this._set({ state: 'error', message: explain(err) });
+    });
   }
 
   /** Check now, and from then on regularly while the app runs. */
@@ -117,7 +136,7 @@ class Updater {
     try {
       await this.au.checkForUpdates();
     } catch (err) {
-      this._set({ state: 'error', message: err.message });
+      this._set({ state: 'error', message: explain(err) });
     }
     return this.status;
   }
@@ -137,7 +156,7 @@ class Updater {
       }
     } catch (err) {
       log.warn('[updater] check', err.message);
-      this._set({ state: 'error', message: 'Couldn’t reach GitHub', manual: true });
+      this._set({ state: 'error', message: explain(err), manual: true });
     }
     return this.status;
   }
@@ -160,4 +179,4 @@ class Updater {
   }
 }
 
-module.exports = { Updater, newer };
+module.exports = { Updater, newer, explain };

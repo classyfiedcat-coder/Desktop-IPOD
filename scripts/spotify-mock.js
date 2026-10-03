@@ -41,7 +41,13 @@
       [/\/me\/shows/, () => ({ items: [], next: null })],
       [/\/me\/library\/contains/, () => [false]],
       [/\/me\/library/, () => null],
-      [/\/search/, () => ({ tracks: { items: SEARCH }, albums: { items: [album] }, artists: { items: [] }, playlists: { items: [null] } })],
+      [/\/search/, (u) => (new URL(u).searchParams.get('q').startsWith('artist:') ? { tracks: { items: [
+        // More by Huey Lewis, a live "Power of Love" (skipped: same song), and someone else's song.
+        { id: 'hl1', uri: 'spotify:track:hl1', name: 'Hip to Be Square', duration_ms: 240000, artists: [{ id: 'hl', name: 'Huey Lewis & The News' }], album },
+        { id: 'hl2', uri: 'spotify:track:hl2', name: 'The Power of Love - Live', duration_ms: 250000, artists: [{ id: 'hl', name: 'Huey Lewis & The News' }], album },
+        { id: 'hl3', uri: 'spotify:track:hl3', name: 'If This Is It', duration_ms: 230000, artists: [{ id: 'hl', name: 'Huey Lewis & The News' }], album },
+        { id: 'ot1', uri: 'spotify:track:ot1', name: 'Huey Tribute', duration_ms: 200000, artists: [{ id: 'xx', name: 'Someone Else' }], album },
+      ] } } : { tracks: { items: SEARCH }, albums: { items: [album] }, artists: { items: [] }, playlists: { items: [null] } })],
       [/\/me(\?|$)/, () => ({ id: 'tester', display_name: 'Test User' })],
     ];
     const realFetch = window.fetch;
