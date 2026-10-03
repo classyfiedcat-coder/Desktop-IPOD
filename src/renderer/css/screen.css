@@ -163,16 +163,7 @@
   background: linear-gradient(180deg, #ffb3b3, #e11d1d);
 }
 .tb-battery.charging .batt-fill {
-  animation: charge 2.4s ease-in-out infinite;
-}
-@keyframes charge {
-  0% {
-    width: 6%;
-  }
-  90%,
-  100% {
-    width: calc(100% - 2px);
-  }
+  transition: none;
 }
 
 .viewport {

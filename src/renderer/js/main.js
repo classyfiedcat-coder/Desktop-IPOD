@@ -69,6 +69,14 @@ async function boot() {
   };
   window.__ipod = app; // handy for debugging from DevTools
 
+  // The back says 30GB, 60GB or 80GB, like a real 5th generation iPod: the
+  // smallest that would hold the music drive (80GB was the biggest made).
+  const info = await Promise.race([window.ipod.system.info(store.musicFolders()[0]).catch(() => null), new Promise((r) => setTimeout(() => r(null), 400))]);
+  if (info && info.disk) {
+    const gb = info.disk.total / 1e9;
+    app.capacity = gb <= 30 ? '30GB' : gb <= 60 ? '60GB' : '80GB';
+  }
+
   app.rebuild();
   os.push(new MainMenu(app), { animate: false });
   os.activity();
@@ -194,13 +202,6 @@ async function boot() {
   spotify.on('notice', (msg) => os.alert(msg, 1800));
 
   window.ipod.ready();
-  window.ipod.system
-    .info(store.musicFolders()[0])
-    .then((info) => {
-      if (info && info.disk) app.capacity = `${Math.round(info.disk.total / 1e9)}GB`;
-      device.capacity = app.capacity;
-    })
-    .catch(() => {});
   await library.init();
   player.restoreSession(library);
   spotifyApi.init();

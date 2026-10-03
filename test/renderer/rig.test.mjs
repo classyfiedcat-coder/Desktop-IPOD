@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MotionRig, Spring, MOTION_AMOUNTS } from '../../src/renderer/js/rig.js';
+import { MotionRig, Spring, MOTION_AMOUNTS, IDLE_AFTER, FLOAT_FOR, FLOAT_FADE } from '../../src/renderer/js/rig.js';
 
 const view = { w: 400, h: 600 };
 
@@ -75,4 +75,134 @@ test('presses push the pressed edge in', () => {
   rig.flip(true);
   assert.equal(rig.flipS.target, 180);
   assert.ok(rig.flipS.v > 0, 'a flip starts with a flick');
+});
+
+// ------------------------------------------------------------- frame pacing --
+
+/**
+ * Runs the rig against a simulated display (vsync at `hz`) and clock, so the
+ * number of frames it draws can be counted. Returns helpers to drive it.
+ */
+function simulate(hz = 60) {
+  const saved = { performance: globalThis.performance, raf: globalThis.requestAnimationFrame, st: globalThis.setTimeout, ct: globalThis.clearTimeout };
+  let now = 100000;
+  let rafs = [];
+  let timers = [];
+  let seq = 0;
+  Object.defineProperty(globalThis, 'performance', { value: { now: () => now }, configurable: true, writable: true });
+  globalThis.requestAnimationFrame = (cb) => (rafs.push(cb), ++seq);
+  globalThis.setTimeout = (cb, ms) => {
+    const id = ++seq;
+    timers.push({ id, cb, at: now + ms });
+    return id;
+  };
+  globalThis.clearTimeout = (id) => (timers = timers.filter((t) => t.id !== id));
+  const fake = () => ({ style: {}, dataset: {}, classList: { contains: () => false, toggle() {} }, querySelectorAll: () => [], querySelector: () => null });
+  const rig = new MotionRig();
+  rig.attach({ el: fake(), flipper: fake(), ground: null, lcd: null, thickness: 40, depth: 2, pad: 40 });
+  let frames = 0;
+  const apply = rig.apply.bind(rig);
+  rig.apply = () => {
+    frames++;
+    apply();
+  };
+  const vsync = 1000 / hz;
+  return {
+    rig,
+    get now() {
+      return now;
+    },
+    /** Let `ms` of time pass; returns the frames drawn meanwhile. */
+    run(ms) {
+      const end = now + ms;
+      const start = frames;
+      while (now < end) {
+        const nextVsync = rafs.length ? Math.floor(now / vsync + 1) * vsync : Infinity;
+        const nextTimer = timers.length ? Math.min(...timers.map((t) => t.at)) : Infinity;
+        const next = Math.min(nextVsync, nextTimer, end);
+        now = next;
+        if (next === nextTimer) {
+          const due = timers.filter((t) => t.at <= now);
+          timers = timers.filter((t) => t.at > now);
+          for (const t of due) t.cb();
+        }
+        if (next === nextVsync) {
+          const cbs = rafs;
+          rafs = [];
+          for (const cb of cbs) cb(now);
+        }
+      }
+      return frames - start;
+    },
+    idle: () => !rafs.length && !timers.length,
+    restore() {
+      Object.defineProperty(globalThis, 'performance', { value: saved.performance, configurable: true, writable: true });
+      globalThis.requestAnimationFrame = saved.raf;
+      globalThis.setTimeout = saved.st;
+      globalThis.clearTimeout = saved.ct;
+    },
+  };
+}
+
+test('floating alone draws about 20 frames a second, not 60', () => {
+  const sim = simulate(60);
+  try {
+    sim.rig.configure({ float: true });
+    sim.rig.lastInput = sim.now - IDLE_AFTER - 20000;
+    sim.rig.wake();
+    sim.run(2000); // settle into the float
+    const fps = sim.run(10000) / 10;
+    assert.ok(fps > 12 && fps < 26, `float ran at ${fps} fps`);
+  } finally {
+    sim.restore();
+  }
+});
+
+test('after a few minutes alone it comes to rest and stops drawing', () => {
+  const sim = simulate(60);
+  try {
+    sim.rig.configure({ float: true });
+    // Two seconds of float left, then the fade.
+    sim.rig.lastInput = sim.now - IDLE_AFTER - FLOAT_FOR + 2000;
+    sim.rig.wake();
+    sim.run(2000 + FLOAT_FADE + 3000);
+    assert.equal(sim.run(10000), 0, 'no frames once it has come to rest');
+    assert.ok(sim.idle(), 'and nothing scheduled');
+    // A touch brings it back.
+    sim.rig.nudge('menu');
+    assert.ok(sim.run(500) > 10);
+  } finally {
+    sim.restore();
+  }
+});
+
+test('a 144 Hz screen draws the motion at most ~90 times a second', () => {
+  const sim = simulate(144);
+  try {
+    sim.rig.configure({ float: false });
+    sim.rig.flip(true);
+    const fps = sim.run(1000);
+    assert.ok(fps > 55 && fps <= 91, `flip drew ${fps} frames in a second`);
+  } finally {
+    sim.restore();
+  }
+});
+
+test('pointer moves too small to see do not draw a frame', () => {
+  const sim = simulate(60);
+  try {
+    sim.rig.configure({ float: false });
+    const far = (x) => sim.rig.cursor({ x, y: view.h / 2, ...view });
+    far(20000);
+    sim.run(3000);
+    assert.ok(sim.idle(), 'settled');
+    // Far away, a few pixels of movement changes the tilt by a hair.
+    for (let i = 1; i <= 5; i++) far(20000 + i);
+    assert.ok(sim.idle(), 'no frame for an invisible change');
+    // A real move does.
+    far(view.w / 2 + 100);
+    assert.ok(sim.run(500) > 10);
+  } finally {
+    sim.restore();
+  }
 });

@@ -79,6 +79,35 @@ export const profileGradient = (dir, stops) => `linear-gradient(${dir}, ${stops.
 /** Which back an iPod gets when the setting is "Auto": black steel to go with a black front. */
 export const backFinishFor = (color, setting) => (setting === 'steel' || setting === 'black' ? setting : color.dark && color.id !== 'u2' ? 'black' : 'steel');
 
+/**
+ * The soft shadow the iPod casts on the desk: one smooth falloff from the
+ * middle out, drawn once into a canvas (so moving it costs nothing, and
+ * there's no visible edge between a fill and a blur however far it turns).
+ */
+function groundShadow(w, h, radius, u) {
+  const blur = 2.8 * u;
+  const m = Math.ceil(blur * 3);
+  const c = document.createElement('canvas');
+  c.className = 'ground-soft';
+  c.width = Math.ceil(w + m * 2);
+  c.height = Math.ceil(h + m * 2);
+  Object.assign(c.style, { left: `${-m}px`, top: `${-m}px`, width: `${c.width}px`, height: `${c.height}px` });
+  const g = c.getContext('2d');
+  if (!g) return c;
+  // A little smaller than the body, set slightly toward the bottom (where it rests).
+  const grow = 1 * u;
+  const x0 = w * 0.06 - grow;
+  const y0 = h * 0.07 - grow;
+  const x1 = w * 0.94 + grow;
+  const y1 = h * 0.985 + grow;
+  g.filter = `blur(${blur.toFixed(1)}px)`;
+  g.fillStyle = 'rgba(0, 0, 0, 0.26)';
+  g.beginPath();
+  g.roundRect(m + x0, m + y0, x1 - x0, y1 - y0, radius + grow);
+  g.fill();
+  return c;
+}
+
 /** A plausible serial number, stable for a given colour. */
 function serialFor(id) {
   let x = 2166136261;
@@ -241,6 +270,9 @@ export class Device extends Emitter {
     // isn't available, it's built from CSS panels.
     const hi = detail !== 'light' && !this._noWebGL && Body3D.supported();
     this.rig.onApply = null;
+    this.rig.onSlow = null;
+    // Switching to Light: let the GPU have its memory back.
+    if (!hi && this.body3d) this.body3d.dispose();
 
     const [W, H] = model.size;
     const T = model.depth * u;
@@ -376,7 +408,7 @@ export class Device extends Emitter {
       holdEl,
       backFace
     );
-    const ground = h('div', { class: 'ground' }, h('div', { class: 'ground-soft' }), h('div', { class: 'ground-near' }));
+    const ground = h('div', { class: 'ground' }, groundShadow(W * u, H * u, model.radius * u, u), h('div', { class: 'ground-near' }));
 
     const el = h(
       'div',
@@ -478,6 +510,10 @@ export class Device extends Emitter {
     // Between the shadow on the desk and the HTML face.
     el.insertBefore(body.canvas, flipper);
     this.rig.onApply = (t) => body.update(t);
+    // A GPU that can't keep up draws the body at a lower resolution.
+    this.rig.onSlow = () => {
+      if (body.lighten()) window.ipod && window.ipod.log('info', `3D body: drawing at ${body.renderer.getPixelRatio()}x to keep motion smooth`);
+    };
     body.onLost = () => {
       // The GPU went away (driver reset, sleep): rebuild, in CSS if it keeps failing.
       this._lost = (this._lost || 0) + 1;
@@ -509,11 +545,15 @@ export class Device extends Emitter {
     if (level === 'none') return;
     // Paint after the first frame so building the device stays instant.
     requestAnimationFrame(() => {
-      const back = makeWear({ w, h, level, seed: 5 });
+      if (el !== this.el) return;
+      // The 3D body wears its own back; the CSS one needs it as images.
+      const back = this.hi ? null : makeWear({ w, h, level, seed: 5 });
       const front = makeWear({ w, h, level: level === 'worn' ? 'worn' : 'light', seed: 23, dust: true });
-      if (!back || el !== this.el) return;
-      el.style.setProperty('--wear-mask', `url(${back.mask})`);
-      el.style.setProperty('--wear-lines', `url(${back.lines})`);
+      if (!front) return;
+      if (back) {
+        el.style.setProperty('--wear-mask', `url(${back.mask})`);
+        el.style.setProperty('--wear-lines', `url(${back.lines})`);
+      }
       el.style.setProperty('--wear-front', `url(${front.mask})`);
       el.style.setProperty('--wear-front-lines', `url(${front.lines})`);
     });

@@ -17,10 +17,11 @@ A free-floating iPod (5th generation) that lives on your Windows desktop. There'
 - The back is polished mirror steel (or glossy black steel) that reflects a studio around it, with matte etched lettering. Settings › Appearance › Wear adds scratches, swirls and smudges that break up the reflections, from Brand New to Well Loved.
 - It turns gently toward your mouse pointer, wherever the pointer is on screen. As it turns, reflections slide across the glossy front, the screen glass and the chrome. The screen sits just behind the glass, so it shifts slightly against the bezel.
 - Pick it up and it lifts off the desktop, its shadow spreads out, and it sways as you carry it. Put it down and it settles with a little bounce.
-- Pressing the wheel pushes that edge in, and spinning it gives the body a slight twist. Left alone, it floats very gently.
+- Pressing the wheel pushes that edge in, and spinning it gives the body a slight twist. Left alone, it floats very gently for a few minutes, then comes to rest.
 - Double-click it to flip it over and see the back (with your engraving).
 - Settings › Appearance › Motion: Follow Pointer, Only on Hover, or Off (Off keeps it perfectly flat and pixel-sharp). You can also set the Motion Amount (Subtle, Normal or Dramatic), Reflections, and Float When Idle.
 - Settings › Appearance › Detail: High (the 3D model) or Light (a lighter CSS version, also used automatically if your graphics don't support WebGL).
+- It's light on your computer. When nothing moves, nothing is drawn. Motion is capped at about 90 frames a second on high refresh rate screens, and the idle float only needs about 20. Playing music repaints the screen once a second, when the clock ticks. If your graphics can't keep up, the 3D body is drawn at a lower resolution automatically.
 
 **It feels like the real thing**
 - A frameless, transparent window shaped like the iPod. Clicks pass through the empty space around it, and you drag it by its body.

@@ -167,9 +167,9 @@ export function wearCanvases({ w, h, level = 'light', seed = 5, dust = false, sc
   if (dust) {
     // Specks of dust and lint that sit on the plastic.
     lc.fillStyle = '#fff';
-    const n = Math.round((W * H) / (900 * scale * scale)) * (level === 'worn' ? 2 : 1);
+    const n = Math.round((W * H) / (1800 * scale * scale)) * (level === 'worn' ? 3 : 1);
     for (let i = 0; i < n; i++) {
-      lc.globalAlpha = 0.25 + rand() * 0.6;
+      lc.globalAlpha = 0.18 + Math.pow(rand(), 2) * 0.6;
       const r = (0.3 + Math.pow(rand(), 3) * 0.9) * scale;
       lc.beginPath();
       lc.arc(rand() * W, rand() * H, r, 0, Math.PI * 2);

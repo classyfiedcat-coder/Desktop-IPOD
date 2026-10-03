@@ -35,6 +35,10 @@ export class Spring {
   get settled() {
     return Math.abs(this.target - this.x) < 0.004 && Math.abs(this.v) < 0.004;
   }
+  /** Moving fast enough to need every frame (scale: 1 for degrees, smaller for 0…1 values). */
+  busy(scale = 1) {
+    return Math.abs(this.target - this.x) > 0.25 * scale || Math.abs(this.v) > scale;
+  }
   snap(x) {
     this.x = x;
     this.target = x;
@@ -45,7 +49,16 @@ export class Spring {
 /** Maximum tilt toward the pointer, in degrees. */
 export const MOTION_AMOUNTS = { subtle: 4, normal: 7, dramatic: 11 };
 
-const IDLE_AFTER = 6000;
+export const IDLE_AFTER = 6000;
+/** How long it floats once you leave it alone, and how long it takes to come to rest. */
+export const FLOAT_FOR = 5 * 60 * 1000;
+export const FLOAT_FADE = 8000;
+/** Never draw faster than this, even on a 144 Hz screen (ms between frames). */
+const MIN_FRAME = 11;
+/** The float is slow and tiny, so it only needs about 20 frames a second (ms). */
+const FLOAT_FRAME = 40;
+/** Smaller pointer moves than this (degrees of tilt) aren't worth a frame. */
+const AIM_EPSILON = 0.012;
 
 export class MotionRig {
   constructor() {
@@ -70,6 +83,7 @@ export class MotionRig {
     this._raf = 0;
     this._timer = 0;
     this._last = 0;
+    this._drawn = 0;
     this._flat = false;
   }
 
@@ -120,29 +134,41 @@ export class MotionRig {
 
   /** Pointer position relative to the window (from the main process, so it works anywhere on screen). */
   cursor({ x, y, w, h, wx, wy, sx = 0, sy = 0 }) {
-    if (wx !== undefined) this._windowMoved(wx, wy);
-    this.room = { x: clamp(sx, -1, 1), y: clamp(sy, -1, 1) };
+    const carried = wx !== undefined && this._windowMoved(wx, wy);
+    const room = { x: clamp(sx, -1, 1), y: clamp(sy, -1, 1) };
     const pad = this.pad || 0;
     const inside = x >= pad && x <= w - pad && y >= pad && y <= h - pad;
-    if (this.mode === 'off' || (this.mode === 'hover' && !inside)) {
-      this.aim = { rx: 0, ry: 0 };
-    } else {
+    let aim = { rx: 0, ry: 0 };
+    if (this.mode !== 'off' && (this.mode !== 'hover' || inside)) {
       // Soft saturation: near the iPod it follows closely, far away it levels off.
       const R = Math.max(w, h) * 0.8;
       const dx = x - w / 2;
       const dy = y - h / 2;
       const nx = dx / (Math.abs(dx) + R);
       const ny = dy / (Math.abs(dy) + R);
-      this.aim = { ry: nx * this.amount * 1.45, rx: -ny * this.amount * 1.15 };
+      aim = { ry: nx * this.amount * 1.45, rx: -ny * this.amount * 1.15 };
     }
     if (inside) this.lastInput = performance.now();
-    this.wake();
+    // Far from the iPod the tilt hardly changes as the pointer moves, so
+    // don't draw a frame for a change nobody could see. Small moves add up:
+    // the aim only updates once it's moved far enough from the last one.
+    const changed =
+      Math.abs(aim.rx - this.aim.rx) + Math.abs(aim.ry - this.aim.ry) > AIM_EPSILON ||
+      Math.abs(room.x - this.room.x) + Math.abs(room.y - this.room.y) > 0.002 ||
+      (aim.rx === 0 && aim.ry === 0 && (this.aim.rx !== 0 || this.aim.ry !== 0));
+    if (changed) {
+      this.aim = aim;
+      this.room = room;
+    }
+    if (changed || carried) this.wake();
   }
 
+  /** Returns true if the window moved. */
   _windowMoved(wx, wy) {
     const now = performance.now();
     const last = this.lastWin;
-    if (last && (last.x !== wx || last.y !== wy)) {
+    const moved = !!last && (last.x !== wx || last.y !== wy);
+    if (moved) {
       const dt = Math.max(0.008, (now - last.t) / 1000);
       // Low-pass the velocity: window moves arrive in uneven steps.
       this.vel.x += ((wx - last.x) / dt - this.vel.x) * 0.3;
@@ -150,6 +176,7 @@ export class MotionRig {
       this.lastInput = now;
     }
     this.lastWin = { x: wx, y: wy, t: now };
+    return moved;
   }
 
   setDragging(on) {
@@ -196,6 +223,7 @@ export class MotionRig {
 
   wake() {
     if (!this.els) return;
+    if (!this._raf) this._busy = false; // the first frame after a rest isn't a measure of speed
     if (this._timer) {
       clearTimeout(this._timer);
       this._timer = 0;
@@ -207,9 +235,17 @@ export class MotionRig {
 
   _frame(now) {
     this._raf = 0;
+    // High refresh rate screens would draw the 3D body 144+ times a second;
+    // 60-90 is as smooth as this motion gets.
+    if (now - this._drawn < MIN_FRAME) {
+      this._raf = requestAnimationFrame((t) => this._frame(t));
+      return;
+    }
+    this._drawn = now;
     // Real time whatever the frame rate: a slow frame is integrated in small
     // steps rather than slowing the motion down.
     const dt = clamp((now - this._last) / 1000, 0.001, 0.25);
+    if (this._busy) this._pace(dt);
     this._last = now;
 
     // Sway from being carried around; it fades quickly once you stop.
@@ -220,14 +256,17 @@ export class MotionRig {
     const swayY = clamp(-this.vel.x / 1500, -1, 1) * a * 1.4;
     const swayX = clamp(this.vel.y / 1500, -1, 1) * a * 1.2;
 
-    const idleFor = now - this.lastInput;
-    const floating = this.float && this.awake && this.mode !== 'off' && !this.dragging && idleFor > IDLE_AFTER;
+    // Left alone it floats for a few minutes, then comes to rest so it costs
+    // nothing while you're away. Any touch (or pointer over it) starts it again.
+    const floatFor = now - this.lastInput - IDLE_AFTER;
+    const canFloat = this.float && this.awake && this.mode !== 'off' && !this.dragging;
+    const floating = canFloat && floatFor > 0 && floatFor < FLOAT_FOR + FLOAT_FADE;
     let fx = 0;
     let fy = 0;
     let fl = 0;
     if (floating) {
       const s = now / 1000;
-      const ramp = Math.min(1, (idleFor - IDLE_AFTER) / 4000);
+      const ramp = Math.min(1, floatFor / 4000, (FLOAT_FOR + FLOAT_FADE - floatFor) / FLOAT_FADE);
       fx = (Math.sin(s * 0.47) * 0.55 + Math.sin(s * 0.21 + 2) * 0.3) * ramp;
       fy = (Math.sin(s * 0.33 + 1.3) * 0.8 + Math.sin(s * 0.17) * 0.35) * ramp;
       fl = (0.5 + 0.5 * Math.sin(s * 0.6)) * 0.12 * ramp;
@@ -241,21 +280,43 @@ export class MotionRig {
     for (let i = 0; i < steps; i++) for (const s of springs) s.step(dt / steps);
     this.apply();
 
-    const moving = springs.some((s) => !s.settled) || Math.abs(this.vel.x) + Math.abs(this.vel.y) > 3;
-    if (moving) this._raf = requestAnimationFrame((t) => this._frame(t));
+    const carried = Math.abs(this.vel.x) + Math.abs(this.vel.y) > 3;
+    const settled = !carried && springs.every((s) => s.settled);
+    // Real movement (pointer, carrying, a press, the flip) gets every frame.
+    // The float alone is slow enough that ~20 fps looks the same.
+    const busy =
+      carried ||
+      this.rx.busy() ||
+      this.ry.busy() ||
+      this.rz.busy() ||
+      this.flipS.busy() ||
+      this.lift.busy(0.05) ||
+      this.push.busy(0.05);
+    this._busy = busy;
+    if (busy || (!settled && !floating)) this._raf = requestAnimationFrame((t) => this._frame(t));
     else if (floating) {
-      // The float is slow, so 30 fps is plenty and halves the cost.
       this._timer = setTimeout(() => {
         this._timer = 0;
         this._raf = requestAnimationFrame((t) => this._frame(t));
-      }, 26);
-    } else if (this.float && this.awake && this.mode !== 'off' && !this.dragging) {
+      }, FLOAT_FRAME);
+    } else if (canFloat && floatFor <= 0) {
       // Check back when it's time to start floating.
       this._timer = setTimeout(() => {
         this._timer = 0;
         this.wake();
-      }, Math.max(50, IDLE_AFTER - idleFor + 20));
+      }, Math.max(50, 20 - floatFor));
     }
+  }
+
+  /** Frame times during real movement; tells the device if it can't keep up (under ~28 fps). */
+  _pace(dt) {
+    this._paceT = (this._paceT || 0) + dt;
+    this._paceN = (this._paceN || 0) + 1;
+    if (this._paceN < 45) return;
+    const slow = this._paceT / this._paceN > 1 / 28;
+    this._paceT = 0;
+    this._paceN = 0;
+    if (slow && this.onSlow) this.onSlow();
   }
 
   apply() {
