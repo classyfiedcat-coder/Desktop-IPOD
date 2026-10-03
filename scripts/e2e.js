@@ -734,7 +734,7 @@ async function screensScenario({ js, wait, shot, press, scroll, open, menu }) {
  * the front, tilted, and from the back; the screen style each one runs; and
  * the original's scroll wheel turning under real mouse input.
  */
-async function modelsScenario({ js, wait, shot, win, open, menu }) {
+async function modelsScenario({ js, wait, shot, win, open, menu, press }) {
   await wait(1500);
   const pointAt = (dx, dy) =>
     js(`(() => { const w = innerWidth, h = innerHeight; __ipod.device.rig.cursor({ x: w / 2 + ${dx}, y: h / 2 + ${dy}, w, h, wx: 100, wy: 100, sx: 0, sy: 0 }); __ipod.os.activity(); })()`);
@@ -804,6 +804,32 @@ async function modelsScenario({ js, wait, shot, win, open, menu }) {
   await wait(500);
   const back = await js(`__ipod.os.stack.length`);
   if (back !== 1) throw new Error(`MENU on the original's button ring didn't go back (stack ${back})`);
+
+  // Now Playing in each screen style: album colours on the 5th generation,
+  // the reflected artwork on the classic, centred text on the original.
+  await pointAt(0, 0);
+  await settle();
+  for (const [id, colors] of [
+    ['video', 'album'],
+    ['classic', 'classic'],
+    ['original', 'classic'],
+  ]) {
+    await js(`__ipod.store.set('npColors', ${JSON.stringify(colors)}); __ipod.store.settings.color = __ipod.models.find((m) => m.id === ${JSON.stringify(id)}).colors[0].id; __ipod.store.set('model', ${JSON.stringify(id)})`);
+    await wait(800);
+    await js(`(() => { while (__ipod.os.stack.length > 1) __ipod.os.pop({ animate: false }); })()`);
+    await open('Music');
+    await open('Songs');
+    await press('select');
+    await wait(1800);
+    await js(`__ipod.os.activity()`);
+    await wait(300);
+    const np = await js(`({ title: __ipod.os.current.title, album: !!document.querySelector('.np-view.album-colors'), bg: getComputedStyle(document.querySelector('.np-view')).getPropertyValue('--np-bg1') })`);
+    console.log('NP', id, JSON.stringify(np));
+    if (colors === 'album' && !np.album) throw new Error('Now Playing should take the album colours');
+    await shot(`x-${id}-7-nowplaying`);
+    await js(`__ipod.player.pause()`);
+  }
+  await js(`__ipod.store.set('npColors', 'classic'); (() => { while (__ipod.os.stack.length > 1) __ipod.os.pop({ animate: false }); })()`);
 
   // The light (CSS) body too: every model's edges and ports, tilted.
   await js(`__ipod.store.set('detail', 'light')`);

@@ -933,7 +933,7 @@ body {
   cursor: grab;
   /* The turned plastic: a faint radial grain, so you can see it turn. */
   background:
-    repeating-conic-gradient(from 0deg, rgba(0, 0, 0, 0.012) 0deg 1.2deg, rgba(255, 255, 255, 0.02) 1.2deg 3deg),
+    repeating-conic-gradient(from 0deg, rgba(0, 0, 0, 0.007) 0deg 1.2deg, rgba(0, 0, 0, 0) 1.2deg 3deg),
     radial-gradient(circle at 50% 50%, #ffffff 0%, var(--center) 70%, var(--wheel-lo) 100%);
   box-shadow:
     0 0 0 calc(var(--u) * 0.12) rgba(0, 0, 0, 0.2),

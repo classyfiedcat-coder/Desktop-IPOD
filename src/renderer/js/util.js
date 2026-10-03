@@ -213,3 +213,63 @@ export function hslToHex({ h: hh, s, l }) {
   const to = (x) => Math.round(x * 255).toString(16).padStart(2, '0');
   return `#${to(f(0))}${to(f(8))}${to(f(4))}`;
 }
+
+// ------------------------------------------------------------- album colours --
+
+const palettes = new Map();
+
+/**
+ * The colours of a piece of album art, for tinting Now Playing the way Apple
+ * Music does: `accent` favours its strongest mid-tone colour (not a muddy
+ * average), `light` says whether it's a pale cover. Null if the image can't
+ * be read (a cross-origin image without CORS, a broken link).
+ * @returns {Promise<{accent: number[], light: boolean} | null>}
+ */
+export function artPalette(url) {
+  if (!url) return Promise.resolve(null);
+  if (palettes.has(url)) return palettes.get(url);
+  const p = new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const n = 24;
+        const c = document.createElement('canvas');
+        c.width = c.height = n;
+        const g = c.getContext('2d', { willReadFrequently: true });
+        g.drawImage(img, 0, 0, n, n);
+        const d = g.getImageData(0, 0, n, n).data;
+        let R = 0;
+        let G = 0;
+        let B = 0;
+        let W = 0;
+        let L = 0;
+        for (let i = 0; i < d.length; i += 4) {
+          const [r, gg, b] = [d[i], d[i + 1], d[i + 2]];
+          const mx = Math.max(r, gg, b);
+          const mn = Math.min(r, gg, b);
+          const sat = mx ? (mx - mn) / mx : 0;
+          const lum = (0.2126 * r + 0.7152 * gg + 0.0722 * b) / 255;
+          L += lum;
+          // Saturated mid-tones count most; near-white and near-black hardly at all.
+          const w = 0.08 + sat * sat * 3 * Math.max(0, 1 - Math.abs(lum - 0.5) * 1.6);
+          R += r * w;
+          G += gg * w;
+          B += b * w;
+          W += w;
+        }
+        resolve({ accent: [R / W, G / W, B / W].map(Math.round), light: L / (n * n) > 0.62 });
+      } catch {
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+  palettes.set(url, p);
+  if (palettes.size > 200) palettes.delete(palettes.keys().next().value);
+  return p;
+}
+
+/** Mix two RGB colours: t = 0 is a, 1 is b. */
+export const mixRgb = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));

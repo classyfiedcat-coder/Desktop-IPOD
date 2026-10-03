@@ -351,3 +351,34 @@
   font-weight: 400;
   color: var(--muted);
 }
+
+/* --- Now Playing in the album's colours (Settings › Appearance › Now Playing) --- */
+.np-view.album-colors {
+  background: linear-gradient(180deg, var(--np-bg1) 0%, var(--np-bg2) 100%);
+  color: var(--np-fg);
+  transition: background 0.6s ease;
+}
+.np-view.album-colors .np-line,
+.np-view.album-colors .np-count,
+.np-view.album-colors .np-times,
+.np-view.album-colors .np-spk,
+.np-view.album-colors .np-like {
+  color: var(--np-fg);
+  text-shadow: none;
+}
+/* The artist and album lines are a little quieter than the title. */
+.np-view.album-colors .np-line + .np-line {
+  color: var(--np-fg2);
+}
+.np-view.album-colors .np-bar {
+  background: var(--np-track);
+  border-color: transparent;
+  box-shadow: none;
+}
+.np-view.album-colors .np-fill {
+  background: var(--np-fg);
+  box-shadow: none;
+}
+.np-view.album-colors .np-art {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}

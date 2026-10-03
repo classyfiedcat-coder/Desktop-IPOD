@@ -39,7 +39,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        scenario: [tour, media, screens, motion, spotify, itunes]
+        scenario: [tour, media, screens, motion, spotify, itunes, models]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -76,7 +76,7 @@ jobs:
       - run: npm ci
       # The app starting up, the 3D body and mouse input, and the iTunes library.
       - name: Run the scenarios
-        run: bash scripts/run-e2e.sh tour motion itunes
+        run: bash scripts/run-e2e.sh tour motion itunes models
       - name: Keep screenshots and logs
         if: always()
         uses: actions/upload-artifact@v4

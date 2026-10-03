@@ -738,9 +738,20 @@
 .style-mono .cf-stage {
   filter: grayscale(1) contrast(1.15);
 }
-/* Now Playing on the original had no artwork: just the song, centred. */
+/* Now Playing on the original had no artwork: just the song, centred, in
+   the same big type as the menus. */
 .style-mono .np-art {
   display: none;
+}
+.style-mono .np-line {
+  font-size: calc(var(--fs) * 0.78);
+  line-height: 1.25;
+}
+.style-mono .np-count {
+  font-size: calc(var(--fs) * 0.62);
+}
+.style-mono .np-times {
+  font-size: calc(var(--fs) * 0.62);
 }
 .style-mono .np-meta {
   left: 16px;

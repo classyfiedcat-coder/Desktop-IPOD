@@ -5,6 +5,7 @@ import { View } from './view.js';
 import { cycleItem, choiceItem, StaticList, SliderView, TextView, ScanView, confirmView } from './common.js';
 import { EQ_PRESETS, EQ_BANDS } from '../player/eq.js';
 import { SIZES, MODELS, getModel } from '../models.js';
+import { previewClicks } from '../sound.js';
 import { fmtBytes, h, clamp } from '../util.js';
 import { showSheet } from './sheet.js';
 import { askText } from './textinput.js';
@@ -91,6 +92,21 @@ export function settingsMenu(app) {
         ['loud', 'Loud'],
         ['off', 'Off'],
       ]),
+      choiceItem(
+        app,
+        'Click Sound',
+        'clickSound',
+        [
+          ['auto', 'This iPod’s Own'],
+          ['piezo', 'Click Wheel'],
+          ['soft', 'Soft Tick'],
+          ['mechanical', 'Scroll Wheel'],
+          ['pop', 'Pop'],
+          ['typewriter', 'Typewriter'],
+        ],
+        // Play a few ticks of the new sound as it's chosen.
+        { onChange: (v) => (store.set('clickSound', v), previewClicks()) }
+      ),
       { label: 'Lyrics', view: () => lyricsSettings(app) },
       { label: 'Date & Time', view: () => dateTimeSettings(app) },
       { label: 'Music Library', view: () => librarySettings(app) },
@@ -739,6 +755,10 @@ function appearanceSettings(app) {
       cycleItem(store, 'Float When Idle', 'idleFloat', ON_OFF),
       cycleItem(store, 'Shadow', 'shadow', ON_OFF),
       cycleItem(store, 'Wheel Glow', 'wheelGlow', ON_OFF),
+      cycleItem(store, 'Now Playing', 'npColors', [
+        ['classic', 'Classic'],
+        ['album', 'Album Colors'],
+      ]),
       cycleItem(store, 'Startup Animation', 'startupAnimation', ON_OFF),
     ],
   });

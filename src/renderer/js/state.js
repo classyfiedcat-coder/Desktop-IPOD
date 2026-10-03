@@ -37,6 +37,8 @@ export const DEFAULT_SETTINGS = {
   backlight: 10, // seconds, 0 = always on
   brightness: 1,
   clicker: 'on', // off | on | loud
+  clickSound: 'auto', // auto (the model's own) | piezo | soft | mechanical | pop | typewriter
+  npColors: 'classic', // classic | album (Now Playing takes the album art's colours)
   wheelSpeed: 'medium',
   timeFormat: '12',
   timeInTitle: false,

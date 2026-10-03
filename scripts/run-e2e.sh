@@ -3,12 +3,12 @@
 # library, each with a fresh profile, under a virtual display if there's no
 # real one. Fails if any scenario fails or logs renderer errors.
 #
-#   scripts/run-e2e.sh [scenario ...]      default: tour media screens motion spotify itunes
+#   scripts/run-e2e.sh [scenario ...]      default: tour media screens motion spotify itunes models
 set -euo pipefail
 cd "$(dirname "$0")/.."
 WORK="${E2E_DIR:-$PWD/.e2e}"
 SCENARIOS=("$@")
-[ ${#SCENARIOS[@]} -eq 0 ] && SCENARIOS=(tour media screens motion spotify itunes)
+[ ${#SCENARIOS[@]} -eq 0 ] && SCENARIOS=(tour media screens motion spotify itunes models)
 
 [ -f "$WORK/profile/state.json" ] || scripts/make-test-library.sh "$WORK" > /dev/null
 # Electron downloads its binary the first time it's required, and says so on
