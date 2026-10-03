@@ -1,11 +1,6 @@
 'use strict';
 
-/**
- * Spotify sign-in using the Authorization Code flow with PKCE and a loopback
- * redirect (http://127.0.0.1:<port>/callback). No client secret is needed;
- * the user supplies the Client ID of their own Spotify developer app.
- * Tokens are encrypted at rest with Electron's safeStorage when available.
- */
+/** Spotify sign-in: Authorization Code + PKCE via a loopback redirect, the user's own Client ID, tokens encrypted with safeStorage. */
 
 const fs = require('fs');
 const http = require('http');

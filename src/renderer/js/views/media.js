@@ -32,7 +32,7 @@ export function createMedia(app) {
       return new ListView({
         title: 'Photos',
         split: true,
-        empty: 'No photos found. Choose a folder in Settings › Music Library.',
+        empty: 'No photos. Choose a folder in Settings › Music Library.',
         load: async () => {
           const { photos, albums } = await loadPhotos();
           if (!photos.length) return [];
@@ -56,7 +56,7 @@ export function createMedia(app) {
       return new ListView({
         title: 'Videos',
         split: true,
-        empty: 'No videos found. Choose a folder in Settings › Music Library.',
+        empty: 'No videos. Choose a folder in Settings › Music Library.',
         load: async () => {
           const vids = await loadVideos();
           if (!vids.length) return [];

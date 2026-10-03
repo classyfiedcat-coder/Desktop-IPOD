@@ -1,10 +1,4 @@
-/**
- * The click wheel "clicker", synthesised at runtime (no samples): a very short
- * band-limited transient similar to the piezo tick of a real iPod, or one of
- * a few others you can choose in Settings › Click Sound. "This iPod's Own"
- * is the piezo tick, except on the original iPod, whose wheel turned against
- * a soft mechanical detent.
- */
+/** The clicker, synthesised (no samples): the piezo tick, or another from Settings › Click Sound. The original's own is mechanical. */
 
 import { store } from './state.js';
 import { getModel } from './models.js';
@@ -13,12 +7,7 @@ let ctx = null;
 const buffers = {};
 let lastTick = 0;
 
-/**
- * Each sound: a tick (scrolling) and a press (buttons). len s, freq Hz,
- * decay /s, noise and body the mix of filtered noise and tone; sweep drops
- * the tone's pitch to this fraction (a pop); echo adds a second, quieter hit
- * this many seconds later (a typewriter's clack); gain scales the volume.
- */
+/** Per sound: tick and press. len s, freq Hz, decay /s, noise/body mix, sweep (pitch drop), echo (second hit, s), gain. */
 const SOUNDS = {
   piezo: {
     tick: { len: 0.014, freq: 2600, decay: 900, noise: 0.55, body: 0.45 },

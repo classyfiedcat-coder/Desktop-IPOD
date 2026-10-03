@@ -1,11 +1,6 @@
 'use strict';
 
-/**
- * Desktop integration: the tray (Windows) or menu bar (Mac) icon and menus,
- * global shortcuts, track-change notifications, and on Windows the taskbar
- * thumbnail buttons, jump-list tasks and command-line arguments (Open With,
- * jump-list commands).
- */
+/** Tray/menu bar icon and menus, global shortcuts, notifications, Windows taskbar buttons, jump list and Open With. */
 
 const fs = require('fs');
 const path = require('path');

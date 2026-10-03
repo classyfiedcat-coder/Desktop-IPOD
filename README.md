@@ -1,6 +1,6 @@
 # iPod for Desktop
 
-A free-floating iPod that lives on your desktop, on Windows and Mac: the 5th generation, the iPod classic, the 3rd generation nano, the iPod mini or the original from 2001. There's no window frame, just the iPod, and it's a real 3D object that turns toward your mouse. Drag it anywhere, spin the click wheel, and play your music, internet radio, podcasts or your Spotify library. See what's new in the [changelog](CHANGELOG.md).
+A frameless 3D iPod for your Windows or Mac desktop. Pick the original, mini, 5th generation, classic or nano 3G, then play your music, iTunes library, radio, podcasts or Spotify. [Changelog](CHANGELOG.md).
 
 <p align="center">
   <img src="docs/white-nowplaying.png" width="300" alt="White iPod showing Now Playing" />
@@ -9,166 +9,94 @@ A free-floating iPod that lives on your desktop, on Windows and Mac: the 5th gen
 
 ## Features
 
-**It lives on your desktop**
-
 <p align="center"><img src="docs/motion.gif" width="240" alt="The iPod turning toward the pointer, being picked up and flipped over" /></p>
 
-- It's a real 3D model, not a flat picture. The body is rendered with WebGL: perfectly smooth rounded edges where the front plastic meets the steel shell, a headphone jack you can see into, a chrome hold slider that moves in its slot, and a dock connector with its row of pins. The screen and click wheel stay pin-sharp HTML on top, lined up to the pixel.
-- The back is polished mirror steel (or glossy black steel) that reflects a studio around it, with matte etched lettering. Settings › Appearance › Wear adds scratches, swirls and smudges that break up the reflections, from Brand New to Well Loved.
-- It turns gently toward your mouse pointer, wherever the pointer is on screen. As it turns, reflections slide across the glossy front, the screen glass and the chrome. The screen sits just behind the glass, so it shifts slightly against the bezel.
-- Pick it up and it lifts off the desktop, its shadow spreads out, and it sways as you carry it. Put it down and it settles with a little bounce.
-- Pressing the wheel pushes that edge in, and spinning it gives the body a slight twist. Left alone, it floats very gently for a few minutes, then comes to rest.
-- Double-click it to flip it over and see the back (with your engraving).
-- Settings › Appearance › Motion: Follow Pointer, Only on Hover, or Off (Off keeps it perfectly flat and pixel-sharp). You can also set the Motion Amount (Subtle, Normal or Dramatic), Reflections, and Float When Idle.
-- Settings › Appearance › Detail: High (the 3D model) or Light (a lighter CSS version, also used automatically if your graphics don't support WebGL).
-- It's light on your computer. When nothing moves, nothing is drawn. Motion is capped at about 90 frames a second on high refresh rate screens, and the idle float only needs about 20. Playing music repaints the screen once a second, when the clock ticks. If your graphics can't keep up, the 3D body is drawn at a lower resolution automatically.
-
-**Every classic iPod**
-- Settings › Appearance › Model: the iPod with video (5th generation, 2005), the iPod classic (2007), the iPod nano (3rd generation, 2007), the iPod mini (2004) or the original iPod (2001), in their real colours.
-- Each is built to its real measurements: overall sizes, capacities and model numbers from Apple's specifications; screen windows, wheels, centre buttons and corner radii measured from Apple's own product images; colours sampled from them; port positions from iFixit's photos.
-- Each has its own body: white plastic under clear acrylic (5th generation, original), anodised aluminium on polished steel (classic, nano), or the mini's aluminium tube with plastic end caps. The 5th generation 60/80GB and the 160GB classic are thicker, like the real ones.
-- Its own controls: the original's wheel physically turns (drag around it and it spins under your pointer) inside a ring of four buttons; the others have the Click Wheel. Ports where they really are: FireWire on top of the original, everything on the bottom of the nano.
-- Its own screen: the original and mini have monochrome LCDs in the Chicago typeface, with the inverted highlight and a backlight that lights the grey LCD; the classic and nano have the 2007 look, with album art panning beside the menus.
-
-**It feels like the real thing**
-- A frameless, transparent window shaped like the iPod. Clicks pass through the empty space around it, and you drag it by its body.
-- The click wheel works like the real one: drag around it to scroll, click MENU, ⏮, ⏭ or ▶❚❚, and press the centre button. It makes the clicker sound, and the part you press visibly sinks.
-- Long presses behave like an iPod: hold ▶❚❚ to turn it off, hold MENU to jump to the main menu, hold ⏮/⏭ to rewind or fast-forward, and hold the centre button for a song's options.
-- A working hold switch on the top edge, with the orange flag and a lock on screen.
-- The backlight turns off after the timeout. Screens slide in and out, long titles scroll, and spinning fast through a long list shows a big letter.
-- The 5th generation screen, with its cool white LCD: full-width menus with the blue highlight, and Now Playing with "6 of 15", album art and the glossy progress bar. Settings › Appearance › Now Playing › Album Colors tints it in the colours of the album art instead.
-- Each model's colours (White, Black, U2 Special Edition; Silver and Black; the nano's and mini's colours) or your own (there's a colour editor), in four sizes, with an engraving on the back.
-- Settings › Click Sound: the iPod's own click (the original's soft mechanical detent, or the Click Wheel's tick), a soft tick, a pop or a typewriter.
+**The iPod**
+- Five models (Settings › Appearance › Model): original (2001), mini (2004), 5th generation (2005), classic (2007), nano 3G (2007). Sizes, screens, wheels, ports and colours are measured from Apple's specs and product images and iFixit's photos.
+- A real 3D body (WebGL) that turns toward your pointer, lifts when dragged, floats when idle and flips over (double-click) to show the back and your engraving.
+- Each model's own wheel (the original's turns), ports, materials and screen: monochrome Chicago LCDs, the 5th generation's blue menus, or the 2007 look with panning album art.
+- Colours, a colour editor, four sizes, wear, reflections, click sounds, and an album-coloured Now Playing.
 
 **Music**
-- Local library: Cover Flow, Playlists (your own, and `.m3u` files), Artists, Albums, Compilations, Songs, Podcasts, Genres, Composers, Audiobooks and Search.
-- Smart playlists: Recently Added, Top 25 Most Played, Recently Played and My Top Rated, plus On-The-Go.
-- Up Next: Play Next or Add to Up Next from any song, album or playlist. Hold the centre button on a song for more: add to a playlist, browse its album or artist, Song Info.
-- Now Playing: turn the wheel for volume. Click the centre button to cycle through the scrubber, the star rating, lyrics (time-synced from LRCLIB, or from the file) and the visualizer.
-- Gapless playback or crossfade, Shuffle (Songs/Albums), Repeat (One/All), the classic EQ presets and a custom EQ, Sound Check, Volume Limit, and speeds for audiobooks and podcasts (which also remember where you were).
-- Get Album Artwork finds missing covers online.
-- Works with the media keys and the Windows media overlay or the Mac's Now Playing.
+- Cover Flow, playlists (including `.m3u` and smart playlists), artists, albums, songs, genres, composers, audiobooks, podcasts and search.
+- Up Next, gapless or crossfade, shuffle, repeat, EQ, Sound Check, lyrics (LRCLIB), visualizer, ratings.
+- Your iTunes or Music library: playlists, ratings and play counts (read-only).
+- Internet radio (radio-browser.info) and podcasts (charts, search, OPML, downloads).
+- Spotify: your library, search, queue and devices, played through the Spotify app or any Connect speaker.
 
-**iTunes and the Music app**
-- Like an iPod synced with iTunes, it uses your iTunes or Music library: your playlists (smart playlists as they are now, and playlist folders), star ratings, play counts, last played and date added. Top 25 Most Played and My Top Rated reflect years of listening.
-- It reads the library file iTunes and the Music app share with other apps, and reads it again whenever iTunes saves it. Plays on the iPod add to iTunes', and a rating you give on the iPod wins. Nothing in iTunes is changed.
-- To turn on sharing: in iTunes on Windows, Edit › Preferences › Advanced › "Share iTunes Library XML with other applications". In the Music app on a Mac, Music › Settings › Files › "Share Library XML with other applications". Then see Settings › Music Library › iTunes Library.
+**Extras**: games, clocks, alarms, sleep timer, stopwatch, screen lock, contacts, calendars, notes, photos and videos.
 
-**Radio and podcasts**
-- Internet radio: top and most-loved stations, stations near you, genres, countries and search (from radio-browser.info), with the song that's playing and your favourites.
-- Podcasts: top charts, search, subscribe by address, import and export OPML, download episodes, and pick up where you left off.
-
-**Spotify**
-- Playlists, Liked Songs, saved Albums, followed Artists, Podcasts, Recently Played, Search and Devices.
-- Like songs from Now Playing, add them to the queue or to your playlists.
-- Search shows album art, the artist, album and year for every song, so you can pick the version you want. A song picked from search plays on its own, then Spotify carries on with your queue and songs like it, just like in the Spotify app.
-- Plays through the Spotify app on your computer, or any Spotify Connect speaker, with the iPod as the remote. If Spotify isn't open, the iPod opens it for you.
-
-**Extras**
-- Games: Brick, Parachute, Music Quiz and Solitaire.
-- Clocks (world clocks with a day/night analog face), Alarms with snooze, a Sleep Timer, Stopwatch with laps, Screen Lock (4-digit combination), Contacts, Calendars and Notes.
-- Photos (thumbnail grid, viewer, Ken Burns slideshow) and Videos (Movies, Music Videos, TV Shows, with subtitles).
-
-**On your desktop**
-- A tray icon (Windows) or menu bar icon (Mac) and a right-click menu: colour, size, motion, always on top, hide, quit… On Windows also taskbar play/pause buttons and a jump list; on a Mac, a proper menu bar.
-- Global shortcuts that work from any app: Space to play/pause, ← / → previous/next, ↑ / ↓ volume, I to show or hide, with Ctrl+Alt on Windows and ⌃⌥⌘ on a Mac.
-- Open music files with the iPod (Open With, or drop them on the Dock icon on a Mac), or drop files and folders on it.
-- Snaps to screen edges, optional song notifications, and starts when you log in if you like.
-- Updates itself (installed version). It checks for new versions every few hours and after your PC wakes up, and downloads them in the background. When the iPod is quiet (nothing playing, untouched for a few minutes), it installs the update and opens again where you left off. Turn this off in Settings › Software Update › Install Automatically, and it installs when you quit instead. The portable version tells you when there's a new version to download.
+**Desktop**: tray or menu bar icon, global shortcuts, media keys, file drop and Open With, snapping, notifications, start at login, and automatic updates.
 
 ## Install
 
-Download it from the [Releases page](../../releases):
+From the [Releases page](../../releases):
 
-- **Windows 10 or 11:** `iPod-Setup-x.y.z.exe` (the installer, which keeps itself up to date) or `iPod-Portable-x.y.z.exe` (no install). Windows SmartScreen may warn you because the app isn't code-signed: click **More info → Run anyway**.
-- **Mac (macOS 13 Ventura or later):** `iPod-x.y.z-mac-arm64.dmg` for Apple silicon (M1 and later), or `iPod-x.y.z-mac-x64.dmg` for Intel Macs. Open it and drag iPod to Applications. The app isn't notarized by Apple yet, so the first time macOS won't open it: open it once, then go to **System Settings › Privacy & Security** and click **Open Anyway**.
+- **Windows 10/11:** `iPod-Setup-x.y.z.exe` (updates itself) or `iPod-Portable-x.y.z.exe`. On a SmartScreen warning: **More info › Run anyway**.
+- **Mac (macOS 13+):** `iPod-x.y.z-mac-arm64.dmg` (Apple silicon) or `-x64.dmg` (Intel). The first time: **System Settings › Privacy & Security › Open Anyway**.
 
-### Run from source
+From source:
 
 ```bash
 npm install
-npm start
+npm start        # run
+npm test         # unit tests
+npm run e2e      # end-to-end (needs ffmpeg; xvfb on Linux)
+npm run dist     # build installers
 ```
 
-Run the tests (the end-to-end ones need ffmpeg, and xvfb on Linux):
-
-```bash
-npm test
-npm run e2e
-```
-
-Build the app yourself: on Windows the installer and portable exe, on a Mac the disk images.
-
-```bash
-npm run dist
-```
-
-### Making a release
-
-Bump `version` in `package.json` and add its entry to the [changelog](CHANGELOG.md). Then, on GitHub, go to **Actions › Build › Run workflow**, tick **Publish a GitHub release**, and run it. Once the tests pass, it builds the Windows installer and portable exe and the Mac disk images, and publishes them on the Releases page as `v` + the version, with download links and the changelog entry. Pushing a `v*` tag does the same.
+**Releasing:** bump `version` in `package.json`, add a changelog entry, then **Actions › Build › Run workflow** with **Publish a GitHub release** ticked (or push a `v*` tag).
 
 ## Controls
 
 | Mouse | Keyboard | Action |
 | --- | --- | --- |
-| Drag around the wheel / mouse scroll wheel | ↑ ↓ | Scroll, or volume in Now Playing |
+| Drag around the wheel, or scroll | ↑ ↓ | Scroll (volume in Now Playing) |
 | Centre button | Enter | Select |
-| MENU | Esc / Backspace | Back (hold for the main menu) |
-| ▶❚❚ | Space | Play/Pause (hold to turn off) |
-| ⏮ ⏭ | ← → | Previous/Next (hold to rewind/fast-forward) |
-| Hold switch on the top edge | H | Lock the buttons |
-| Drag the case | | Move the iPod |
-| Double-click the case | | Flip it over to see the back |
-| Right-click | | Options: always on top, hide, quit… |
+| MENU | Esc | Back (hold: main menu) |
+| ▶❚❚ | Space | Play/pause (hold: off) |
+| ⏮ ⏭ | ← → | Previous/next (hold: seek) |
+| Hold switch | H | Lock |
+| Drag / double-click the case | | Move / flip |
 
-The iPod also has a tray icon. Click it to show or hide the iPod.
+Global shortcuts: Space, arrows and I (show/hide) with Ctrl+Alt (Windows) or ⌃⌥⌘ (Mac).
 
 ## Your music
 
-By default the iPod reads your **Music** folder (on a Mac that includes the Music app's songs). To add more folders, go to **Settings › Music Library › Add Music Folder…**. The photo, video and notes folders are set there too.
+Reads your Music folder; add more in **Settings › Music Library**. Formats: MP3, AAC/M4A, M4B, FLAC, WAV, OGG, Opus. Artwork from tags or `cover.jpg`/`folder.jpg`.
 
-Supported audio formats: MP3, AAC/M4A, M4B audiobooks, FLAC, WAV, OGG and Opus. Artwork comes from the file's tags or from a `cover.jpg`/`folder.jpg` next to the files.
+**iTunes / Music app:** turn on "Share Library XML with other applications" (iTunes: Edit › Preferences › Advanced; Music: Settings › Files), then **Settings › Music Library › iTunes Library**.
 
-## Connecting Spotify
+## Spotify
 
-Spotify requires every app to use its own Client ID. Setting it up takes about a minute, and the app walks you through it in **Settings › Spotify › Set Up Spotify…**:
+**Settings › Spotify › Set Up Spotify…** walks you through it:
 
-1. Open the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and click **Create app**.
-2. Add the Redirect URI `http://127.0.0.1:43827/callback`, and tick **Web API** and **Web Playback SDK**.
-3. Copy the app's **Client ID** into the iPod and click **Connect**. Your browser opens so you can approve access.
+1. In the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard), **Create app**.
+2. Redirect URI `http://127.0.0.1:43827/callback`; tick **Web API** and **Web Playback SDK**.
+3. Paste the **Client ID** into the iPod and **Connect**.
 
-Good to know:
-- **Spotify Premium is required to control playback.** This is Spotify's rule for the Web API, and since February 2026 it also applies to the developer account that owns the app.
-- Spotify apps in Development Mode work for up to 5 users, who must be added under **User Management** in the dashboard.
-- In Development Mode, Spotify only lists the songs in playlists you own or collaborate on. For other playlists, the iPod offers **Play Playlist** and **Shuffle Playlist** instead.
-- Sign-in uses PKCE (no client secret). Tokens are stored encrypted by the system (DPAPI on Windows, the Keychain on a Mac). Spotify asks you to sign in again after about six months.
-- *Playing audio from the iPod itself:* stock Electron can't play Spotify's protected streams, so by default the iPod drives the Spotify app instead. If you build with a Widevine-enabled Electron (such as [castLabs Electron](https://github.com/castlabs/electron-releases)), the iPod detects it and registers itself as a Spotify Connect speaker named "iPod".
+Playback needs Spotify Premium. Development Mode apps allow 5 users (add them under **User Management**) and only list playlists you own or collaborate on. Sign-in uses PKCE; tokens are stored with the system keychain.
 
 ## Project layout
 
 ```
-src/main/        Electron main process: frameless window, tray, app:// file server, library scanner, Spotify sign-in
-src/preload/     The safe bridge between the iPod UI and the main process
-src/renderer/    The iPod itself (no framework, plain ES modules)
-  js/device.js     The physical iPod: case, click wheel and hold switch input
-  js/body3d.js     The 3D body (WebGL): shell, ports, materials
-  js/rig.js        The motion: pointer tilt, lift, sway, flip
-  js/os.js         Navigation, backlight, sleep, hold, title bar
-  js/views/        Every screen: menus, Now Playing, settings, extras, games
-  js/player/       Local playback with EQ, the Spotify engine, queue/shuffle/repeat
-  js/library/      Local library index and the Spotify Web API client
-scripts/         Icon generator, test library generator and the end-to-end tests (npm run e2e)
-test/            Unit tests (npm test)
+src/main/       Electron main: window, tray, app:// server, library scanner, Spotify sign-in, updates
+src/preload/    Bridge between the UI and the main process
+src/renderer/   The iPod (plain ES modules)
+  js/models.js    Every model's measurements, with sources
+  js/device.js    Case, wheel and hold switch input
+  js/body3d.js    3D body
+  js/rig.js       Motion
+  js/os.js        Navigation, backlight, title bar
+  js/views/       Screens
+  js/player/      Playback, Spotify engine, queue
+  js/library/     Local library, Spotify API
+scripts/        Icons, test library, end-to-end tests
+test/           Unit tests
 ```
 
-Every model is data in `src/renderer/js/models.js` (sizes, edge profile, screen, wheel, ports, colours), with notes on where each measurement comes from.
+## Credits and legal
 
-## Credits
-
-The 3D body is drawn with [three.js](https://threejs.org) (MIT licence, included in `src/renderer/vendor/three`).
-
-## Legal
-
-An unofficial fan project. It is not affiliated with, endorsed by or sponsored by Apple Inc. or Spotify AB. iPod and Click Wheel are trademarks of Apple Inc., and Spotify is a trademark of Spotify AB. The interface font is Source Sans 3 by Adobe, used under the SIL Open Font License 1.1 (`src/renderer/fonts/OFL.txt`). The monochrome screens use ChicagoFLF by Robin Casady, which he placed in the public domain (`src/renderer/fonts/chicago-flf-README.txt`).
+Unofficial fan project, not affiliated with Apple Inc. or Spotify AB. iPod and Click Wheel are trademarks of Apple Inc.; Spotify is a trademark of Spotify AB. 3D by [three.js](https://threejs.org) (MIT). Fonts: Source Sans 3 (SIL OFL 1.1, `src/renderer/fonts/OFL.txt`) and ChicagoFLF by Robin Casady (public domain, `src/renderer/fonts/chicago-flf-README.txt`).
 
 MIT License.

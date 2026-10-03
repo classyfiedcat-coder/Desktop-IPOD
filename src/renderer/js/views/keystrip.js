@@ -1,8 +1,4 @@
-/**
- * The click-wheel keyboard: a strip of keys that scrolls under a fixed
- * highlight. Used by Search and every text field (playlist names, podcast
- * addresses, engraving…).
- */
+/** The click-wheel keyboard: a key strip scrolling under a fixed highlight. */
 
 import { h } from '../util.js';
 

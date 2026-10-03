@@ -1,9 +1,6 @@
 /**
- * One player for everything. Local songs, podcast episodes and internet
- * radio play through the AudioEngine (gapless, crossfade, EQ); Spotify plays
- * through the SpotifyEngine. The Player owns the queue (with Up Next),
- * shuffle/repeat, play counts, ratings, resume positions for podcasts and
- * audiobooks, scanning with ⏮/⏭, and the Windows media controls.
+ * One player: local, podcasts and radio via AudioEngine, Spotify via SpotifyEngine.
+ * Owns the queue, shuffle, repeat, stats, resume positions and media controls.
  */
 
 import { Emitter, clamp } from '../util.js';
@@ -171,12 +168,7 @@ export class Player extends Emitter {
 
   // ------------------------------------------------------------ playback --
 
-  /**
-   * Play a list starting at index. Spotify tracks pass a `context`
-   * ({ uri } for albums/playlists) so Spotify keeps the queue, or `single`
-   * (a song picked from search) to play just that song and let Spotify
-   * decide what comes next.
-   */
+  /** Play a list from index. Spotify: `context` keeps its queue; `single` plays just this song. */
   async playTracks(tracks, index = 0, { shuffle, context, single = false } = {}) {
     if (!tracks || !tracks.length) return;
     index = clamp(index, 0, tracks.length - 1);

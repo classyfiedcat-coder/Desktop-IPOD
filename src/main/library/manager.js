@@ -1,11 +1,6 @@
 'use strict';
 
-/**
- * Owns the local music index: runs scans in a utility process, keeps an
- * incremental JSON index, watches folders for changes, resizes artwork on
- * demand, accepts online artwork, and tracks "transient" files opened with
- * the iPod (Open With / drag & drop) that are not part of the library.
- */
+/** The local music index: scans in a utility process, incremental index, folder watching, artwork, transient (Open With) files. */
 
 const fs = require('fs');
 const fsp = fs.promises;
@@ -260,12 +255,7 @@ class Library extends EventEmitter {
 
   // ---------------------------------------------------------------- iTunes --
 
-  /**
-   * Read the iTunes / Music library (the file given, or the one found in the
-   * Music folder) and match it against this library. The XML is only read
-   * again when it has changed. Returns what the renderer needs, or
-   * { found: false } with where it looked.
-   */
+  /** Read and match the iTunes library (given or found); re-read only when changed. { found: false } if none. */
   async itunes({ file = null, musicDir, force = false } = {}) {
     const target = file || itunes.findLibrary(musicDir);
     this._watchITunes(target);

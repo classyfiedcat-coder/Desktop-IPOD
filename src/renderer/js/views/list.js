@@ -1,8 +1,4 @@
-/**
- * The iPod list: row-based (not pixel) scrolling, selection highlight,
- * scroll bar, marquee for long titles, wheel acceleration with the big
- * letter overlay and lazy loading.
- */
+/** The iPod list: row scrolling, highlight, scroll bar, marquee, acceleration with letter overlay, lazy loading. */
 
 import { View } from './view.js';
 import { h, svg, ICONS, clamp, indexLetter } from '../util.js';

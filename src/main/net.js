@@ -1,11 +1,6 @@
 'use strict';
 
-/**
- * Outbound HTTP for the app. Everything the iPod fetches from the internet
- * (lyrics, radio directory, podcast feeds, artwork, update checks) goes
- * through here so it gets one User-Agent, timeouts, per-host pacing, size
- * limits, private-network protection and — in development — a mock server.
- */
+/** All outbound HTTP: one User-Agent, timeouts, per-host pacing, size limits, private-network protection, dev mocks. */
 
 const electron = require('electron');
 const dns = require('dns');
@@ -110,11 +105,7 @@ async function resolvesPrivate(host) {
   return priv;
 }
 
-/**
- * Untrusted fetches (feeds, streams, images, anything a URL came from the
- * internet for) go through their own session, which checks every hop of a
- * redirect chain before it's followed.
- */
+/** Untrusted URLs (from feeds, streams, users) use their own session, which checks every redirect hop. */
 let guarded = null;
 function guardedSession() {
   if (guarded) return guarded;

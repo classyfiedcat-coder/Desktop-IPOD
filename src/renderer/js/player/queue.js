@@ -1,8 +1,4 @@
-/**
- * The play queue: the list you started playing from (in playing order, which
- * may be shuffled) plus "Up Next" — songs you asked to hear next, which play
- * before the list continues. Pure logic, no audio.
- */
+/** The play queue: the list (maybe shuffled) plus Up Next, which plays first. Pure logic. */
 
 import { shuffled } from '../util.js';
 
@@ -81,10 +77,7 @@ export class PlayQueue {
     return null;
   }
 
-  /**
-   * Move forward. auto = the song finished by itself.
-   * Returns { track, wrapped, stop } — stop means playback should end (paused at the start).
-   */
+  /** Move forward (auto = it finished). Returns { track, wrapped, stop }. */
   advance({ repeat = 'off', auto = false } = {}) {
     if (auto && repeat === 'one' && this.current) return { track: this.current, wrapped: false, stop: false, same: true };
     if (this.upNext.length) {

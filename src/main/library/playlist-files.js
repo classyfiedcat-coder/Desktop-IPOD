@@ -4,10 +4,7 @@
 
 const path = require('path');
 
-/**
- * Returns absolute paths for every entry of an M3U playlist.
- * Handles #EXTM3U headers, relative paths, file:// URLs and Windows paths.
- */
+/** Absolute paths of an M3U's entries (relative paths, file:// URLs, Windows paths). */
 function parseM3U(text, baseDir) {
   const out = [];
   for (let line of String(text).split(/\r?\n/)) {

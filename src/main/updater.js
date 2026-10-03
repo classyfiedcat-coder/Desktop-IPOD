@@ -1,15 +1,8 @@
 'use strict';
 
 /**
- * Software Update from GitHub Releases.
- *
- * The installed (NSIS) build updates itself with electron-updater: it checks
- * when it starts, every few hours and when the PC wakes up, downloads new
- * versions in the background, and installs them silently and restarts (the
- * renderer picks a quiet moment, see renderer/js/updates.js), or when you
- * quit. The portable build and the Mac app (which isn't signed by Apple, so
- * macOS won't let it replace itself) only check, and say where to download
- * the new version. Development builds don't update.
+ * Software Update from GitHub Releases. The installer updates itself (electron-updater: check at start,
+ * every 4h and on wake; install at a quiet moment or on quit). Portable and Mac builds only notify.
  */
 
 const { app, powerMonitor } = require('electron');
@@ -38,15 +31,11 @@ function newer(a, b) {
   return false;
 }
 
-/**
- * A short, readable reason an update check failed. electron-updater's errors
- * carry the whole HTTP response (headers and all), which is no use on an
- * iPod screen.
- */
+/** A one-line reason an update check failed (electron-updater errors include the whole HTTP response). */
 function explain(err) {
   const msg = String((err && err.message) || err || '');
   const status = (err && (err.statusCode || err.status)) || (/\b(4\d\d|5\d\d)\b/.exec(msg) || [])[1];
-  if (+status === 404) return 'No releases found. GitHub hides the releases of a private repository.';
+  if (+status === 404) return 'No releases found. Is the repository private?';
   if (+status === 403 || +status === 429) return 'GitHub is busy. Try again in a while.';
   if (status >= 500) return 'GitHub isn’t responding. Try again later.';
   if (+status === 408 || /ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ECONNRESET|ETIMEDOUT|net::ERR_|offline|socket/i.test(msg)) return 'Couldn’t reach GitHub. Check your internet connection.';

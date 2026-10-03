@@ -3,9 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 
-/**
- * Tiny JSON file store with atomic, debounced writes.
- */
+/** JSON file store with atomic, debounced writes. */
 class JsonStore {
   constructor(file, defaults = {}) {
     this.file = file;

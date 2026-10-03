@@ -1,10 +1,6 @@
 'use strict';
 
-/**
- * The iPod window: frameless, transparent, sized to the device. Handles
- * dragging (with magnetic snapping to screen edges), click-through over the
- * transparent margin, resizing around the centre, and window preferences.
- */
+/** The frameless, transparent iPod window: dragging with edge snapping, click-through margins, resizing, preferences. */
 
 const { BrowserWindow, screen, shell, app } = require('electron');
 
@@ -152,10 +148,7 @@ class IpodWindow {
     }, 1000 / 120);
   }
 
-  /**
-   * Tell the renderer where the pointer is, even when it's far outside the
-   * window, so the iPod can turn toward it. Only sends when something moved.
-   */
+  /** Send the pointer position (even far outside the window) so the iPod can turn toward it; only when it moved. */
   trackCursor(on) {
     clearInterval(this.cursorTimer);
     this.cursorTimer = null;

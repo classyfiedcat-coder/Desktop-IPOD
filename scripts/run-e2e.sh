@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
-# Runs the end-to-end scenarios (scripts/e2e.js) against a generated test
-# library, each with a fresh profile, under a virtual display if there's no
-# real one. Fails if any scenario fails or logs renderer errors.
-#
-#   scripts/run-e2e.sh [scenario ...]      default: tour media screens motion spotify itunes models
+# Runs the e2e scenarios against a test library, each with a fresh profile; fails on any error.
+#   scripts/run-e2e.sh [scenario ...]   default: tour media screens motion spotify itunes models
 set -euo pipefail
 cd "$(dirname "$0")/.."
 WORK="${E2E_DIR:-$PWD/.e2e}"
@@ -15,10 +12,7 @@ SCENARIOS=("$@")
 # stdout, so fetch it first and only then read its path.
 node -e "require('electron')" > /dev/null
 ELECTRON="$(node -p "require('electron')")"
-# The command to run: a time limit, a virtual display if there's no real
-# one, and software WebGL so the 3D body is exercised without a GPU. Macs
-# (CI's included) have a display and Metal, so they need none of that.
-# (One array, so it's never empty: macOS's bash 3.2 rejects empty arrays under set -u.)
+# Time limit, a virtual display and software WebGL off Mac (Macs have both). One array: bash 3.2 rejects empty ones under set -u.
 CMD=()
 command -v timeout > /dev/null && CMD+=(timeout 600)
 if [ "$(uname)" != Darwin ]; then

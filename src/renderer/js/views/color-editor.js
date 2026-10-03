@@ -1,8 +1,4 @@
-/**
- * Design your own iPod: pick a part, then dial in hue, saturation and
- * lightness with the click wheel. Changes show on the iPod as you turn.
- *   Select: next slider · ⏮ ⏭: previous/next part · ▶❚❚: presets
- */
+/** Custom colours: pick a part, dial hue/saturation/lightness. Select: next · ⏮ ⏭: part · ▶❚❚: presets */
 
 import { View } from './view.js';
 import { h, clamp, hexToHsl, hslToHex, luminance } from '../util.js';

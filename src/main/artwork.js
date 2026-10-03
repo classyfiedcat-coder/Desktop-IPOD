@@ -1,9 +1,6 @@
 'use strict';
 
-/**
- * Finds missing album artwork online, like iTunes' "Get Album Artwork":
- * the iTunes Search API first, then MusicBrainz + the Cover Art Archive.
- */
+/** Missing album artwork: the iTunes Search API, then MusicBrainz + Cover Art Archive. */
 
 const { request } = require('./net');
 const { log } = require('./log');

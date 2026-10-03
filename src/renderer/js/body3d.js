@@ -1,20 +1,7 @@
 /**
- * The iPod's body as a real 3D model, rendered with WebGL behind the
- * interactive front face (screen and click wheel stay HTML).
- *
- * The shell is built by sweeping a cross-section around the rounded-rectangle
- * outline: the rounded lip of the front plastic, the plastic band, a seam
- * groove, the polished steel, and the long curve over onto the back. Corners
- * and curves are finely subdivided with smooth normals, so the edges are
- * truly smooth. The ports are modelled: a headphone jack you can see into,
- * with a chrome ring; the hold switch slot and its chrome slider (which moves
- * with the switch); the dock connector cavity with its row of pins.
- *
- * The camera reproduces the CSS perspective exactly, and the motion rig drives
- * both the HTML face and this model with the same transform each frame, so
- * the two line up to the pixel.
- *
- * Units: CSS pixels, y up, the front face at z = 0 and the back at z = -T.
+ * The iPod's 3D body (WebGL), behind the HTML screen and wheel. A cross-section swept around the outline
+ * (front lip, plastic or aluminium, seam, steel, back curve), modelled ports, and a camera that matches the
+ * CSS perspective so both line up to the pixel. Units: CSS px, y up, front at z = 0, back at z = -T.
  */
 
 import * as THREE from '../vendor/three/three.module.min.js';
@@ -355,10 +342,7 @@ export class Body3D {
     flipUvX(backGeo);
     backGeo.translate(0, 0, mm(-T));
     this._add(new THREE.Mesh(backGeo, M.steel), true);
-    // And a cap under the HTML face, so nothing ever shows through the front.
-    // It reaches a little way under the curved lip: seen at an angle, a ray
-    // can slip between the face and the start of the curve, and would
-    // otherwise find a hairline gap at the edge.
+    // A cap under the HTML face, reaching under the lip so no gap shows at an angle.
     const capOut = mm(0.15);
     const capGeo = new THREE.ShapeGeometry(roundedRect(a + capOut, b + capOut, Rc + capOut), SMOOTH_CORNER);
     capGeo.translate(0, 0, mm(-0.05));
@@ -416,9 +400,7 @@ export class Body3D {
     const geo = new THREE.ShapeGeometry(s, 32);
     const pos = geo.attributes.position;
     for (let i = 0; i < pos.count; i++) pos.setXYZ(i, pos.getX(i), y, pos.getY(i));
-    // Laid on its side the shape faces down, which is right for the bottom
-    // band; turn the top one's triangles over so it faces up (and can be
-    // culled from behind like the rest of the shell).
+    // The shape faces down on its side: right for the bottom band; flip the top one's triangles.
     if (up) {
       const idx = geo.index.array;
       for (let i = 0; i < idx.length; i += 3) [idx[i + 1], idx[i + 2]] = [idx[i + 2], idx[i + 1]];
@@ -573,10 +555,7 @@ export class Body3D {
     this._place(g, { x, y, z, up });
   }
 
-  /**
-   * The original iPod's port labels: the FireWire symbol, a headphone and
-   * "| HOLD", printed in grey on the white plastic lip just below each port.
-   */
+  /** The original's port labels (FireWire, headphones, "| HOLD"), printed on the white lip. */
   _topLabels({ ports, xOf, u }) {
     const P = this.o.model.profile;
     const ink = 'rgba(120,124,130,0.95)';
@@ -747,10 +726,7 @@ export class Body3D {
     return Math.min(2, window.devicePixelRatio || 1, this.dprCap || Infinity);
   }
 
-  /**
-   * Motion is running slowly: draw fewer pixels (2x → 1.5x → 1x). Returns
-   * false when there's nothing left to give.
-   */
+  /** Slow GPU: draw fewer pixels (2x → 1.5x → 1x). False when there's nothing left. */
   lighten() {
     if (!this.ok) return false;
     const now = this.renderer.getPixelRatio();
@@ -800,12 +776,7 @@ export class Body3D {
 
 // ------------------------------------------------------------------ helpers --
 
-/**
- * What the steel and the glossy plastic reflect: a dim studio with a big soft
- * box to the upper left, long strip lights (they draw the bright streaks along
- * the edges), a window-ish panel behind on the right and a warm bounce from
- * the desk. Lit shapes with dark gaps between them, like a product shot.
- */
+/** What the steel and plastic reflect: a studio with a soft box, strip lights, a window and a warm desk. */
 function studioEnvironment() {
   const scene = new THREE.Scene();
   // A real room is fairly bright: grey walls, a lighter ceiling, a warm desk,
@@ -821,10 +792,7 @@ function studioEnvironment() {
   };
   light(11.8, 11.8, 1.25, [0, 5.95, 0], [0, 0, 0], 0xf4f5f8); // ceiling
   light(11.8, 11.8, 0.42, [0, -5.95, 0], [0, 0, 0], 0xc9a77c); // desk
-  // The walls in front of and behind the iPod carry horizontal bands: bright
-  // above eye level, a soft horizon, darker below. A flat face reflects about
-  // ±5° of them at rest and sweeps through ±20° as it tilts, so these give the
-  // mirror back its bright-to-dark gradient and make it move.
+  // Horizontal bands on the walls give the mirror back its bright-to-dark gradient as it tilts.
   for (const z of [5.95, -5.95]) {
     light(11.8, 5.6, 1.15, [0, 3.2, z], [0, 3.2, 0], 0xf3f5f8);
     light(11.8, 1.0, 0.6, [0, -0.1, z], [0, -0.1, 0], 0xd5d9df);

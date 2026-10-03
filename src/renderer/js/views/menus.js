@@ -148,7 +148,7 @@ export async function shuffleSongs(app) {
       return;
     }
   }
-  app.os.alert('No songs yet. Drop a music folder onto the iPod, or add one in Settings › Music Library.', 3000);
+  app.os.alert('No songs yet. Drop a music folder here, or add one in Settings › Music Library.', 3000);
 }
 
 // ----------------------------------------------------------------- music --
@@ -179,7 +179,7 @@ export function musicMenu(app) {
 
 function emptyText(app) {
   if (app.library.scanning) return 'Updating Library…';
-  return 'No songs. Drop a music folder onto the iPod, or add one in Settings › Music Library.';
+  return 'No songs. Drop a music folder here, or add one in Settings › Music Library.';
 }
 
 // ------------------------------------------------------------- playlists --

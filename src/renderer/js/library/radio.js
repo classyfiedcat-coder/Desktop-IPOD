@@ -1,8 +1,4 @@
-/**
- * Internet radio from the community-run Radio Browser directory
- * (https://www.radio-browser.info). Streams play through the app:// proxy so
- * the EQ works and "now playing" titles can be read from the stream.
- */
+/** Internet radio from radio-browser.info, streamed through app:// for the EQ and ICY titles. */
 
 const SERVERS = ['de1', 'fi1', 'nl1', 'at1', 'de2'].map((s) => `https://${s}.api.radio-browser.info`);
 const PLAYABLE = /^(mp3|aac|aac\+|ogg|opus|flac|mpeg|unknown|)$/i;

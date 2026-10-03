@@ -1,9 +1,6 @@
 'use strict';
 
-/**
- * Lyrics from LRCLIB (https://lrclib.net), a free, open lyrics database with
- * time-synced LRC lyrics. Results (including misses) are cached on disk.
- */
+/** Lyrics from LRCLIB (lrclib.net), time-synced when available; results cached on disk. */
 
 const fs = require('fs');
 const path = require('path');

@@ -1,15 +1,6 @@
 /**
- * Procedural surface wear for the polished steel back (and a trace of it on
- * the glossy front): micro-scratches, pocket swirls and smudges, the way a
- * real iPod picks them up after a few months in a pocket.
- *
- * Two textures come out, drawn from the same scratches so they line up:
- *  - mask:   white = clean mirror. Smudges and scratches are faded out, so
- *            reflections sliding underneath look broken up by them.
- *  - lines:  the scratches themselves as faint bright lines, which catch the
- *            light as the iPod turns.
- *
- * Deterministic (seeded), so the same iPod always has the same marks.
+ * Procedural wear (scratches, swirls, smudges) for the steel back and front. Two aligned textures: a mask
+ * (white = clean mirror) and the scratch lines that catch the light. Seeded, so marks don't change.
  */
 
 const LEVELS = {
@@ -47,11 +38,7 @@ export function makeWear(o) {
   return c.urls;
 }
 
-/**
- * The same wear as canvases, plus a roughness map for the 3D body: clean
- * steel is mirror-smooth (dark), smudges are hazy and scratches rough (light).
- * @returns {{ mask: HTMLCanvasElement, lines: HTMLCanvasElement, rough: HTMLCanvasElement } | null}
- */
+/** The same wear as canvases, plus a roughness map for the 3D body. */
 export function wearCanvases({ w, h, level = 'light', seed = 5, dust = false, scale: forceScale }) {
   const cfg = LEVELS[level];
   if (!cfg || typeof document === 'undefined') return null;

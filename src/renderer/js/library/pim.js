@@ -1,7 +1,4 @@
-/**
- * Contacts (vCard .vcf) and calendars (iCalendar .ics), like the 5th gen's
- * Extras › Contacts and Calendars. Pure parsers.
- */
+/** Contacts (.vcf) and calendars (.ics) parsers. */
 
 /** Join folded lines (RFC 5545/6350: a line starting with space/tab continues the previous). */
 export function unfold(text) {

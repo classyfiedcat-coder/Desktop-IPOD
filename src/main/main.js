@@ -215,9 +215,7 @@ app.whenReady().then(() => {
   });
   protocol.handle('app', (req) => proto.handle(req));
 
-  // Only what the iPod needs: EME (Widevine) for the Spotify Web Playback SDK
-  // when the runtime ships a CDM, fullscreen video, notifications and copying.
-  // Notably not 'media' (microphone/camera).
+  // Only what the iPod needs: EME for Spotify's SDK, fullscreen, notifications, clipboard. No microphone/camera.
   const ALLOWED = new Set(['mediaKeySystem', 'fullscreen', 'notifications', 'clipboard-sanitized-write']);
   session.defaultSession.setPermissionRequestHandler((_wc, permission, cb) => cb(ALLOWED.has(permission)));
   session.defaultSession.setPermissionCheckHandler((_wc, permission) => ALLOWED.has(permission));

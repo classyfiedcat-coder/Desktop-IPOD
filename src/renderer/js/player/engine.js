@@ -1,10 +1,4 @@
-/**
- * Audio engine with two decks. The next song is preloaded on the idle deck
- * so transitions are gapless; with Crossfade on, songs overlap and fade —
- * except consecutive tracks of the same album, which stay gapless like
- * iTunes. Everything runs through one Web Audio graph for the EQ, Sound
- * Check and an analyser.
- */
+/** Two-deck audio engine: gapless preloading, crossfade (not within an album), and one Web Audio graph for EQ, Sound Check and the analyser. */
 
 import { Emitter, clamp } from '../util.js';
 import { EQ_BANDS, EQ_PRESETS } from './eq.js';

@@ -1,8 +1,4 @@
-/**
- * The iPod "operating system": navigation stack with slide transitions,
- * title bar, backlight + sleep + hold behaviour, and the routing of wheel and
- * button events to the active screen.
- */
+/** The iPod OS: navigation with slides, title bar, backlight, sleep, hold, and routing wheel/button events. */
 
 import { h, svg, ICONS, fmtClock, Emitter } from './util.js';
 import { getModel } from './models.js';
@@ -120,10 +116,7 @@ export class OS extends Emitter {
     return el;
   }
 
-  /**
-   * Show or hide the album art beside a top menu (classic style). It pans
-   * slowly across one cover, then fades to another, every few seconds.
-   */
+  /** The panning album art beside a top menu (classic style). */
   _split(on) {
     if (!this.screen) return;
     this.screen.classList.toggle('split', on);
@@ -303,11 +296,7 @@ export class OS extends Emitter {
     }
   }
 
-  /**
-   * Charging: the bar fills up in steps, over and over, like the real one.
-   * (Stepped from a slow timer, so it costs a few tiny repaints a second
-   * rather than a redraw every frame.)
-   */
+  /** Charging: the bar fills in steps, from a slow timer (cheap repaints). */
   _chargeAnim() {
     if (this._chargeTimer) return;
     const steps = [0.06, 0.29, 0.53, 0.76, 1, 1];
