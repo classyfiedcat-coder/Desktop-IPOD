@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.1
+
+- The screen stays sharp when the iPod is tilted or floating. When it turned, the screen was drawn flat at normal resolution and then stretched onto the angle, which blurred small text. It's now drawn at twice the resolution and scaled down, so text stays readable at an angle. With Motion off it's always flat, so it's drawn as before.
+
 ## 2.0.0
 
 The iPod now lives on your desktop as a real 3D object, and gained radio, podcasts, lyrics, Cover Flow and much more.

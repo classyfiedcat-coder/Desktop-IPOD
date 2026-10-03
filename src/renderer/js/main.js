@@ -88,6 +88,8 @@ async function boot() {
   // The iPod turns toward the pointer, wherever it is on screen.
   const configureMotion = () => {
     const s = store.settings;
+    // Turning motion on or off changes how the screen is drawn (see Device.build).
+    if ((s.motion === 'off') !== device.flatOnly) app.rebuild();
     device.rig.configure({ mode: s.motion, amount: s.motionAmount, float: s.idleFloat });
     window.ipod.win.trackCursor(s.motion !== 'off');
   };

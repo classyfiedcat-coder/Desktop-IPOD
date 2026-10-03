@@ -12,6 +12,14 @@ import { Body3D } from './body3d.js';
 
 /** Viewer distance in millimetres (CSS perspective and the 3D camera share it). */
 const PERSPECTIVE_MM = 230;
+/**
+ * The screen is laid out this many times larger than it's shown, then scaled
+ * back down. Tilted in 3D, Chromium draws a layer once in its own plane and
+ * then resamples it onto the screen; at 1x that smears small text into a
+ * blur. With twice the pixels to resample from, text stays crisp at an angle.
+ */
+const SCREEN_SUPERSAMPLE = 2;
+
 /** Where the hold switch sits on the top edge, in mm (across, and depth from the front). */
 const HOLD = { x: 10.5, w: 8, z: -3.8 };
 
@@ -256,7 +264,20 @@ export class Device extends Emitter {
   }
 
   /** Build (or rebuild) the device. Returns the logical screen element. */
-  build({ model: modelId, color: colorId, size: sizeId, shadow = true, customColors, engraving = '', wheelGlow = false, reflections = true, wear = 'light', backFinish = 'auto', detail = 'high' }) {
+  build({
+    model: modelId,
+    color: colorId,
+    size: sizeId,
+    shadow = true,
+    customColors,
+    engraving = '',
+    wheelGlow = false,
+    reflections = true,
+    wear = 'light',
+    backFinish = 'auto',
+    detail = 'high',
+    motion = 'cursor',
+  }) {
     const model = getModel(modelId);
     const color = getColor(model, colorId, customColors);
     const size = SIZES.find((s) => s.id === sizeId) || SIZES[1];
@@ -302,7 +323,13 @@ export class Device extends Emitter {
     const zoom = innerW / resW;
     const innerH = resH * zoom;
     const insetY = (s.h * u - innerH) / 2;
-    const screen = h('div', { class: 'screen', style: { width: `${resW}px`, height: `${resH}px`, zoom: String(zoom) } });
+    // Supersampled whenever it can tilt (with motion off it's always flat and pixel-sharp anyway).
+    this.flatOnly = motion === 'off';
+    const ss = this.flatOnly ? 1 : SCREEN_SUPERSAMPLE;
+    const screen = h('div', {
+      class: 'screen',
+      style: { width: `${resW}px`, height: `${resH}px`, zoom: String(zoom * ss), transform: ss > 1 ? `scale(${1 / ss})` : '', transformOrigin: '0 0' },
+    });
     const screenWrap = h(
       'div',
       {
@@ -452,7 +479,7 @@ export class Device extends Emitter {
     this.holdEl = holdEl;
     this.screen = screen;
     this.screenWrap = screenWrap;
-    this.zoom = zoom;
+    this.zoom = zoom * ss; // canvases (games, visualizer) size their pixels from this
 
     this._bindWheel(wheel, center);
     this._bindCase(flipper);
