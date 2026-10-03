@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.1
+
+- The screen stays sharp when the iPod is tilted or floating. When it turned, the screen was drawn flat at normal resolution and then stretched onto the angle, which blurred small text. It's now drawn at twice the resolution and scaled down, so text stays readable at an angle. With Motion off it's always flat, so it's drawn as before.
+
 ## 2.0.0
 
 The iPod now lives on your desktop as a real 3D object, and gained radio, podcasts, lyrics, Cover Flow and much more.
@@ -8,7 +12,7 @@ The iPod now lives on your desktop as a real 3D object, and gained radio, podcas
 - The body is a real 3D model rendered with WebGL: smooth rounded edges where the front plastic meets the steel shell, a headphone jack you can see into, a chrome hold slider that moves in its slot (and can be clicked), and a dock connector with its row of pins. The screen and click wheel stay sharp HTML on top, lined up to the pixel.
 - It turns toward your mouse pointer anywhere on screen, lifts and sways when you carry it, settles with a bounce, nudges when you press the wheel, floats gently when idle, and flips over with momentum (double-click).
 - Reflections slide across the glossy front, the screen glass (with a soft-box reflection when you tip it toward the light) and the chrome. The screen sits behind the glass with a little parallax.
-- A polished mirror or glossy black steel back reflecting a studio, with etched lettering, capacity, fine print and regulatory marks. Wear (Brand New, A Few Months, Well Loved) adds scratches, swirls, smudges and dust that break up the reflections.
+- A polished mirror or glossy black steel back reflecting a studio, with etched lettering, capacity (30GB, 60GB or 80GB, like the real ones), fine print and regulatory marks. Wear (Brand New, A Few Months, Well Loved) adds scratches, swirls, smudges and dust that break up the reflections.
 - Settings › Appearance: Motion (Follow Pointer, Only on Hover, Off), Motion Amount, Reflections, Wear, Back (Auto, Polished Steel, Black), Float When Idle, and Detail (High 3D, or Light). Light is also used automatically when WebGL isn't available.
 
 ### Music
@@ -42,6 +46,7 @@ The iPod now lives on your desktop as a real 3D object, and gained radio, podcas
 - Library scanning in a separate process, with an incremental index, folder watching and an artwork cache. Songs on a drive that's unplugged are kept until it's back.
 - Every internet request goes through one network layer with timeouts and pacing. Addresses from feeds and streams can't reach your home network, even through redirects or DNS tricks.
 - Settings are saved even if you quit the moment after changing them.
+- Light on your computer: nothing is drawn while nothing moves; motion is capped at about 90 fps on high refresh rate screens; the idle float draws about 20 frames a second and stops after five minutes; pointer moves too small to see don't draw a frame; Now Playing repaints once a second; the charging battery steps instead of animating every frame; and a GPU that can't keep up draws the 3D body at a lower resolution. Switching to Light detail frees the 3D body's graphics memory.
 - Unit tests, and end-to-end tests that drive the real app (with the 3D body on a software renderer) in CI.
 
 ## 1.0.0

@@ -73,6 +73,7 @@ export class Body3D {
     this.dispose();
     this.o = o;
     this._targets = null;
+    this._drawn = null;
     const { host, W, H, u, pad, perspective } = o;
     const cw = W * u + pad * 2;
     const ch = H * u + pad * 2;
@@ -86,7 +87,7 @@ export class Body3D {
     } catch {
       return false;
     }
-    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    renderer.setPixelRatio(this._dpr());
     renderer.setSize(cw, ch, false);
     renderer.setClearColor(0x000000, 0);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -163,6 +164,8 @@ export class Body3D {
     const m = {
       // Glossy polycarbonate: a clear coat over the colour.
       plastic: new THREE.MeshPhysicalMaterial({ color: front, roughness: 0.38, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.05 }),
+      // Under the HTML face, so never really seen: flat colour costs nothing to draw.
+      cap: new THREE.MeshBasicMaterial({ color: front }),
       seam: new THREE.MeshStandardMaterial({ color: 0x0b0b0c, roughness: 0.85, metalness: 0 }),
       chrome: new THREE.MeshPhysicalMaterial({ color: 0xf4f5f7, metalness: 1, roughness: 0.07, side: THREE.DoubleSide }),
       hole: new THREE.MeshStandardMaterial({ color: 0x050506, roughness: 0.95, metalness: 0, side: THREE.BackSide }),
@@ -185,14 +188,13 @@ export class Body3D {
       // Mirror-polished stainless steel; wear makes it rough in places.
       m.steel = new THREE.MeshPhysicalMaterial({ color: 0xf1f2f4, metalness: 1, roughness: rough ? 1 : 0.1, roughnessMap: rough });
     }
-    // The flat edge bands are built from shapes laid on their side, which face inward.
-    m.steel.side = THREE.DoubleSide;
     return m;
   }
 
   setFrontColor(hex) {
     if (!this.ok) return;
     this.materials.plastic.color.set(hex);
+    this.materials.cap.color.set(hex);
     this.render();
   }
 
@@ -314,9 +316,13 @@ export class Body3D {
     backGeo.translate(0, 0, mm(-T));
     this._add(new THREE.Mesh(backGeo, M.steel), true);
     // And a cap under the HTML face, so nothing ever shows through the front.
-    const capGeo = new THREE.ShapeGeometry(roundedRect(a, b, Rc), SMOOTH_CORNER);
+    // It reaches a little way under the curved lip: seen at an angle, a ray
+    // can slip between the face and the start of the curve, and would
+    // otherwise find a hairline gap at the edge.
+    const capOut = mm(0.15);
+    const capGeo = new THREE.ShapeGeometry(roundedRect(a + capOut, b + capOut, Rc + capOut), SMOOTH_CORNER);
     capGeo.translate(0, 0, mm(-0.05));
-    this._add(new THREE.Mesh(capGeo, M.plastic));
+    this._add(new THREE.Mesh(capGeo, M.cap));
 
     // The etched lettering on the back.
     this._backDecal({ a: a + inset, b: b + inset, z: mm(-T) - mm(0.01), finish, back, u });
@@ -364,7 +370,14 @@ export class Body3D {
     const geo = new THREE.ShapeGeometry(s, 32);
     const pos = geo.attributes.position;
     for (let i = 0; i < pos.count; i++) pos.setXYZ(i, pos.getX(i), y, pos.getY(i));
-    geo.computeVertexNormals();
+    // Laid on its side the shape faces down, which is right for the bottom
+    // band; turn the top one's triangles over so it faces up (and can be
+    // culled from behind like the rest of the shell).
+    if (up) {
+      const idx = geo.index.array;
+      for (let i = 0; i < idx.length; i += 3) [idx[i + 1], idx[i + 2]] = [idx[i + 2], idx[i + 1]];
+      geo.index.needsUpdate = true;
+    }
     const nor = geo.attributes.normal;
     for (let i = 0; i < nor.count; i++) nor.setXYZ(i, 0, up ? 1 : -1, 0);
     const A = this.o.W * this.o.u * 0.5 + this.o.u;
@@ -602,23 +615,48 @@ export class Body3D {
   update({ rx, yaw, rz, scale, half, room }) {
     this.state = { rx, yaw, rz, scale, half, room };
     if (!this.ok) return;
-    const m = new THREE.Matrix4().makeTranslation(0, 0, -half);
-    m.multiply(new THREE.Matrix4().makeRotationX(-rx * DEG));
-    m.multiply(new THREE.Matrix4().makeRotationY(yaw * DEG));
-    m.multiply(new THREE.Matrix4().makeRotationZ(-rz * DEG));
-    m.multiply(new THREE.Matrix4().makeTranslation(0, 0, half));
-    m.multiply(new THREE.Matrix4().makeScale(scale, scale, 1));
-    this.pivot.matrix.copy(m);
+    const rxr = room ? room.x : 0;
+    const ryr = room ? room.y : 0;
+    // Nothing you could see has changed: don't draw.
+    const key = `${rx},${yaw},${rz},${scale},${half},${rxr},${ryr},${this._dpr()}`;
+    if (key === this._drawn) return;
+    this._drawn = key;
+    const m = this.pivot.matrix.makeTranslation(0, 0, -half);
+    const t = this._tmp || (this._tmp = new THREE.Matrix4());
+    m.multiply(t.makeRotationX(-rx * DEG));
+    m.multiply(t.makeRotationY(yaw * DEG));
+    m.multiply(t.makeRotationZ(-rz * DEG));
+    m.multiply(t.makeTranslation(0, 0, half));
+    m.multiply(t.makeScale(scale, scale, 1));
     this.pivot.matrixWorldNeedsUpdate = true;
     // Keep the room's lights where they are as the iPod moves around the desktop.
-    if (room) this.scene.environmentRotation.set(room.y * 0.25, room.x * 0.45, 0);
+    this.scene.environmentRotation.set(ryr * 0.25, rxr * 0.45, 0);
     this.render();
+  }
+
+  /** The pixel ratio to draw at: the screen's, unless this GPU has shown it can't keep up. */
+  _dpr() {
+    return Math.min(2, window.devicePixelRatio || 1, this.dprCap || Infinity);
+  }
+
+  /**
+   * Motion is running slowly: draw fewer pixels (2x → 1.5x → 1x). Returns
+   * false when there's nothing left to give.
+   */
+  lighten() {
+    if (!this.ok) return false;
+    const now = this.renderer.getPixelRatio();
+    const floor = Math.min(1, window.devicePixelRatio || 1);
+    if (now <= floor + 0.01) return false;
+    this.dprCap = Math.max(floor, now > 1.5 ? 1.5 : 1);
+    this.render();
+    return true;
   }
 
   render() {
     if (!this.ok) return;
     // Moved to a screen with different scaling: re-render sharp.
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const dpr = this._dpr();
     if (this.renderer.getPixelRatio() !== dpr) this.renderer.setPixelRatio(dpr);
     this.renderer.render(this.scene, this.camera);
   }

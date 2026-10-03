@@ -153,7 +153,7 @@ body {
   opacity: 0.16;
 }
 .dark .case-wear {
-  opacity: 0.5;
+  opacity: 0.34;
 }
 .case-wear-lines {
   position: absolute;
@@ -691,11 +691,8 @@ body {
   display: block;
 }
 .ground-soft {
+  /* A canvas: see groundShadow() in device.js. */
   position: absolute;
-  inset: 7% 6% 1.5% 6%;
-  border-radius: var(--radius);
-  background: rgba(0, 0, 0, 0.2);
-  box-shadow: 0 0 calc(var(--u) * 5) calc(var(--u) * 1.6) rgba(0, 0, 0, 0.22);
 }
 .ground-near {
   position: absolute;

@@ -253,7 +253,29 @@ export class OS extends Emitter {
     const b = this._battery;
     this.batteryEl.classList.toggle('charging', !!b.charging);
     this.batteryEl.classList.toggle('low', b.level < 0.2 && !b.charging);
-    this.batteryEl.style.setProperty('--level', String(Math.max(0.06, b.level)));
+    if (b.charging) this._chargeAnim();
+    else {
+      clearInterval(this._chargeTimer);
+      this._chargeTimer = 0;
+      this.batteryEl.style.setProperty('--level', String(Math.max(0.06, b.level)));
+    }
+  }
+
+  /**
+   * Charging: the bar fills up in steps, over and over, like the real one.
+   * (Stepped from a slow timer, so it costs a few tiny repaints a second
+   * rather than a redraw every frame.)
+   */
+  _chargeAnim() {
+    if (this._chargeTimer) return;
+    const steps = [0.06, 0.29, 0.53, 0.76, 1, 1];
+    let i = 0;
+    const tick = () => {
+      if (this.asleep || document.hidden || !this.batteryEl) return;
+      this.batteryEl.style.setProperty('--level', String(steps[i++ % steps.length]));
+    };
+    tick();
+    this._chargeTimer = setInterval(tick, 450);
   }
 
   async _initBattery() {

@@ -19,6 +19,11 @@ const MODE_TIMEOUT = 4500;
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];
 const MODE_LABEL = { scrub: 'Scrubbing', rating: 'Rating', like: 'Liked Songs', speed: 'Speed', lyrics: 'Lyrics', visualizer: 'Visualizer', art: 'Album Art' };
 
+/** Set text only if it changed (unchanged writes still cost a repaint). */
+function text(el, value) {
+  if (el.textContent !== value) el.textContent = value;
+}
+
 export class NowPlayingView extends View {
   constructor(app) {
     super({ title: 'Now Playing' });
@@ -64,6 +69,8 @@ export class NowPlayingView extends View {
     this.fill = h('div', { class: 'np-fill' });
     this.diamond = h('div', { class: 'np-diamond' });
     this.bar = h('div', { class: 'np-bar' }, this.fill, this.diamond);
+    this._barW = 0;
+    this._barPx = -1;
     this.elapsed = h('span', { class: 'np-elapsed' });
     this.rateEl = h('span', { class: 'np-rate' });
     this.remain = h('span', { class: 'np-remain' });
@@ -228,23 +235,38 @@ export class NowPlayingView extends View {
     }
     const q = p.queueInfo;
     const count = t.live ? t.station?.country || 'Radio' : q ? `${q.index} of ${q.total}` : '';
-    if (this.countEl.textContent !== count) this.countEl.textContent = count;
+    text(this.countEl, count);
     if (t.live) {
       const secs = t.startedAt ? (Date.now() - t.startedAt) / 1000 : 0;
-      this.elapsed.textContent = p.playing ? fmtTime(secs) : 'Paused';
-      this.remain.textContent = t.station?.bitrate ? `${t.station.bitrate} kbps` : '';
-      this.rateEl.textContent = '';
+      text(this.elapsed, p.playing ? fmtTime(secs) : 'Paused');
+      text(this.remain, t.station?.bitrate ? `${t.station.bitrate} kbps` : '');
+      text(this.rateEl, '');
       return;
     }
     const dur = p.duration || 0;
     const pos = this._seekPos !== null ? this._seekPos : p.position;
     const pct = dur ? clamp(pos / dur, 0, 1) : 0;
-    this.fill.style.width = `${pct * 100}%`;
-    this.diamond.style.left = `${pct * 100}%`;
-    this.elapsed.textContent = fmtTime(pos);
+    // This runs several times a second, and every change repaints the
+    // screen, so only touch it when something you'd see changes. Like the
+    // real iPod, the clocks and the bar move together, once a second (the
+    // bar moves in between only on short songs, where it would jump).
+    const elapsed = fmtTime(pos);
     const rate = p.rate;
-    this.rateEl.textContent = rate !== 1 ? `${rate}×` : '';
-    this.remain.textContent = dur ? fmtTime((dur - pos) / rate, { negative: true }) : '--:--';
+    // At normal speed, remaining is counted from the same whole second as
+    // elapsed, so both tick over in the same frame.
+    const left = rate === 1 ? Math.max(0, Math.round(dur) - Math.floor(pos)) : (dur - pos) / rate;
+    const tick = elapsed !== this.elapsed.textContent;
+    if (!this._barW) this._barW = (this.fill.parentElement && this.fill.parentElement.offsetWidth) || 300;
+    const px = Math.round(pct * this._barW);
+    if (px !== this._barPx && (tick || this._seekPos !== null || Math.abs(px - this._barPx) >= 3)) {
+      this._barPx = px;
+      const w = `${((px / this._barW) * 100).toFixed(2)}%`;
+      this.fill.style.width = w;
+      this.diamond.style.left = w;
+    }
+    text(this.elapsed, elapsed);
+    text(this.rateEl, rate !== 1 ? `${rate}×` : '');
+    text(this.remain, dur ? fmtTime(left, { negative: true }) : '--:--');
     if (this.mode === 'lyrics') this._syncLyrics(pos);
   }
 
