@@ -87,6 +87,10 @@ Build the Windows installer and portable exe yourself (on Windows):
 npm run dist
 ```
 
+### Making a release
+
+Bump `version` in `package.json` and add its entry to the [changelog](CHANGELOG.md). Then, on GitHub, go to **Actions › Build › Run workflow**, tick **Publish a GitHub release**, and run it. Once the tests pass, it builds the Windows installer and portable exe and publishes them on the Releases page as `v` + the version, with download links and the changelog entry. Pushing a `v*` tag does the same.
+
 ## Controls
 
 | Mouse | Keyboard | Action |

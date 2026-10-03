@@ -11,6 +11,9 @@ SCENARIOS=("$@")
 [ ${#SCENARIOS[@]} -eq 0 ] && SCENARIOS=(tour media screens motion spotify)
 
 [ -f "$WORK/profile/state.json" ] || scripts/make-test-library.sh "$WORK" > /dev/null
+# Electron downloads its binary the first time it's required, and says so on
+# stdout, so fetch it first and only then read its path.
+node -e "require('electron')" > /dev/null
 ELECTRON="$(node -p "require('electron')")"
 # Software WebGL so the 3D body is exercised on machines without a GPU.
 FLAGS=(--no-sandbox --use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader)
