@@ -7,6 +7,13 @@
 import { getModel, getColor, SIZES, PX_PER_MM } from './models.js';
 import { h, svg, ICONS, shade, Emitter } from './util.js';
 import { MotionRig } from './rig.js';
+import { makeWear, wearCanvases } from './wear.js';
+import { Body3D } from './body3d.js';
+
+/** Viewer distance in millimetres (CSS perspective and the 3D camera share it). */
+const PERSPECTIVE_MM = 230;
+/** Where the hold switch sits on the top edge, in mm (across, and depth from the front). */
+const HOLD = { x: 10.5, w: 8, z: -3.8 };
 
 /** CSS custom properties for a colour scheme. */
 export function colorVars(color) {
@@ -33,19 +40,59 @@ const isMac = navigator.platform.toLowerCase().includes('mac');
 /** Parts of the device that catch the mouse (the rest of the window is click-through). */
 const SOLID = '.case, .hold-switch, .back, .side';
 
-/**
- * The stainless edge from front (0) to back (1): a dark seam where it meets
- * the front, a bright lip, then darker as the steel curves away to the back.
- */
-const PROFILE = [
-  [0, '#62666b'],
-  [0.05, '#e6e8eb'],
+/** The steel shell from where it meets the front (0) to the back (1). */
+const STEEL = [
+  [0, '#6a6e73'],
+  [0.06, '#e6e8eb'],
   [0.3, '#f3f4f6'],
   [0.68, '#b3b7bc'],
   [1, '#7b7f85'],
 ];
+/** Black steel: deep and glossy, with a bright lip where it catches the light. */
+const BLACK_STEEL = [
+  [0, '#2c2d30'],
+  [0.06, '#9a9da2'],
+  [0.13, '#3a3c40'],
+  [0.36, '#18191b'],
+  [0.72, '#0d0e0f'],
+  [1, '#222326'],
+];
 
-export const profileGradient = (dir) => `linear-gradient(${dir}, ${PROFILE.map(([t, c]) => `${c} ${(t * 100).toFixed(0)}%`).join(', ')})`;
+/**
+ * The edge, from the front face (0) to the back (1): the front plastic shows
+ * as a thin band of the front colour, then a fine dark seam, then the steel.
+ */
+export function edgeProfile(finish, front) {
+  const steel = finish === 'black' ? BLACK_STEEL : STEEL;
+  const P = 0.17;
+  return [
+    [0, shade(front, -0.12)],
+    [0.08, front],
+    [P - 0.03, shade(front, -0.22)],
+    [P - 0.012, '#0e0f10'],
+    ...steel.map(([t, c]) => [P + t * (1 - P), c]),
+  ];
+}
+
+export const profileGradient = (dir, stops) => `linear-gradient(${dir}, ${stops.map(([t, c]) => `${c} ${(t * 100).toFixed(1)}%`).join(', ')})`;
+
+/** Which back an iPod gets when the setting is "Auto": black steel to go with a black front. */
+export const backFinishFor = (color, setting) => (setting === 'steel' || setting === 'black' ? setting : color.dark && color.id !== 'u2' ? 'black' : 'steel');
+
+/** A plausible serial number, stable for a given colour. */
+function serialFor(id) {
+  let x = 2166136261;
+  for (const ch of `ipod-${id}`) x = Math.imul(x ^ ch.charCodeAt(0), 16777619);
+  const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789';
+  let out = '8K6';
+  for (let i = 0; i < 8; i++) {
+    x = Math.imul(x ^ (x >>> 15), 2246822507);
+    out += A[(x >>> 0) % A.length];
+  }
+  return out;
+}
+
+const HEADPHONES = '<svg viewBox="0 0 16 16"><path d="M8 2.2a6 6 0 0 0-6 6v4.3a1.3 1.3 0 0 0 1.3 1.3H5V9.4H3.4V8.2a4.6 4.6 0 0 1 9.2 0v1.2H11v4.4h1.7a1.3 1.3 0 0 0 1.3-1.3V8.2a6 6 0 0 0-6-6z" fill="currentColor"/></svg>';
 
 /** Facets per rounded corner. */
 const CORNER_FACETS = 5;
@@ -60,7 +107,7 @@ const LIGHT = [-0.6, -0.8];
  * y down: 0 = right, 90 = down). Local x runs back → front, local y along
  * the edge.
  */
-function buildShell({ W, H, R, T, u, refl, jack, dock }) {
+function buildShell({ W, H, R, T, u, refl, jack, dock, hold, profile }) {
   const r = (R + RIM) * u;
   const x0 = -RIM * u;
   const y0 = -RIM * u;
@@ -69,6 +116,10 @@ function buildShell({ W, H, R, T, u, refl, jack, dock }) {
   const cx = [R * u, W * u - R * u];
   const cy = [R * u, H * u - R * u];
   const panels = [];
+  // Panels reach a hair past the front and back faces so their antialiased
+  // edges overlap instead of leaving a hairline gap.
+  const LAP = 0.8;
+  const D = T + LAP * 2;
 
   const panel = (theta, px, py, width, cls, ...kids) => {
     const t = (theta * Math.PI) / 180;
@@ -83,10 +134,10 @@ function buildShell({ W, H, R, T, u, refl, jack, dock }) {
       {
         class: `side ${cls}`,
         style: {
-          width: `${T.toFixed(2)}px`,
+          width: `${D.toFixed(2)}px`,
           height: `${(width + 0.6).toFixed(2)}px`, // a hair of overlap hides seams between facets
-          transform: `translate(${px.toFixed(2)}px, ${py.toFixed(2)}px) rotateZ(${(theta - 180).toFixed(2)}deg) rotateY(-90deg) translate(${(-T).toFixed(2)}px, ${(-(width + 0.6) / 2).toFixed(2)}px)`,
-          background: `linear-gradient(${tint}, ${tint}), ${profileGradient('to left')}`,
+          transform: `translate(${px.toFixed(2)}px, ${py.toFixed(2)}px) rotateZ(${(theta - 180).toFixed(2)}deg) rotateY(-90deg) translate(${(-T - LAP).toFixed(2)}px, ${(-(width + 0.6) / 2).toFixed(2)}px)`,
+          background: `linear-gradient(${tint}, ${tint}), ${profileGradient('to left', profile)}`,
         },
       },
       // Only the long walls get a moving highlight; on the narrow facets it wouldn't show.
@@ -102,14 +153,31 @@ function buildShell({ W, H, R, T, u, refl, jack, dock }) {
   panel(0, x1, (y0 + y1) / 2, cy[1] - cy[0], 'wall wall-r');
   const topLen = cx[1] - cx[0];
   const bottomLen = topLen;
+  // On the top wall, local x is depth (back → front) and local y runs right →
+  // left along the edge. at() places something centred on a point given in
+  // device millimetres across and a fraction of the depth from the front.
+  const topY = (mmX) => topLen / 2 + 0.3 + (x0 + x1) / 2 - mmX * u;
+  const depthX = (depth) => LAP + T * (1 - depth);
+  const at = (mmX, depth, wMm, hMm) => ({
+    left: `${(depthX(depth) - (hMm / 2) * u).toFixed(2)}px`,
+    top: `${(topY(mmX) - (wMm / 2) * u).toFixed(2)}px`,
+    width: `${(hMm * u).toFixed(2)}px`,
+    height: `${(wMm * u).toFixed(2)}px`,
+  });
+  // Labels read left to right along the top with the front facing you.
+  const label = (mmX, depth, html, cls) =>
+    h('div', { class: `edge-label ${cls}`, html, style: { left: `${depthX(depth).toFixed(2)}px`, top: `${topY(mmX).toFixed(2)}px` } });
   panel(
     270,
     (x0 + x1) / 2,
     y0,
     topLen,
     'wall wall-t',
-    // Headphone jack. On the top wall local y runs right → left.
-    h('div', { class: 'jack', style: { left: `${(T / 2 - (jack.d / 2) * u).toFixed(2)}px`, top: `${(topLen / 2 + (x1 + x0) / 2 - jack.x * u - (jack.d / 2) * u + 0.3).toFixed(2)}px`, width: `${(jack.d * u).toFixed(2)}px`, height: `${(jack.d * u).toFixed(2)}px` } })
+    // The slot the hold switch slides in, its label, the headphone jack and its icon.
+    h('div', { class: 'hold-slot', style: at(hold.x, hold.depth, hold.w + 0.6, 2.4) }),
+    label(hold.x + hold.w / 2 + 4.4, hold.depth, 'HOLD', 'lbl-hold'),
+    label(jack.x - 5.8, 0.5, HEADPHONES, 'lbl-phones'),
+    h('div', { class: 'jack', style: at(jack.x, 0.5, jack.d, jack.d) })
   );
   panel(
     90,
@@ -117,8 +185,8 @@ function buildShell({ W, H, R, T, u, refl, jack, dock }) {
     y1,
     bottomLen,
     'wall wall-b',
-    // Dock connector, centred.
-    h('div', { class: 'dock', style: { left: `${(T / 2 - (dock.h / 2) * u).toFixed(2)}px`, top: `${(bottomLen / 2 - (dock.w / 2) * u + 0.3).toFixed(2)}px`, width: `${(dock.h * u).toFixed(2)}px`, height: `${(dock.w * u).toFixed(2)}px` } })
+    // Dock connector, centred: a chrome-rimmed slot with a row of pins.
+    h('div', { class: 'dock', style: { left: `${(LAP + T / 2 - (dock.h / 2) * u).toFixed(2)}px`, top: `${(bottomLen / 2 - (dock.w / 2) * u + 0.3).toFixed(2)}px`, width: `${(dock.h * u).toFixed(2)}px`, height: `${(dock.w * u).toFixed(2)}px` } }, h('div', { class: 'dock-pins' }))
   );
 
   // Faceted corners: chords of the corner arc, so they meet the walls exactly.
@@ -159,7 +227,7 @@ export class Device extends Emitter {
   }
 
   /** Build (or rebuild) the device. Returns the logical screen element. */
-  build({ model: modelId, color: colorId, size: sizeId, shadow = true, customColors, engraving = '', wheelGlow = false, reflections = true }) {
+  build({ model: modelId, color: colorId, size: sizeId, shadow = true, customColors, engraving = '', wheelGlow = false, reflections = true, wear = 'light', backFinish = 'auto', detail = 'high' }) {
     const model = getModel(modelId);
     const color = getColor(model, colorId, customColors);
     const size = SIZES.find((s) => s.id === sizeId) || SIZES[1];
@@ -168,6 +236,11 @@ export class Device extends Emitter {
     this.model = model;
     this.color = color;
     this.u = u;
+    const finish = backFinishFor(color, backFinish);
+    // High detail: the body is a real 3D model (WebGL). Otherwise, or if WebGL
+    // isn't available, it's built from CSS panels.
+    const hi = detail !== 'light' && !this._noWebGL && Body3D.supported();
+    this.rig.onApply = null;
 
     const [W, H] = model.size;
     const T = model.depth * u;
@@ -182,7 +255,13 @@ export class Device extends Emitter {
     // also brighten as the surface turns toward the light.
     const refl = (cls, par, glint = true) => h('div', { class: `refl ${cls}`, 'data-par': par, 'data-glint': glint || null });
 
-    const caseEl = h('div', { class: 'case' }, h('div', { class: 'gloss' }, refl('gloss-band', '-16 13')));
+    const caseEl = h(
+      'div',
+      { class: 'case' },
+      h('div', { class: 'gloss' }, refl('gloss-band', '-16 13')),
+      // Fine scratches and dust on the plastic, catching the light.
+      h('div', { class: 'case-wear' }, h('div', { class: 'case-wear-lines', 'data-glint': '' }))
+    );
 
     // Screen window. The LCD sits a little behind the clear front.
     const s = model.screen;
@@ -207,7 +286,9 @@ export class Device extends Emitter {
         style: { left: mm(s.x), top: mm(s.y), width: mm(s.w), height: mm(s.h), borderRadius: mm(s.radius) },
       },
       screenWrap,
-      h('div', { class: 'glass' }, refl('glare', '-30 24'))
+      // The clear glass over the LCD: a faint streak, and a big soft reflection
+      // of the room's light that slides across when you tip it toward the light.
+      h('div', { class: 'glass' }, refl('glare', '-30 24'), refl('softbox', '-115 95'), h('div', { class: 'glass-edge' }))
     );
     caseEl.append(bezel);
 
@@ -234,31 +315,63 @@ export class Device extends Emitter {
     // Hold switch: a little fin standing up out of the top edge.
     const holdEl = h('div', { class: `hold-switch hold-${model.hold}`, title: 'Hold switch' }, h('div', { class: 'hold-track' }, h('div', { class: 'hold-knob' })));
     holdEl.classList.toggle('on', this.hold);
-    holdEl.style.transform = `translateZ(${(-T * 0.3).toFixed(2)}px)`;
+    holdEl.style.transform = `translateZ(${(HOLD.z * u).toFixed(2)}px)`;
 
     // The polished stainless back, shown when you flip the iPod over.
     const lines = String(engraving || color.engraved || '').split('\n').filter(Boolean).slice(0, 2);
-    const back = h(
+    // Mirror steel: the room slides across it (broken up by scratches and
+    // smudges), the scratches catch the light, and tipped toward the light
+    // the whole back flares. The lettering is etched: matte, so it stays put
+    // while the reflections move around it.
+    const back = hi
+      ? null
+      : h(
       'div',
       { class: 'back' },
-      h('div', { class: 'back-env' }, refl('env', '-36 30')),
+      h('div', { class: 'back-env' }, refl('env', '-10 9')),
+      h('div', { class: 'back-lines', 'data-glint': '' }),
+      h('div', { class: 'back-flare', 'data-flare': '0.75 1.1 0.8' }),
       h('div', { class: 'back-mark' }, 'iPod'),
       lines.length ? h('div', { class: 'back-engraving' }, ...lines.map((l) => h('div', { text: l }))) : null,
-      h('div', { class: 'back-small' }, h('div', { text: `${this.capacity || '30GB'}` }), h('div', { text: 'Made for your desktop' })),
+      h('div', { class: 'back-cap' }, `${this.capacity || '30GB'}`),
+      h(
+        'div',
+        { class: 'back-small' },
+        h('div', { text: `Serial No.: ${serialFor(color.id)}` }),
+        h('div', { text: 'Designed in California. Assembled on your desktop. Model No.: A1136  EMC No.: 2065' }),
+        h('div', { text: 'Rated 5-30V \u2393 1A Max.' }),
+        h('div', { class: 'back-marks' }, h('span', { class: 'mk-fc', text: 'FC' }), h('span', { class: 'mk-ce', text: 'CE' }), h('span', { class: 'mk-box', text: 'VCI' }), h('span', { class: 'mk-tick', text: '\u2713' }))
+      ),
       h('div', { class: 'back-edge' })
     );
 
     // The body: the stainless edge is a closed shell of flat panels around
     // the rounded-rectangle outline (four walls plus faceted corners), so it
     // has real thickness from every angle.
-    const shell = buildShell({ W, H, R: model.radius, T, u, refl, jack: { x: W - model.jack, d: 5.2 }, dock: { w: 21, h: 2.4 } });
+    const shell = hi
+      ? []
+      : buildShell({
+      W,
+      H,
+      R: model.radius,
+      T,
+      u,
+      refl,
+      jack: { x: W - model.jack, d: 5.2 },
+      dock: { w: 21, h: 2.4 },
+      hold: { x: HOLD.x, w: HOLD.w, depth: -HOLD.z / model.depth },
+      profile: edgeProfile(finish, color.front),
+    });
 
-    const backFace = h('div', { class: 'face face-back' }, h('div', { class: 'rim' }), back);
-    backFace.style.transform = `translateZ(${(-T).toFixed(2)}px) rotateY(180deg)`;
+    let backFace = null;
+    if (!hi) {
+      backFace = h('div', { class: 'face face-back' }, h('div', { class: 'rim' }), back);
+      backFace.style.transform = `translateZ(${(-T).toFixed(2)}px) rotateY(180deg)`;
+    }
     const flipper = h(
       'div',
       { class: 'flipper' },
-      h('div', { class: 'face face-front' }, h('div', { class: 'rim' }, refl('rim-env', '-6 26', false)), caseEl),
+      h('div', { class: 'face face-front' }, hi ? null : h('div', { class: 'rim' }, refl('rim-env', '-6 26', false)), caseEl),
       ...shell,
       holdEl,
       backFace
@@ -273,13 +386,15 @@ export class Device extends Emitter {
           `model-${model.id}`,
           color.dark ? 'dark' : 'light',
           `color-${color.id}`,
+          `finish-${finish}`,
           shadow ? 'shadowed' : '',
           this.backlit ? 'backlit' : '',
           this.flipped ? 'flipped' : '',
           wheelGlow ? 'glow-on' : '',
           reflections ? '' : 'no-reflect',
+          hi ? 'hi' : '',
         ].join(' '),
-        style: { width: mm(W), height: mm(H), left: `${pad}px`, top: `${pad}px` },
+        style: { width: mm(W), height: mm(H), left: `${pad}px`, top: `${pad}px`, perspective: `${(PERSPECTIVE_MM * u).toFixed(2)}px` },
       },
       ground,
       flipper
@@ -291,6 +406,13 @@ export class Device extends Emitter {
 
     this.stage.replaceChildren(el);
     this.el = el;
+    this.hi = false;
+    if (hi) this.hi = this._mountBody3D({ el, flipper, W, H, u, pad, model, color, finish, wear, engraving: lines });
+    if (hi && !this.hi) {
+      // WebGL refused to start: fall back to the CSS body for good.
+      this._noWebGL = true;
+      return this.build(arguments[0]);
+    }
     this.flipper = flipper;
     this.caseEl = caseEl;
     this.wheel = wheel;
@@ -323,9 +445,78 @@ export class Device extends Emitter {
       reflections,
     });
 
+    this._applyWear(el, wear, W * u, H * u);
+    if (this.hi) this._bindBody3D();
+
     this.windowSize = { width: widthPx, height: heightPx, pad };
     if (window.ipod) window.ipod.win.resize(this.windowSize);
     return screen;
+  }
+
+  /** Build the WebGL body and hook it to the motion rig. Returns false if WebGL won't start. */
+  _mountBody3D({ el, flipper, W, H, u, pad, model, color, finish, wear, engraving }) {
+    if (!this.body3d) this.body3d = new Body3D();
+    const body = this.body3d;
+    body.hold = this.hold;
+    const rough = wear !== 'none' ? wearCanvases({ w: W * u, h: H * u, level: wear, seed: 5, scale: 2 }) : null;
+    const ok = body.mount({
+      host: el,
+      W,
+      H,
+      R: model.radius,
+      T: model.depth,
+      u,
+      pad,
+      perspective: PERSPECTIVE_MM * u,
+      color,
+      finish,
+      wear: rough,
+      ports: { jackX: W - model.jack, holdX: HOLD.x, holdW: HOLD.w, holdZ: HOLD.z, dockW: 21, dockH: 2.4 },
+      back: { capacity: this.capacity || '30GB', lines: engraving, serial: serialFor(color.id) },
+    });
+    if (!ok) return false;
+    // Between the shadow on the desk and the HTML face.
+    el.insertBefore(body.canvas, flipper);
+    this.rig.onApply = (t) => body.update(t);
+    body.onLost = () => {
+      // The GPU went away (driver reset, sleep): rebuild, in CSS if it keeps failing.
+      this._lost = (this._lost || 0) + 1;
+      if (this._lost > 2) this._noWebGL = true;
+      this.emit('rebuild');
+    };
+    return true;
+  }
+
+  /** Mouse on the 3D body: drag it, double-click to flip, click the hold slider. */
+  _bindBody3D() {
+    const canvas = this.body3d.canvas;
+    canvas.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0 || !this.body3d.hitTest(e.clientX, e.clientY)) return;
+      if (this.body3d.hitSlider && this.body3d.hitSlider(e.clientX, e.clientY)) {
+        this.setHold(!this.hold, true);
+        return;
+      }
+      this._startDrag(e, canvas);
+    });
+    canvas.addEventListener('dblclick', (e) => {
+      if (this.body3d.hitTest(e.clientX, e.clientY)) this.flip();
+    });
+  }
+
+  /** Scratches and smudges on the back (and a trace of them on the front gloss). */
+  _applyWear(el, level, w, h) {
+    el.classList.toggle('worn', level !== 'none');
+    if (level === 'none') return;
+    // Paint after the first frame so building the device stays instant.
+    requestAnimationFrame(() => {
+      const back = makeWear({ w, h, level, seed: 5 });
+      const front = makeWear({ w, h, level: level === 'worn' ? 'worn' : 'light', seed: 23, dust: true });
+      if (!back || el !== this.el) return;
+      el.style.setProperty('--wear-mask', `url(${back.mask})`);
+      el.style.setProperty('--wear-lines', `url(${back.lines})`);
+      el.style.setProperty('--wear-front', `url(${front.mask})`);
+      el.style.setProperty('--wear-front-lines', `url(${front.lines})`);
+    });
   }
 
   /** Live colour changes (custom colour editor) without rebuilding. */
@@ -334,6 +525,7 @@ export class Device extends Emitter {
     for (const [k, v] of Object.entries(colorVars(color))) this.el.style.setProperty(k, v);
     this.el.classList.toggle('dark', !!color.dark);
     this.el.classList.toggle('light', !color.dark);
+    if (this.hi) this.body3d.setFrontColor(color.front);
   }
 
   /** Turn the iPod over to see the back (and the engraving). */
@@ -350,6 +542,7 @@ export class Device extends Emitter {
   setHold(on, user = false) {
     this.hold = !!on;
     if (this.holdEl) this.holdEl.classList.toggle('on', this.hold);
+    if (this.hi) this.body3d.setHold(this.hold);
     this.emit('hold', { on: this.hold, user });
   }
 
@@ -483,21 +676,25 @@ export class Device extends Emitter {
     body.addEventListener('pointerdown', (e) => {
       if (e.button !== 0) return;
       if (e.target.closest('.wheel, .hold-switch')) return;
-      e.preventDefault();
-      body.setPointerCapture(e.pointerId);
-      this._dragging = true;
-      this.rig.setDragging(true);
-      if (window.ipod) window.ipod.win.dragStart();
-      const end = () => {
-        this._dragging = false;
-        this.rig.setDragging(false);
-        if (window.ipod) window.ipod.win.dragEnd();
-        body.removeEventListener('pointerup', end);
-        body.removeEventListener('pointercancel', end);
-      };
-      body.addEventListener('pointerup', end);
-      body.addEventListener('pointercancel', end);
+      this._startDrag(e, body);
     });
+  }
+
+  _startDrag(e, target) {
+    e.preventDefault();
+    target.setPointerCapture(e.pointerId);
+    this._dragging = true;
+    this.rig.setDragging(true);
+    if (window.ipod) window.ipod.win.dragStart();
+    const end = () => {
+      this._dragging = false;
+      this.rig.setDragging(false);
+      if (window.ipod) window.ipod.win.dragEnd();
+      target.removeEventListener('pointerup', end);
+      target.removeEventListener('pointercancel', end);
+    };
+    target.addEventListener('pointerup', end);
+    target.addEventListener('pointercancel', end);
   }
 
   _bindGlobal() {
@@ -545,7 +742,7 @@ export class Device extends Emitter {
     // Let clicks fall through the transparent area around the iPod.
     window.addEventListener('mousemove', (e) => {
       if (this._dragging || !window.ipod) return;
-      const over = !!(e.target && e.target.closest && e.target.closest(SOLID));
+      const over = !!(e.target && e.target.closest && e.target.closest(SOLID)) || (this.hi && this.body3d.hitTest(e.clientX, e.clientY));
       if (over !== this._overCase) {
         this._overCase = over;
         window.ipod.win.ignoreMouse(!over);

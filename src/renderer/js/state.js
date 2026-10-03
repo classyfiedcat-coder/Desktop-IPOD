@@ -18,6 +18,9 @@ export const DEFAULT_SETTINGS = {
   motionAmount: 'normal', // subtle | normal | dramatic
   reflections: true,
   idleFloat: true,
+  wear: 'light', // none | light | worn: scratches and smudges on the steel back
+  backFinish: 'auto', // auto | steel | black
+  detail: 'high', // high (3D model, WebGL) | light (CSS)
 
   shuffle: 'off', // off | songs | albums
   repeat: 'off', // off | one | all
@@ -213,6 +216,7 @@ class Store extends Emitter {
   }
 
   flush() {
+    if (this._save.cancel) this._save.cancel();
     window.ipod.state.save({ settings: this.settings, user: this.user });
   }
 }

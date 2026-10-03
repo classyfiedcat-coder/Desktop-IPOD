@@ -1,6 +1,6 @@
 # iPod for Desktop
 
-A free-floating iPod (5th generation) that lives on your Windows desktop. There's no window frame, just the iPod. Drag it anywhere, spin the click wheel with your mouse, and play your music or your Spotify library.
+A free-floating iPod (5th generation) that lives on your Windows desktop. There's no window frame, just the iPod, and it's a real 3D object that turns toward your mouse. Drag it anywhere, spin the click wheel, and play your music, internet radio, podcasts or your Spotify library. See what's new in the [changelog](CHANGELOG.md).
 
 <p align="center">
   <img src="docs/white-nowplaying.png" width="300" alt="White iPod showing Now Playing" />
@@ -13,38 +13,52 @@ A free-floating iPod (5th generation) that lives on your Windows desktop. There'
 
 <p align="center"><img src="docs/motion.gif" width="240" alt="The iPod turning toward the pointer, being picked up and flipped over" /></p>
 
-- It's a 3D object, not a flat picture: a steel edge with real thickness (the headphone jack and hold switch are on top, the dock connector underneath) and a polished mirror back.
+- It's a real 3D model, not a flat picture. The body is rendered with WebGL: perfectly smooth rounded edges where the front plastic meets the steel shell, a headphone jack you can see into, a chrome hold slider that moves in its slot, and a dock connector with its row of pins. The screen and click wheel stay pin-sharp HTML on top, lined up to the pixel.
+- The back is polished mirror steel (or glossy black steel) that reflects a studio around it, with matte etched lettering. Settings › Appearance › Wear adds scratches, swirls and smudges that break up the reflections, from Brand New to Well Loved.
 - It turns gently toward your mouse pointer, wherever the pointer is on screen. As it turns, reflections slide across the glossy front, the screen glass and the chrome. The screen sits just behind the glass, so it shifts slightly against the bezel.
 - Pick it up and it lifts off the desktop, its shadow spreads out, and it sways as you carry it. Put it down and it settles with a little bounce.
 - Pressing the wheel pushes that edge in, and spinning it gives the body a slight twist. Left alone, it floats very gently.
 - Double-click it to flip it over and see the back (with your engraving).
 - Settings › Appearance › Motion: Follow Pointer, Only on Hover, or Off (Off keeps it perfectly flat and pixel-sharp). You can also set the Motion Amount (Subtle, Normal or Dramatic), Reflections, and Float When Idle.
+- Settings › Appearance › Detail: High (the 3D model) or Light (a lighter CSS version, also used automatically if your graphics don't support WebGL).
 
 **It feels like the real thing**
 - A frameless, transparent window shaped like the iPod. Clicks pass through the empty space around it, and you drag it by its body.
 - The click wheel works like the real one: drag around it to scroll, click MENU, ⏮, ⏭ or ▶❚❚, and press the centre button. It makes the clicker sound, and the part you press visibly sinks.
-- Long presses behave like an iPod: hold ▶❚❚ to turn it off, hold MENU to jump to the main menu, hold ⏮/⏭ to rewind or fast-forward, and hold the centre button on a song to add it to On-The-Go.
-- A working hold switch on the top edge, with the orange stripe and a lock on screen.
+- Long presses behave like an iPod: hold ▶❚❚ to turn it off, hold MENU to jump to the main menu, hold ⏮/⏭ to rewind or fast-forward, and hold the centre button for a song's options.
+- A working hold switch on the top edge, with the orange flag and a lock on screen.
 - The backlight turns off after the timeout. Screens slide in and out, long titles scroll, and spinning fast through a long list shows a big letter.
-- The 5th generation screen: full-width menus with the blue highlight, and Now Playing with "6 of 15", album art and the glossy progress bar.
-- White or Black, in four sizes.
+- The 5th generation screen, with its cool white LCD: full-width menus with the blue highlight, and Now Playing with "6 of 15", album art and the glossy progress bar.
+- White, Black, U2 Special Edition or your own colours (there's a colour editor), in four sizes, with an engraving on the back.
 
 **Music**
-- Local library: Playlists (including `.m3u`), Artists, Albums, Compilations, Songs, Podcasts, Genres, Composers, Audiobooks and Search.
+- Local library: Cover Flow, Playlists (your own, and `.m3u` files), Artists, Albums, Compilations, Songs, Podcasts, Genres, Composers, Audiobooks and Search.
 - Smart playlists: Recently Added, Top 25 Most Played, Recently Played and My Top Rated, plus On-The-Go.
-- Now Playing: turn the wheel for volume. Click the centre button to cycle through the scrubber, the star rating and lyrics (including synced `.lrc` lyrics).
-- Shuffle (Songs/Albums), Repeat (One/All), the 24 classic EQ presets, Sound Check, Volume Limit and audiobook speed.
-- Remembers where you left off, counts plays, and works with the Windows media keys and media overlay.
+- Up Next: Play Next or Add to Up Next from any song, album or playlist. Hold the centre button on a song for more: add to a playlist, browse its album or artist, Song Info.
+- Now Playing: turn the wheel for volume. Click the centre button to cycle through the scrubber, the star rating, lyrics (time-synced from LRCLIB, or from the file) and the visualizer.
+- Gapless playback or crossfade, Shuffle (Songs/Albums), Repeat (One/All), the classic EQ presets and a custom EQ, Sound Check, Volume Limit, and speeds for audiobooks and podcasts (which also remember where you were).
+- Get Album Artwork finds missing covers online.
+- Works with the Windows media keys and media overlay.
+
+**Radio and podcasts**
+- Internet radio: top and most-loved stations, stations near you, genres, countries and search (from radio-browser.info), with the song that's playing and your favourites.
+- Podcasts: top charts, search, subscribe by address, import and export OPML, download episodes, and pick up where you left off.
 
 **Spotify**
 - Playlists, Liked Songs, saved Albums, followed Artists, Podcasts, Recently Played, Search and Devices.
-- Like songs from Now Playing.
+- Like songs from Now Playing, add them to the queue or to your playlists.
 - Plays through the Spotify app on your PC, or any Spotify Connect speaker, with the iPod as the remote. If Spotify isn't open, the iPod opens it for you.
 
 **Extras**
-- Games: Brick, Parachute and Music Quiz.
-- Clocks (world clocks with a day/night analog face), Alarms with snooze, a Sleep Timer, Stopwatch with laps, Screen Lock (4-digit combination), Calendar and Notes.
-- Photos (thumbnail grid, viewer, Ken Burns slideshow) and Videos.
+- Games: Brick, Parachute, Music Quiz and Solitaire.
+- Clocks (world clocks with a day/night analog face), Alarms with snooze, a Sleep Timer, Stopwatch with laps, Screen Lock (4-digit combination), Contacts, Calendars and Notes.
+- Photos (thumbnail grid, viewer, Ken Burns slideshow) and Videos (Movies, Music Videos, TV Shows, with subtitles).
+
+**On your desktop**
+- A tray icon and a right-click menu (colour, size, motion, always on top, hide, quit…), taskbar play/pause buttons and a jump list.
+- Global shortcuts: Ctrl+Alt+Space play/pause, Ctrl+Alt+← / → previous/next, Ctrl+Alt+↑ / ↓ volume, Ctrl+Alt+I show or hide.
+- Open music files with the iPod, or drop files and folders on it.
+- Snaps to screen edges, optional song notifications, starts with Windows if you like, and updates itself (installed version).
 
 ## Install
 
@@ -57,6 +71,13 @@ Windows SmartScreen may warn you because the app isn't code-signed. Click **More
 ```bash
 npm install
 npm start
+```
+
+Run the tests (the end-to-end ones need ffmpeg, and xvfb on Linux):
+
+```bash
+npm test
+npm run e2e
 ```
 
 Build the Windows installer and portable exe yourself (on Windows):
@@ -76,6 +97,7 @@ npm run dist
 | ⏮ ⏭ | ← → | Previous/Next (hold to rewind/fast-forward) |
 | Hold switch on the top edge | H | Lock the buttons |
 | Drag the case | | Move the iPod |
+| Double-click the case | | Flip it over to see the back |
 | Right-click | | Options: always on top, hide, quit… |
 
 The iPod also has a tray icon. Click it to show or hide the iPod.
@@ -108,14 +130,21 @@ src/main/        Electron main process: frameless window, tray, app:// file serv
 src/preload/     The safe bridge between the iPod UI and the main process
 src/renderer/    The iPod itself (no framework, plain ES modules)
   js/device.js     The physical iPod: case, click wheel and hold switch input
+  js/body3d.js     The 3D body (WebGL): shell, ports, materials
+  js/rig.js        The motion: pointer tilt, lift, sway, flip
   js/os.js         Navigation, backlight, sleep, hold, title bar
   js/views/        Every screen: menus, Now Playing, settings, extras, games
   js/player/       Local playback with EQ, the Spotify engine, queue/shuffle/repeat
   js/library/      Local library index and the Spotify Web API client
-scripts/         Icon generator and the development screenshot tour (scripts/e2e.js)
+scripts/         Icon generator, test library generator and the end-to-end tests (npm run e2e)
+test/            Unit tests (npm test)
 ```
 
 The device is data-driven (`src/renderer/js/models.js`), so more iPod models can be added later as device themes.
+
+## Credits
+
+The 3D body is drawn with [three.js](https://threejs.org) (MIT licence, included in `src/renderer/vendor/three`).
 
 ## Legal
 

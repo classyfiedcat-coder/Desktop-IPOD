@@ -38,17 +38,24 @@ async function fromCoverArtArchive(artist, album) {
   return `https://coverartarchive.org/release-group/${rg.id}/front-500`;
 }
 
+/** No HTTP status means we never reached the server (offline, DNS, timeout). */
+const unreachable = (err) => !err.status || err.status === 408;
+
 async function findArtwork({ artist, album }) {
+  let reached = false;
   for (const source of [fromItunes, fromCoverArtArchive]) {
     try {
       const url = await source(artist, album);
+      reached = true;
       if (!url) continue;
-      const { data, type } = await request(url, { as: 'buffer', maxBytes: 6 * 1024 * 1024, timeout: 15000 });
+      const { data, type } = await request(url, { as: 'buffer', maxBytes: 6 * 1024 * 1024, timeout: 15000, untrusted: true });
       if (/^image\//.test(type) && data.length > 1000) return data;
     } catch (err) {
+      if (!unreachable(err)) reached = true;
       log.warn('[artwork]', source.name, album, err.message);
     }
   }
+  if (!reached) throw Object.assign(new Error('Can’t reach the artwork services.'), { offline: true });
   return null;
 }
 
@@ -56,10 +63,21 @@ async function findArtwork({ artist, album }) {
 async function fillMissing(library, onProgress = () => {}, { limit = 500 } = {}) {
   const todo = library.missingArt().slice(0, limit);
   let found = 0;
+  let offline = 0;
   for (let i = 0; i < todo.length; i++) {
     const a = todo[i];
     onProgress({ done: i, total: todo.length, found, album: a.album });
-    const buf = await findArtwork(a);
+    let buf = null;
+    try {
+      buf = await findArtwork(a);
+      offline = 0;
+    } catch (err) {
+      // Offline: stop after a few albums in a row instead of timing out on all of them.
+      if (err.offline && ++offline >= 3) {
+        onProgress({ done: i, total: todo.length, found, finished: true, error: 'Couldn’t connect to the internet.' });
+        return { checked: i, found, offline: true };
+      }
+    }
     if (buf) {
       await library.setArt(a.key, buf);
       found++;

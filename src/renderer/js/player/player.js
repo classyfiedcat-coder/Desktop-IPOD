@@ -39,6 +39,7 @@ export class Player extends Emitter {
     e.on('state', () => this.source === 'local' && this.emit('state'));
     e.on('buffering', (b) => {
       this.buffering = b;
+      if (!b) this._errorRun = 0; // something is actually playing
       if (this.source === 'local') this.emit('buffering', b);
     });
     e.on('time', () => {
@@ -51,8 +52,17 @@ export class Player extends Emitter {
       if (this.source !== 'local') return;
       const t = this.track;
       console.warn('playback error', err);
+      // Skip unplayable files like the iPod does, but not forever: if song
+      // after song fails (their drive is unplugged, say), stop and say so.
+      this._errorRun = (this._errorRun || 0) + 1;
+      const giveUp = this._errorRun >= Math.min(8, this.queue.length);
+      if (t && !t.live && giveUp) {
+        this._errorRun = 0;
+        this.engine.stop();
+        this.emit('error', 'These songs can’t be played. Is their drive connected?');
+        return;
+      }
       this.emit('error', t && t.live ? 'Can’t connect to this station.' : 'This song can’t be played.');
-      // Skip unplayable files like the iPod does.
       if (t && !t.live && this.queue.length > 1) setTimeout(() => this.next({ auto: true }), 500);
     });
 

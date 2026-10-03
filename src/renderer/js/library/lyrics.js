@@ -46,8 +46,8 @@ export class LyricsService {
       return { synced, plain: synced ? null : t.lyrics, source: 'Embedded' };
     }
     if (!this.store.settings.lyricsOnline) return null;
-    const title = t.live ? t.title : t.title;
-    const artist = t.live ? t.artist : t.artist;
+    const { title, artist } = t;
+    // Radio: only once the stream has told us what's playing.
     if (!title || !artist || (t.live && !t.nowPlaying)) return null;
     const key = this.key({ title, artist });
     if (this.cache.has(key)) return this.cache.get(key);

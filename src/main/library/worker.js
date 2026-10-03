@@ -36,11 +36,15 @@ const post = (msg) => process.parentPort && process.parentPort.postMessage(msg);
 
 if (process.parentPort) process.parentPort.on('message', async (e) => {
   const msg = e.data;
+  // A heartbeat, so the app can tell a long scan from a stuck one.
+  const beat = setInterval(() => post({ type: 'progress', phase: 'alive', done: 0, total: 0 }), 5000);
   try {
     if (msg.type === 'scan') post({ type: 'done', ...(await scan(msg)) });
     else if (msg.type === 'files') post({ type: 'done', tracks: await parseFiles(msg), playlists: [] });
   } catch (err) {
     post({ type: 'error', message: err && err.stack ? err.stack : String(err) });
+  } finally {
+    clearInterval(beat);
   }
 });
 

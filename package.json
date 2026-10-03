@@ -1,9 +1,9 @@
 {
   "name": "ipod-desktop",
   "productName": "iPod",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
-  "description": "A free-floating iPod (5th generation) for your Windows desktop — click wheel, games, extras and Spotify.",
+  "description": "A free-floating, 3D iPod (5th generation) for your Windows desktop: click wheel, local music, Spotify, radio, podcasts, games and extras.",
   "author": "iPod Desktop contributors",
   "license": "MIT",
   "main": "src/main/main.js",
@@ -12,9 +12,11 @@
     "dev": "electron . --dev",
     "lint": "eslint .",
     "icons": "electron scripts/make-icons.js",
+    "vendor": "node -e \"const fs=require('fs');fs.copyFileSync('node_modules/three/build/three.module.min.js','src/renderer/vendor/three/three.module.min.js');fs.copyFileSync('node_modules/three/LICENSE','src/renderer/vendor/three/LICENSE')\"",
     "dist": "electron-builder --win",
     "dist:portable": "electron-builder --win portable",
-    "test": "node --test \"test/**/*.test.js\" \"test/**/*.test.mjs\""
+    "test": "node --test \"test/**/*.test.js\" \"test/**/*.test.mjs\"",
+    "e2e": "bash scripts/run-e2e.sh"
   },
   "dependencies": {
     "electron-updater": "^6.8.9",
@@ -25,7 +27,8 @@
     "electron": "^44.5.1",
     "electron-builder": "^26.15.3",
     "eslint": "^9.39.5",
-    "globals": "^15.15.0"
+    "globals": "^15.15.0",
+    "three": "^0.169.0"
   },
   "build": {
     "appId": "com.ipoddesktop.app",
@@ -72,6 +75,13 @@
         "AppImage"
       ],
       "category": "Audio"
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "classyfiedcat-coder",
+        "repo": "Ipod"
+      }
+    ]
   }
 }

@@ -62,6 +62,8 @@ const MIME = {
   '.txt': 'text/plain; charset=utf-8',
 };
 
+const IMAGE_CACHE_BYTES = 48 * 1024 * 1024;
+
 const STREAM_TYPES = { 'audio/aacp': 'audio/aac', 'audio/x-aac': 'audio/aac', 'audio/mpegurl': 'audio/mpeg', 'application/octet-stream': 'audio/mpeg' };
 
 class Protocol {
@@ -73,6 +75,7 @@ class Protocol {
     this.onIcy = onIcy || (() => {});
     this.thumbs = new Map();
     this.images = new Map();
+    this.imageBytes = 0;
   }
 
   async handle(req) {
@@ -83,8 +86,9 @@ class Protocol {
       return text(400, 'Bad request');
     }
     if (url.host !== 'ipod') return text(404, 'Not found');
-    const pathname = decodeURIComponent(url.pathname);
+    let pathname = url.pathname;
     try {
+      pathname = decodeURIComponent(pathname);
       if (pathname.startsWith('/media/')) return await this._media(pathname, url, req);
       const rel = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
       const file = path.resolve(this.rendererDir, rel);
@@ -164,7 +168,7 @@ class Protocol {
     if (icy) headers['Icy-MetaData'] = '1';
     let res;
     try {
-      res = await request(target, { as: 'response', headers, timeout: 20000 });
+      res = await request(target, { as: 'response', headers, timeout: 20000, untrusted: true });
     } catch (err) {
       return text(502, err.message);
     }
@@ -197,11 +201,17 @@ class Protocol {
     let hit = this.images.get(target);
     if (!hit) {
       try {
-        const { data, type } = await request(target, { as: 'buffer', maxBytes: 3 * 1024 * 1024, timeout: 12000 });
+        const { data, type } = await request(target, { as: 'buffer', maxBytes: 3 * 1024 * 1024, timeout: 12000, untrusted: true });
         if (!/^image\//i.test(type)) return text(415, 'Not an image');
         hit = { data, type };
         this.images.set(target, hit);
-        if (this.images.size > 300) this.images.delete(this.images.keys().next().value);
+        this.imageBytes += data.length;
+        // Keep the cache to a sensible size (by bytes, not just count).
+        while (this.images.size > 1 && (this.imageBytes > IMAGE_CACHE_BYTES || this.images.size > 400)) {
+          const [k, v] = this.images.entries().next().value;
+          this.images.delete(k);
+          this.imageBytes -= v.data.length;
+        }
       } catch {
         return text(502, 'Image unavailable');
       }

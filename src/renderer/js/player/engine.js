@@ -78,6 +78,8 @@ export class AudioEngine extends Emitter {
     this.next = null;
     this.getNext = () => null;
     this._fading = null;
+    this._tail = null;
+    this._badPreloads = new WeakSet();
     this._reconnects = 0;
     this._monitor = setInterval(() => this._tick(), 40);
   }
@@ -165,6 +167,7 @@ export class AudioEngine extends Emitter {
   load(track, { autoplay = true, at = 0 } = {}) {
     this._graph();
     this._cancelFade();
+    this._endTail();
     if (this.next && this.idle.track === track && !track.live) {
       // The song we preloaded: switch decks for an instant start.
       this.deck.stop();
@@ -211,6 +214,7 @@ export class AudioEngine extends Emitter {
 
   stop() {
     this._cancelFade();
+    this._endTail();
     for (const d of this.decks) d.stop();
     this.next = null;
     this.emit('state');
@@ -274,7 +278,7 @@ export class AudioEngine extends Emitter {
   invalidateNext() {
     if (this._fading) return;
     this.next = null;
-    this.idle.stop();
+    if (!this._tail) this.idle.stop();
   }
 
   /** Frequency bins 0..255 for the visualizer. */
@@ -294,9 +298,12 @@ export class AudioEngine extends Emitter {
     if (!isFinite(dur) || dur <= 0) return;
     const rate = d.audio.playbackRate || 1;
     const remaining = (dur - d.audio.currentTime) / rate;
-    if (!this.next && remaining < Math.max(25, this.crossfade + 12)) {
+    // Don't reuse the idle deck while the last song is still playing out its tail.
+    if (!this.next && !this._tail && remaining < Math.max(25, this.crossfade + 12)) {
       const n = this.getNext();
-      if (n && !n.live && n.src) {
+      // A song that failed to preload isn't retried every tick; it gets its
+      // normal chance (and error handling) when it's actually played.
+      if (n && !n.live && n.src && !this._badPreloads.has(n)) {
         this.next = n;
         if (n !== t) {
           this.idle.set(n);
@@ -333,9 +340,21 @@ export class AudioEngine extends Emitter {
     this.active = 1 - this.active;
     this._prepare(inn);
     inn.audio.play().catch(() => {});
-    out.stop();
+    // Let the old song play its last few milliseconds instead of cutting them
+    // off; it stops by itself (or here, at the latest).
+    const left = Math.max(0, (out.audio.duration - out.audio.currentTime) / (out.audio.playbackRate || 1));
+    this._endTail();
+    this._tail = { deck: out, timer: setTimeout(() => this._endTail(), Math.min(400, left * 1000 + 60)) };
     this.emit('advance', next);
     this.emit('state');
+  }
+
+  _endTail() {
+    const t = this._tail;
+    if (!t) return;
+    clearTimeout(t.timer);
+    this._tail = null;
+    if (t.deck !== this.deck) t.deck.stop();
   }
 
   _startFade(sec) {
@@ -376,6 +395,7 @@ export class AudioEngine extends Emitter {
   }
 
   _ended(deck) {
+    if (this._tail && deck === this._tail.deck) return this._endTail();
     if (deck !== this.deck) return;
     if (this.next) return this._advance();
     if (deck.track && deck.track.live) return this._reconnects < 3 ? this._reconnect() : this.emit('error', new Error('The station stopped streaming.'));
@@ -384,7 +404,8 @@ export class AudioEngine extends Emitter {
 
   _error(deck, err) {
     if (deck !== this.deck) {
-      // The preload failed; we'll try again when it's time.
+      // The preload failed: remember it, so we don't hammer a broken file.
+      if (deck.track) this._badPreloads.add(deck.track);
       if (this.next && deck.track === this.next) this.next = null;
       deck.stop();
       return;

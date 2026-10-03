@@ -24,7 +24,7 @@ import { ColorEditor } from './views/color-editor.js';
 import { getModel, getColor } from './models.js';
 
 const WINDOW_KEYS = ['alwaysOnTop', 'showInTaskbar', 'openAtLogin', 'opacity', 'snapToEdges', 'startHidden'];
-const DESKTOP_KEYS = ['notifications', 'globalShortcuts', 'color', 'size'];
+const DESKTOP_KEYS = ['notifications', 'globalShortcuts', 'color', 'size', 'motion'];
 
 // Forward renderer errors to the main-process log.
 window.addEventListener('error', (e) => window.ipod && window.ipod.log('error', e.message, e.filename ? `${e.filename}:${e.lineno}` : ''));
@@ -62,7 +62,9 @@ async function boot() {
     os.mount(screen);
   };
   app.shutdown = async () => {
+    store.flush(); // before the animation, in case it's cut short
     await os.shutdown();
+    store.flush();
     window.ipod.win.quit();
   };
   window.__ipod = app; // handy for debugging from DevTools
@@ -73,7 +75,7 @@ async function boot() {
   const booting = store.settings.startupAnimation ? os.boot() : Promise.resolve();
 
   // Settings that change the device itself.
-  for (const key of ['color', 'size', 'shadow', 'engraving', 'reflections']) store.on(`change:${key}`, () => app.rebuild());
+  for (const key of ['color', 'size', 'shadow', 'engraving', 'reflections', 'wear', 'backFinish', 'detail']) store.on(`change:${key}`, () => app.rebuild());
 
   // The iPod turns toward the pointer, wherever it is on screen.
   const configureMotion = () => {
@@ -91,6 +93,7 @@ async function boot() {
     if (store.settings.color === 'custom') device.applyColors(getColor(getModel(store.settings.model), 'custom', c));
   });
   store.on('change:wheelGlow', (v) => device.setGlow(v));
+  device.on('rebuild', () => app.rebuild());
   store.on('change:wheelSpeed', (v) => (device.wheelSpeed = v));
   store.on('change:backlight', () => os.activity());
   store.on('reset', () => app.rebuild());
@@ -119,6 +122,7 @@ async function boot() {
     }
     if (name === 'prefs-changed') return syncWindowPrefs();
     if (name === 'shutdown') return app.shutdown();
+    if (name === 'flush') return store.flush();
     if (name === 'volup' || name === 'voldown') {
       player.setVolume(player.volume + (name === 'volup' ? 0.06 : -0.06));
       os.alert(`Volume ${Math.round(player.volume * 100)}%`, 600);
@@ -203,6 +207,7 @@ async function boot() {
   spotify.init();
   app.podcasts.init();
   await booting;
+  app.booted = true;
   if (store.firstRun) os.alert('Welcome! Drag the iPod to move it. Right-click for options.', 3600);
 
   // Refresh lists that depend on the library once a scan finishes.

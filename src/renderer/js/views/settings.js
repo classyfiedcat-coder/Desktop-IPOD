@@ -463,10 +463,10 @@ class ArtworkView extends View {
     this._off = window.ipod.library.onArtProgress((p) => {
       if (!this.mounted) return;
       if (p.total) this.fill.style.width = `${(p.done / p.total) * 100}%`;
-      this.detail.textContent = p.finished ? `Found artwork for ${p.found} of ${p.total} albums` : p.album ? `${p.album} (${p.done + 1} of ${p.total})` : '';
+      this.detail.textContent = p.error || (p.finished ? `Found artwork for ${p.found} of ${p.total} albums` : p.album ? `${p.album} (${p.done + 1} of ${p.total})` : '');
       if (p.finished) {
-        this.label.textContent = p.total ? 'Done' : 'All albums have artwork';
-        this.fill.style.width = '100%';
+        this.label.textContent = p.error ? 'Stopped' : p.total ? 'Done' : 'All albums have artwork';
+        if (!p.error) this.fill.style.width = '100%';
       }
     });
     if (!this.started) {
@@ -609,6 +609,10 @@ function appearanceSettings(app) {
         },
       },
       { label: 'Flip iPod', arrow: false, action: () => app.device.flip() },
+      cycleItem(store, 'Detail', 'detail', [
+        ['high', 'High (3D)'],
+        ['light', 'Light'],
+      ]),
       choiceItem(app, 'Motion', 'motion', [
         ['cursor', 'Follow Pointer'],
         ['hover', 'Only on Hover'],
@@ -620,6 +624,16 @@ function appearanceSettings(app) {
         ['dramatic', 'Dramatic'],
       ]),
       cycleItem(store, 'Reflections', 'reflections', ON_OFF),
+      cycleItem(store, 'Back', 'backFinish', [
+        ['auto', 'Auto'],
+        ['steel', 'Polished Steel'],
+        ['black', 'Black'],
+      ]),
+      cycleItem(store, 'Wear', 'wear', [
+        ['none', 'Brand New'],
+        ['light', 'A Few Months'],
+        ['worn', 'Well Loved'],
+      ]),
       cycleItem(store, 'Float When Idle', 'idleFloat', ON_OFF),
       cycleItem(store, 'Shadow', 'shadow', ON_OFF),
       cycleItem(store, 'Wheel Glow', 'wheelGlow', ON_OFF),

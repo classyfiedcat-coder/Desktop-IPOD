@@ -334,6 +334,10 @@
 .row.disabled {
   color: var(--muted);
 }
+/* Still readable when the highlight lands on it. */
+.row.sel.disabled {
+  color: rgba(255, 255, 255, 0.72);
+}
 .row .thumb {
   display: none;
 }
@@ -476,11 +480,23 @@
   transition: opacity 0.05s;
 }
 
+/* --- the LCD ----------------------------------------------------------------- */
+/* Multiply tints the whites cool blue and leaves dark pixels alone. */
+.lcd-tint {
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+  pointer-events: none;
+  background: #e9f0ff;
+  mix-blend-mode: multiply;
+}
+
 /* --- backlight / sleep ----------------------------------------------------- */
 .dimmer {
   position: absolute;
   inset: 0;
-  background: #000;
+  /* An unlit LCD isn't black: it's a dark charcoal under the glass. */
+  background: #0c0e0f;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.6s ease;

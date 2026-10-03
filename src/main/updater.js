@@ -10,8 +10,9 @@ const { app } = require('electron');
 const { log } = require('./log');
 
 class Updater {
-  constructor(send) {
+  constructor(send, { beforeInstall } = {}) {
     this.send = send;
+    this.beforeInstall = beforeInstall || (() => {});
     this.status = { state: 'idle' };
     this.supported = app.isPackaged && !process.env.PORTABLE_EXECUTABLE_DIR && process.platform === 'win32';
     this.au = null;
@@ -56,7 +57,11 @@ class Updater {
   }
 
   install() {
-    if (this.status.state === 'ready' && this.au) this.au.quitAndInstall(false, true);
+    if (this.status.state !== 'ready' || !this.au) return;
+    // Skip the power-off animation: it would hold the window open and the
+    // installer would lose its "restart afterwards" instruction.
+    this.beforeInstall();
+    this.au.quitAndInstall(false, true);
   }
 }
 

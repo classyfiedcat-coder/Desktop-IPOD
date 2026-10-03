@@ -48,8 +48,9 @@ class Desktop {
     this.library = library;
     this.tray = null;
     this.np = { title: '', artist: '', playing: false, has: false };
-    this.prefs = { notifications: false, globalShortcuts: true, color: 'white', size: 'medium' };
+    this.prefs = { notifications: false, globalShortcuts: true, color: 'white', size: 'medium', motion: 'cursor' };
     this._lastNotified = null;
+    this._thumbKey = null;
   }
 
   icon(name) {
@@ -61,6 +62,14 @@ class Desktop {
     this._tray();
     this._jumpList();
     this.applyPrefs(this.prefs);
+    // Windows drops taskbar buttons when a window is hidden and shown again.
+    const win = this.w.win;
+    if (win) {
+      win.on('show', () => {
+        this._thumbKey = null;
+        this._thumbar();
+      });
+    }
   }
 
   // ---------------------------------------------------------------- menus --
@@ -94,6 +103,10 @@ class Desktop {
       {
         label: 'Size',
         submenu: [radio('Small', 'size', 'small'), radio('Medium', 'size', 'medium'), radio('Large', 'size', 'large'), radio('Extra Large', 'size', 'xl')],
+      },
+      {
+        label: 'Motion',
+        submenu: [radio('Follow Pointer', 'motion', 'cursor'), radio('Only on Hover', 'motion', 'hover'), radio('Off', 'motion', 'off')],
       },
       { label: 'Flip iPod', click: () => this.command('flip') },
       { label: 'Spotify…', click: () => this.openSetup() },
@@ -158,6 +171,10 @@ class Desktop {
     const win = this.w.win;
     if (process.platform !== 'win32' || !win || win.isDestroyed()) return;
     const np = this.np;
+    // Only touch the buttons when play/pause actually changed (radio titles update often).
+    const key = np.playing ? 'pause' : 'play';
+    if (key === this._thumbKey) return;
+    this._thumbKey = key;
     try {
       win.setThumbarButtons([
         { tooltip: 'Previous', icon: this.icon('thumb-prev.png'), click: () => this.command('prev') },

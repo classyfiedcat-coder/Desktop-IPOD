@@ -277,7 +277,7 @@
   padding: 0 16px;
   transition: background 0.4s;
 }
-.cf-face {
+.clk-face {
   position: relative;
   width: 150px;
   height: 150px;
@@ -289,14 +289,14 @@
     0 0 0 4px #8d949b,
     0 3px 8px rgba(0, 0, 0, 0.3);
 }
-.night .cf-face {
+.night .clk-face {
   background: radial-gradient(circle at 50% 35%, #3b4148, #1b1e22 70%, #0d0f11);
   box-shadow:
     0 0 0 3px #4b525a,
     0 0 0 4px #1d2125,
     0 3px 8px rgba(0, 0, 0, 0.5);
 }
-.cf-ticks i {
+.clk-ticks i {
   position: absolute;
   left: 50%;
   top: 6px;
@@ -307,10 +307,10 @@
   transform-origin: 50% 69px;
   border-radius: 1px;
 }
-.night .cf-ticks i {
+.night .clk-ticks i {
   background: #e6e9ec;
 }
-.cf-hand {
+.clk-hand {
   position: absolute;
   left: 50%;
   bottom: 50%;
@@ -318,26 +318,26 @@
   border-radius: 2px;
   background: #1d2125;
 }
-.night .cf-hand {
+.night .clk-hand {
   background: #f2f4f6;
 }
-.cf-h {
+.clk-h {
   width: 5px;
   height: 40px;
   margin-left: -2.5px;
 }
-.cf-m {
+.clk-m {
   width: 3.5px;
   height: 58px;
   margin-left: -1.75px;
 }
-.cf-s {
+.clk-s {
   width: 1.5px;
   height: 62px;
   margin-left: -0.75px;
   background: #e0332c !important;
 }
-.cf-pin {
+.clk-pin {
   position: absolute;
   left: 50%;
   top: 50%;
@@ -347,25 +347,25 @@
   border-radius: 50%;
   background: #e0332c;
 }
-.cf-info {
+.clk-info {
   flex: 1;
   min-width: 0;
 }
-.cf-city {
+.clk-city {
   font: 700 17px / 1.2 var(--font);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.cf-time {
+.clk-time {
   font: 700 22px / 1.3 var(--font);
   font-variant-numeric: tabular-nums;
 }
-.cf-date {
+.clk-date {
   font: 400 13px / 1.3 var(--font);
   color: var(--muted);
 }
-.cf-hint {
+.clk-hint {
   position: absolute;
   right: 10px;
   bottom: 6px;

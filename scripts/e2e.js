@@ -17,6 +17,14 @@ module.exports = async ({ app, win }) => {
   fs.mkdirSync(out, { recursive: true });
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const js = (code) => win.webContents.executeJavaScript(code);
+  /** Wait until the iPod has finished starting up (boot animation, library). */
+  const ready = async () => {
+    for (let i = 0; i < 300; i++) {
+      if (await js('!!(window.__ipod && window.__ipod.booted)').catch(() => false)) return;
+      await wait(100);
+    }
+    throw new Error('the iPod never finished booting');
+  };
   const errors = [];
   win.webContents.on('console-message', (e) => {
     const { level, message } = e;
@@ -25,9 +33,23 @@ module.exports = async ({ app, win }) => {
   });
 
   const shot = async (name, w = win) => {
-    const img = await w.webContents.capturePage();
-    fs.writeFileSync(path.join(out, `${name}.png`), img.toPNG());
-    console.log('shot', name);
+    // Grabbing a window's pixels occasionally fails on software GPUs; retry,
+    // and for secondary windows (the Spotify setup) just warn.
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const img = await w.webContents.capturePage();
+        fs.writeFileSync(path.join(out, `${name}.png`), img.toPNG());
+        console.log('shot', name);
+        return;
+      } catch (err) {
+        if (attempt < 3) {
+          await wait(400);
+          continue;
+        }
+        if (w !== win) return console.log(`(couldn't capture ${name}: ${err.message})`);
+        throw err;
+      }
+    }
   };
   const press = async (button, hold = 60) => {
     await js(`__ipod.device.emit('down', { button: '${button}' })`);
@@ -55,9 +77,10 @@ module.exports = async ({ app, win }) => {
     for (let i = 0; i < n; i++) await press('menu');
   };
 
-  const scenario = { spotify: spotifyScenario, media: mediaScenario, motion: motionScenario, reel: reelScenario }[process.env.IPOD_E2E_STEPS];
+  const scenario = { spotify: spotifyScenario, media: mediaScenario, motion: motionScenario, reel: reelScenario, finish: finishScenario, screens: screensScenario }[process.env.IPOD_E2E_STEPS];
   if (scenario) {
     try {
+      await ready();
       await scenario({ js, wait, shot, press, scroll, open, menu, select, win });
     } catch (err) {
       console.error('E2E failed', err);
@@ -65,12 +88,13 @@ module.exports = async ({ app, win }) => {
     }
     fs.writeFileSync(path.join(out, 'errors.json'), JSON.stringify(errors, null, 2));
     console.log(`E2E done, ${errors.length} renderer errors`);
-    app.quit();
+    for (const e of errors) console.log('  error:', e);
+    app.exit(errors.length ? 1 : 0);
     return;
   }
 
   try {
-    await wait(2500);
+    await ready();
     await js(`__ipod.library.scanning ? new Promise(r => __ipod.library.on('scan', on => !on && r())) : null`);
     await wait(500);
     await shot('01-main');
@@ -199,7 +223,8 @@ module.exports = async ({ app, win }) => {
   }
   fs.writeFileSync(path.join(out, 'errors.json'), JSON.stringify(errors, null, 2));
   console.log(`E2E done, ${errors.length} renderer errors`);
-  app.quit();
+  for (const e of errors) console.log('  error:', e);
+  app.exit(errors.length ? 1 : 0);
 };
 
 /** Spotify flows against a mocked Web API (February 2026 response shapes). */
@@ -323,6 +348,9 @@ async function mediaScenario({ js, wait, shot, press, scroll, open, menu }) {
   await open('Main Menu');
   await open('Games');
   await menu(2);
+  // Waking from sleep must light the screen back up.
+  const lit = await js(`({ dim: getComputedStyle(__ipod.os.dimmer).opacity, backlit: __ipod.device.screen.classList.contains('backlit') })`);
+  if (lit.dim !== '0' || !lit.backlit) throw new Error(`screen still dark after waking: ${JSON.stringify(lit)}`);
   await shot('m11-mainmenu-games');
   await open('Settings');
   await open('Desktop');
@@ -496,4 +524,102 @@ async function reelScenario({ js, wait, win }) {
   }
   await js(`__ipod.store.set('idleFloat', true); __ipod.store.set('motionAmount', 'normal')`);
   console.log('reel frames', n);
+}
+
+/** Surface finishes: the worn mirror back and the reflections in the screen glass. */
+async function finishScenario({ js, wait, shot }) {
+  await wait(2500);
+  const pointAt = (dx, dy) =>
+    js(`(() => { const w = innerWidth, h = innerHeight; __ipod.device.rig.cursor({ x: w / 2 + ${dx}, y: h / 2 + ${dy}, w, h, sx: 0, sy: 0 }); })()`);
+  const settle = () => js(`new Promise(r => { const t = () => (__ipod.device.rig._raf ? setTimeout(t, 50) : r()); t(); })`);
+  await js(`__ipod.store.set('idleFloat', false); __ipod.store.set('motion', 'cursor'); __ipod.store.set('motionAmount', 'normal'); __ipod.store.set('color', ${JSON.stringify(process.env.IPOD_REEL_COLOR || 'white')}); __ipod.store.set('wear', ${JSON.stringify(process.env.IPOD_WEAR || 'light')})`);
+  await wait(800);
+  await js(`__ipod.device.flip(true)`);
+  await settle();
+  for (const [name, dx, dy] of [
+    ['f01-back-rest', 0, 0],
+    ['f02-back-right', 900, 100],
+    ['f03-back-left', -900, 100],
+    ['f04-back-up-left', -800, -900],
+    ['f05-back-down', 0, 900],
+  ]) {
+    await pointAt(dx, dy);
+    await settle();
+    await shot(name);
+  }
+  await js(`__ipod.device.flip(false)`);
+  await settle();
+  for (const [name, dx, dy] of [
+    ['f06-screen-rest', 0, 0],
+    ['f07-screen-up-left', -900, -900],
+  ]) {
+    await pointAt(dx, dy);
+    await js(`__ipod.os.activity()`);
+    await settle();
+    await shot(name);
+  }
+  // Screen off: deep black glass showing the reflections.
+  await js(`__ipod.os.sleep()`);
+  await wait(600);
+  for (const [name, dx, dy] of [
+    ['f08-off-rest', 0, 0],
+    ['f09-off-up-left', -900, -900],
+    ['f10-off-left', -900, 0],
+  ]) {
+    await pointAt(dx, dy);
+    await settle();
+    await shot(name);
+  }
+  await js(`__ipod.os.wake()`);
+  // The edges: tip it right over to see the top (hold switch, jack) and the bottom (dock).
+  await js(`__ipod.store.set('motionAmount', 'dramatic')`);
+  await wait(300);
+  for (const [name, rx] of [
+    ['f11-top', -38],
+    ['f12-bottom', 38],
+  ]) {
+    await js(`(() => { const r = __ipod.device.rig; r.aim = { rx: ${rx}, ry: -8 }; r.wake(); })()`);
+    await wait(200);
+    await js(`new Promise(r => { const t = () => (__ipod.device.rig._raf ? setTimeout(t, 50) : r()); t(); })`);
+    console.log(name, await js(`__ipod.device.flipper.style.transform`));
+    await shot(name);
+  }
+  await js(`(() => { const r = __ipod.device.rig; r.rx.snap(0); r.ry.snap(0); })(); __ipod.store.set('motion', 'cursor'); __ipod.store.set('motionAmount', 'normal'); __ipod.store.set('idleFloat', true)`);
+}
+
+/** A tour of the screens the other scenarios don't reach, for a visual check. */
+async function screensScenario({ js, wait, shot, press, scroll, open, menu }) {
+  const home = async () => {
+    await js(`__ipod.os.goto([])`).catch(() => {});
+    for (let i = 0; i < 6 && (await js(`__ipod.os.stack.length`)) > 1; i++) await menu();
+  };
+  const step = async (name, path, after) => {
+    await home();
+    for (const label of path) await open(label);
+    await wait(500);
+    if (after) await after();
+    await shot(name);
+  };
+  await js(`__ipod.store.set('idleFloat', false)`);
+  await step('v01-coverflow', ['Music', 'Cover Flow'], () => wait(600));
+  await press('select');
+  await wait(700);
+  await shot('v02-coverflow-open');
+  await press('menu');
+  await step('v03-new-playlist', ['Music', 'Playlists', 'New Playlist…']);
+  await step('v04-radio', ['Radio'], () => wait(1500));
+  await step('v05-podcasts', ['Podcasts'], () => wait(800));
+  await step('v06-games', ['Extras', 'Games']);
+  await step('v07-solitaire', ['Extras', 'Games', 'Solitaire'], () => wait(800));
+  await step('v08-contacts', ['Extras', 'Contacts']);
+  await step('v09-notes', ['Extras', 'Notes']);
+  await step('v10-appearance', ['Settings', 'Appearance']);
+  await scroll(1, 12);
+  await wait(300);
+  await shot('v11-appearance-more');
+  await step('v12-colors', ['Settings', 'Appearance', 'Custom Colors…']);
+  await step('v13-eq', ['Settings', 'EQ']);
+  await step('v14-playback', ['Settings', 'Playback']);
+  await home();
+  await js(`__ipod.store.set('idleFloat', true)`);
 }

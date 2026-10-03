@@ -5,17 +5,36 @@
 const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
-const { app, ipcMain, dialog, shell, clipboard } = require('electron');
+const { app, ipcMain: rawIpc, dialog, shell, clipboard } = require('electron');
 const { apiJson } = require('./net');
 const { parseOpml, toOpml } = require('./podcasts');
 const { fillMissing } = require('./artwork');
 const { log } = require('./log');
 
 const rlog = log.scope('renderer');
+const LEVELS = new Set(['info', 'warn', 'error']);
+
+/** Only our own pages (app://ipod/…) may talk to the main process. */
+function trusted(e) {
+  const frame = e.senderFrame;
+  return !!frame && typeof frame.url === 'string' && frame.url.startsWith('app://ipod/');
+}
 
 function registerIpc(ctx) {
   const { state, ipodWindow: iw, library, folders, podcasts, lyrics, spotify, updater, desktop, send } = ctx;
   const win = () => iw.win;
+  // Wrap ipcMain so every channel checks who is calling.
+  const ipcMain = {
+    handle: (channel, fn) =>
+      rawIpc.handle(channel, (e, ...args) => {
+        if (!trusted(e)) throw new Error('Untrusted sender');
+        return fn(e, ...args);
+      }),
+    on: (channel, fn) =>
+      rawIpc.on(channel, (e, ...args) => {
+        if (trusted(e)) fn(e, ...args);
+      }),
+  };
 
   // --- state ---------------------------------------------------------------
   ipcMain.handle('state:load', () => ({
@@ -33,6 +52,8 @@ function registerIpc(ctx) {
   }));
   ipcMain.handle('state:save', (_e, data) => {
     state.set('app', data);
+    // While quitting there's no time for the store's debounce.
+    if (ctx.quitting) state.flush();
     return true;
   });
   ipcMain.on('app:ready', () => ctx.rendererReady());
@@ -54,7 +75,7 @@ function registerIpc(ctx) {
     if (st.size > 50 * 1024 * 1024) return null;
     return fsp.readFile(res.filePaths[0], 'utf8');
   });
-  ipcMain.on('log', (_e, level, ...args) => (rlog[level] || rlog.info)(...args));
+  ipcMain.on('log', (_e, level, ...args) => rlog[LEVELS.has(level) ? level : 'info'](...args.map(String)));
 
   // --- window ---------------------------------------------------------------
   ipcMain.on('win:ignore-mouse', (_e, ignore) => iw.ignoreMouse(ignore));
