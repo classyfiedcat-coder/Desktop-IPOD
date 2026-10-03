@@ -25,10 +25,59 @@ export class LocalLibrary extends Emitter {
     });
     window.ipod.library.onArtUpdated(() => this.reload());
     store.on('change:autoUpdateLibrary', (v) => window.ipod.library.autoUpdate(v));
+    // iTunes: re-read when iTunes saves its library, or the setting changes.
+    this.itunes = null; // { file, stats, playlists, matched, total, … } while in use
+    this.itunesStatus = null; // the last answer, including "not found" and errors
+    window.ipod.library.onITunesChanged(() => this.syncITunes());
+    store.on('change:itunes', () => this.syncITunes());
+    store.on('change:itunesFile', () => this.syncITunes({ force: true }));
   }
 
   normalize(t) {
-    return { ...t, source: 'local', art: ART_URL(t.art), artKey: t.art || null, src: TRACK_URL(t.id) };
+    return { ...t, fileAddedAt: t.addedAt, source: 'local', art: ART_URL(t.art), artKey: t.art || null, src: TRACK_URL(t.id) };
+  }
+
+  // ---- iTunes -----------------------------------------------------------
+
+  /**
+   * Read the iTunes / Music library and use its playlists, ratings, play
+   * counts and dates (see main/library/itunes.js). Turned off, they go away
+   * again; nothing of the iPod's own is changed either way.
+   */
+  async syncITunes({ force = false } = {}) {
+    const s = this.store.settings;
+    let res = null;
+    if (s.itunes) {
+      try {
+        res = await window.ipod.library.itunes({ file: s.itunesFile, force });
+      } catch (err) {
+        res = { found: false, error: err.message };
+      }
+    } else window.ipod.library.itunesOff().catch(() => {});
+    // The setting may have changed while it was reading.
+    if (!this.store.settings.itunes) res = null;
+    this.itunesStatus = res;
+    this.itunes = res && res.found ? res : null;
+    this._applyITunes();
+    this.emit('itunes', res);
+    return res;
+  }
+
+  _applyITunes() {
+    const stats = this.itunes ? this.itunes.stats : null;
+    this.store.itunesStats = stats;
+    // iTunes knows when you really added a song; the file only knows when the iPod first saw it.
+    for (const t of this.tracks) t.addedAt = (stats && stats[t.id] && stats[t.id].a) || t.fileAddedAt;
+    this._build();
+    this.emit('change');
+  }
+
+  /** iTunes playlists inside a folder (null: at the top level), as on an iPod synced with iTunes. */
+  itunesPlaylists(parent = null) {
+    if (!this.itunes) return [];
+    return this.itunes.playlists
+      .filter((p) => p.parent === parent || (parent === null && p.parent && !this.itunes.playlists.some((q) => q.id === p.parent)))
+      .map((p) => ({ ...p, tracks: p.folder ? [] : p.trackIds.map((id) => this.byId.get(id)).filter(Boolean) }));
   }
 
   /** Re-read the index (after artwork was added). */
@@ -50,6 +99,8 @@ export class LocalLibrary extends Emitter {
       const data = await window.ipod.library.get();
       this._set(data);
       window.ipod.library.autoUpdate(this.store.settings.autoUpdateLibrary);
+      // iTunes playlists and stats right away (a scan below matches them again when it's done).
+      if (data.scannedAt && this.store.settings.itunes) this.syncITunes();
       const foldersChanged = JSON.stringify(data.folders || []) !== JSON.stringify(this.store.musicFolders());
       if (!data.scannedAt || foldersChanged) this.scan();
       else if (Date.now() - data.scannedAt > 1000 * 60 * 60 * 6) this.scan(); // background refresh
@@ -72,6 +123,8 @@ export class LocalLibrary extends Emitter {
           this._again = false;
           this._set(await window.ipod.library.scan(this.store.musicFolders()));
         } while (this._again);
+        // Songs moved, appeared or went: match iTunes against the new index.
+        if (this.store.settings.itunes) await this.syncITunes();
         if (this.store.settings.autoArtwork && this.albums.some((a) => !a.art && a.title !== 'Unknown Album')) {
           window.ipod.library.fillArtwork().catch(() => {});
         }
@@ -92,8 +145,7 @@ export class LocalLibrary extends Emitter {
     this.tracks = (data.tracks || []).map((t) => this.normalize(t));
     this.byId = new Map(this.tracks.map((t) => [t.id, t]));
     this.playlists = data.playlists || [];
-    this._build();
-    this.emit('change');
+    this._applyITunes(); // builds and announces the change
   }
 
   _build() {
@@ -176,23 +228,23 @@ export class LocalLibrary extends Emitter {
 
   // ---- smart playlists --------------------------------------------------
   smartPlaylists() {
-    const u = this.store.user;
+    const st = this.store;
     const music = this.music;
     const recentlyAdded = music
       .slice()
       .sort((a, b) => b.addedAt - a.addedAt)
       .slice(0, 100);
     const top25 = music
-      .filter((t) => u.plays[t.id])
-      .sort((a, b) => u.plays[b.id] - u.plays[a.id])
+      .filter((t) => st.plays(t.id))
+      .sort((a, b) => st.plays(b.id) - st.plays(a.id))
       .slice(0, 25);
     const recentlyPlayed = music
-      .filter((t) => u.lastPlayed[t.id])
-      .sort((a, b) => u.lastPlayed[b.id] - u.lastPlayed[a.id])
+      .filter((t) => st.lastPlayed(t.id))
+      .sort((a, b) => st.lastPlayed(b.id) - st.lastPlayed(a.id))
       .slice(0, 50);
     const topRated = music
-      .filter((t) => (u.ratings[t.id] || 0) >= 4)
-      .sort((a, b) => (u.ratings[b.id] || 0) - (u.ratings[a.id] || 0) || byKey(a.title, b.title));
+      .filter((t) => st.rating(t.id) >= 4)
+      .sort((a, b) => st.rating(b.id) - st.rating(a.id) || byKey(a.title, b.title));
     return [
       { id: 'smart:recent', name: 'Recently Added', tracks: recentlyAdded, smart: true },
       { id: 'smart:top25', name: 'Top 25 Most Played', tracks: top25, smart: true },

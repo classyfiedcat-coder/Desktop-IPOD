@@ -3,22 +3,30 @@
 # library, each with a fresh profile, under a virtual display if there's no
 # real one. Fails if any scenario fails or logs renderer errors.
 #
-#   scripts/run-e2e.sh [scenario ...]      default: tour media screens motion spotify
+#   scripts/run-e2e.sh [scenario ...]      default: tour media screens motion spotify itunes
 set -euo pipefail
 cd "$(dirname "$0")/.."
 WORK="${E2E_DIR:-$PWD/.e2e}"
 SCENARIOS=("$@")
-[ ${#SCENARIOS[@]} -eq 0 ] && SCENARIOS=(tour media screens motion spotify)
+[ ${#SCENARIOS[@]} -eq 0 ] && SCENARIOS=(tour media screens motion spotify itunes)
 
 [ -f "$WORK/profile/state.json" ] || scripts/make-test-library.sh "$WORK" > /dev/null
 # Electron downloads its binary the first time it's required, and says so on
 # stdout, so fetch it first and only then read its path.
 node -e "require('electron')" > /dev/null
 ELECTRON="$(node -p "require('electron')")"
-# Software WebGL so the 3D body is exercised on machines without a GPU.
-FLAGS=(--no-sandbox --use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader)
-RUN=()
-if [ -z "${DISPLAY:-}" ] && command -v xvfb-run > /dev/null; then RUN=(xvfb-run -a -s "-screen 0 1280x1024x24"); fi
+# The command to run: a time limit, a virtual display if there's no real
+# one, and software WebGL so the 3D body is exercised without a GPU. Macs
+# (CI's included) have a display and Metal, so they need none of that.
+# (One array, so it's never empty: macOS's bash 3.2 rejects empty arrays under set -u.)
+CMD=()
+command -v timeout > /dev/null && CMD+=(timeout 600)
+if [ "$(uname)" != Darwin ]; then
+  if [ -z "${DISPLAY:-}" ] && command -v xvfb-run > /dev/null; then CMD+=(xvfb-run -a -s "-screen 0 1280x1024x24"); fi
+  CMD+=("$ELECTRON" --no-sandbox --use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader)
+else
+  CMD+=("$ELECTRON")
+fi
 
 failed=0
 for s in "${SCENARIOS[@]}"; do
@@ -30,7 +38,7 @@ for s in "${SCENARIOS[@]}"; do
   [ "$s" = tour ] && steps=
   echo "▶ $s"
   if IPOD_E2E=scripts/e2e.js IPOD_E2E_STEPS="$steps" IPOD_SHOTS="$WORK/shots-$s" IPOD_USER_DATA="$profile" \
-    timeout 600 "${RUN[@]}" "$ELECTRON" "${FLAGS[@]}" . > "$WORK/$s.log" 2>&1; then
+    "${CMD[@]}" . > "$WORK/$s.log" 2>&1; then
     grep -E "E2E done" "$WORK/$s.log" || true
   else
     failed=1

@@ -93,7 +93,7 @@ export function songOptions(app, track, ctx = {}) {
   const album = app.library.albums.find((a) => a.tracks.includes(track));
   if (album) items.push({ label: 'Browse Album', action: () => app.nav.album(album) });
   items.push({ label: 'Browse Artist', action: () => app.nav.artist(track.artist) });
-  items.push({ label: `Rate ${STARS[store.user.ratings[track.id] || 0] || '…'}`, action: () => rateSheet(app, track) });
+  items.push({ label: `Rate ${STARS[store.rating(track.id)] || '…'}`, action: () => rateSheet(app, track) });
   items.push({ label: 'Song Info', action: () => os.push(songInfo(app, track)) });
   showSheet(os, { title: track.title, items });
 }
@@ -184,10 +184,10 @@ export function songInfo(app, t) {
     ['Sample Rate', t.sampleRate ? `${(t.sampleRate / 1000).toFixed(1)} kHz` : null],
     ['BPM', t.bpm],
     ['Size', t.size ? fmtBytes(t.size) : null],
-    ['Plays', t.source === 'local' ? String(u.plays[t.id] || 0) : null],
+    ['Plays', t.source === 'local' ? String(app.store.plays(t.id)) : null],
     ['Skips', u.skips[t.id] ? String(u.skips[t.id]) : null],
-    ['Last Played', u.lastPlayed[t.id] ? new Date(u.lastPlayed[t.id]).toLocaleDateString() : null],
-    ['Rating', u.ratings[t.id] ? STARS[u.ratings[t.id]] : null],
+    ['Last Played', app.store.lastPlayed(t.id) ? new Date(app.store.lastPlayed(t.id)).toLocaleDateString() : null],
+    ['Rating', app.store.rating(t.id) ? STARS[app.store.rating(t.id)] : null],
     ['Date Added', t.addedAt ? new Date(t.addedAt).toLocaleDateString() : null],
     ['Sound Check', typeof t.gain === 'number' ? `${t.gain > 0 ? '+' : ''}${t.gain.toFixed(1)} dB` : null],
     ['Where', t.folder || null],

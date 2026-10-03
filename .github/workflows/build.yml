@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       release:
-        description: Publish a GitHub release (v + the version in package.json) with the Windows downloads
+        description: Publish a GitHub release (v + the version in package.json) with the Windows and Mac downloads
         type: boolean
         default: false
 
@@ -54,6 +54,33 @@ jobs:
             .e2e/shots-*
             .e2e/*.log
           if-no-files-found: ignore
+          include-hidden-files: true # .e2e is a hidden folder
+
+  e2e-mac:
+    name: End-to-end on macOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install ffmpeg
+        run: brew install ffmpeg
+      - run: npm ci
+      # The app starting up, the 3D body and mouse input, and the iTunes library.
+      - name: Run the scenarios
+        run: bash scripts/run-e2e.sh tour motion itunes
+      - name: Keep screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-shots-mac
+          path: |
+            .e2e/shots-*
+            .e2e/*.log
+          if-no-files-found: ignore
+          include-hidden-files: true # .e2e is a hidden folder
 
   windows:
     name: Windows installer and portable
@@ -76,28 +103,58 @@ jobs:
           path: |
             dist/*.exe
             dist/latest.yml
-            dist/*.blockmap
+            dist/*.exe.blockmap
           if-no-files-found: error
-      # A release is published for a pushed v* tag, or when the workflow is run
-      # by hand with "release" ticked (tagged v + the version in package.json).
+
+  mac:
+    name: Mac app (Apple silicon and Intel)
+    runs-on: macos-latest
+    needs: [check, e2e-mac]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Ad-hoc signed (package.json › build.mac.identity "-"): not notarized,
+      # but Apple silicon Macs will open it.
+      - name: Build the disk images
+        run: npx electron-builder --mac --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iPod-mac
+          path: dist/*.dmg
+          if-no-files-found: error
+
+  # A release is published for a pushed v* tag, or when the workflow is run by
+  # hand with "release" ticked (tagged v + the version in package.json).
+  release:
+    name: Publish the release
+    runs-on: ubuntu-latest
+    needs: [windows, mac]
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.release
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: iPod-*
+          path: artifacts
       - name: Release notes
         id: notes
-        if: startsWith(github.ref, 'refs/tags/v') || inputs.release
-        shell: bash
         run: |
           if [ "$GITHUB_REF_TYPE" = tag ]; then tag="$GITHUB_REF_NAME"; else tag="v$(node -p "require('./package.json').version")"; fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           node scripts/release-notes.js "$tag" > release-notes.md
-      - name: Publish the release
-        if: startsWith(github.ref, 'refs/tags/v') || inputs.release
-        uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.notes.outputs.tag }}
           target_commitish: ${{ github.sha }}
           name: iPod ${{ steps.notes.outputs.tag }}
           body_path: release-notes.md
-          # latest.yml and the blockmap are what installed copies read to update themselves.
+          # latest.yml and the blockmap are what installed Windows copies read to update themselves.
           files: |
-            dist/*.exe
-            dist/latest.yml
-            dist/*.blockmap
+            artifacts/iPod-windows/*.exe
+            artifacts/iPod-windows/latest.yml
+            artifacts/iPod-windows/*.exe.blockmap
+            artifacts/iPod-mac/*.dmg

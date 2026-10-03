@@ -1,6 +1,6 @@
 # iPod for Desktop
 
-A free-floating iPod (5th generation) that lives on your Windows desktop. There's no window frame, just the iPod, and it's a real 3D object that turns toward your mouse. Drag it anywhere, spin the click wheel, and play your music, internet radio, podcasts or your Spotify library. See what's new in the [changelog](CHANGELOG.md).
+A free-floating iPod (5th generation) that lives on your desktop, on Windows and Mac. There's no window frame, just the iPod, and it's a real 3D object that turns toward your mouse. Drag it anywhere, spin the click wheel, and play your music, internet radio, podcasts or your Spotify library. See what's new in the [changelog](CHANGELOG.md).
 
 <p align="center">
   <img src="docs/white-nowplaying.png" width="300" alt="White iPod showing Now Playing" />
@@ -39,7 +39,12 @@ A free-floating iPod (5th generation) that lives on your Windows desktop. There'
 - Now Playing: turn the wheel for volume. Click the centre button to cycle through the scrubber, the star rating, lyrics (time-synced from LRCLIB, or from the file) and the visualizer.
 - Gapless playback or crossfade, Shuffle (Songs/Albums), Repeat (One/All), the classic EQ presets and a custom EQ, Sound Check, Volume Limit, and speeds for audiobooks and podcasts (which also remember where you were).
 - Get Album Artwork finds missing covers online.
-- Works with the Windows media keys and media overlay.
+- Works with the media keys and the Windows media overlay or the Mac's Now Playing.
+
+**iTunes and the Music app**
+- Like an iPod synced with iTunes, it uses your iTunes or Music library: your playlists (smart playlists as they are now, and playlist folders), star ratings, play counts, last played and date added. Top 25 Most Played and My Top Rated reflect years of listening.
+- It reads the library file iTunes and the Music app share with other apps, and reads it again whenever iTunes saves it. Plays on the iPod add to iTunes', and a rating you give on the iPod wins. Nothing in iTunes is changed.
+- To turn on sharing: in iTunes on Windows, Edit › Preferences › Advanced › "Share iTunes Library XML with other applications". In the Music app on a Mac, Music › Settings › Files › "Share Library XML with other applications". Then see Settings › Music Library › iTunes Library.
 
 **Radio and podcasts**
 - Internet radio: top and most-loved stations, stations near you, genres, countries and search (from radio-browser.info), with the song that's playing and your favourites.
@@ -48,7 +53,8 @@ A free-floating iPod (5th generation) that lives on your Windows desktop. There'
 **Spotify**
 - Playlists, Liked Songs, saved Albums, followed Artists, Podcasts, Recently Played, Search and Devices.
 - Like songs from Now Playing, add them to the queue or to your playlists.
-- Plays through the Spotify app on your PC, or any Spotify Connect speaker, with the iPod as the remote. If Spotify isn't open, the iPod opens it for you.
+- Search shows album art, the artist, album and year for every song, so you can pick the version you want. A song picked from search plays on its own, then Spotify carries on with your queue and songs like it, just like in the Spotify app.
+- Plays through the Spotify app on your computer, or any Spotify Connect speaker, with the iPod as the remote. If Spotify isn't open, the iPod opens it for you.
 
 **Extras**
 - Games: Brick, Parachute, Music Quiz and Solitaire.
@@ -56,16 +62,18 @@ A free-floating iPod (5th generation) that lives on your Windows desktop. There'
 - Photos (thumbnail grid, viewer, Ken Burns slideshow) and Videos (Movies, Music Videos, TV Shows, with subtitles).
 
 **On your desktop**
-- A tray icon and a right-click menu (colour, size, motion, always on top, hide, quit…), taskbar play/pause buttons and a jump list.
-- Global shortcuts: Ctrl+Alt+Space play/pause, Ctrl+Alt+← / → previous/next, Ctrl+Alt+↑ / ↓ volume, Ctrl+Alt+I show or hide.
-- Open music files with the iPod, or drop files and folders on it.
-- Snaps to screen edges, optional song notifications, starts with Windows if you like, and updates itself (installed version).
+- A tray icon (Windows) or menu bar icon (Mac) and a right-click menu: colour, size, motion, always on top, hide, quit… On Windows also taskbar play/pause buttons and a jump list; on a Mac, a proper menu bar.
+- Global shortcuts that work from any app: Space to play/pause, ← / → previous/next, ↑ / ↓ volume, I to show or hide, with Ctrl+Alt on Windows and ⌃⌥⌘ on a Mac.
+- Open music files with the iPod (Open With, or drop them on the Dock icon on a Mac), or drop files and folders on it.
+- Snaps to screen edges, optional song notifications, and starts when you log in if you like.
+- Updates itself (installed version). It checks for new versions every few hours and after your PC wakes up, and downloads them in the background. When the iPod is quiet (nothing playing, untouched for a few minutes), it installs the update and opens again where you left off. Turn this off in Settings › Software Update › Install Automatically, and it installs when you quit instead. The portable version tells you when there's a new version to download.
 
 ## Install
 
-Download the latest `iPod-Setup-x.y.z.exe` (installer) or `iPod-Portable-x.y.z.exe` from the [Releases page](../../releases), or from the **Build** workflow's artifacts on the Actions tab.
+Download it from the [Releases page](../../releases):
 
-Windows SmartScreen may warn you because the app isn't code-signed. Click **More info → Run anyway**.
+- **Windows 10 or 11:** `iPod-Setup-x.y.z.exe` (the installer, which keeps itself up to date) or `iPod-Portable-x.y.z.exe` (no install). Windows SmartScreen may warn you because the app isn't code-signed: click **More info → Run anyway**.
+- **Mac (macOS 13 Ventura or later):** `iPod-x.y.z-mac-arm64.dmg` for Apple silicon (M1 and later), or `iPod-x.y.z-mac-x64.dmg` for Intel Macs. Open it and drag iPod to Applications. The app isn't notarized by Apple yet, so the first time macOS won't open it: open it once, then go to **System Settings › Privacy & Security** and click **Open Anyway**.
 
 ### Run from source
 
@@ -81,7 +89,7 @@ npm test
 npm run e2e
 ```
 
-Build the Windows installer and portable exe yourself (on Windows):
+Build the app yourself: on Windows the installer and portable exe, on a Mac the disk images.
 
 ```bash
 npm run dist
@@ -89,7 +97,7 @@ npm run dist
 
 ### Making a release
 
-Bump `version` in `package.json` and add its entry to the [changelog](CHANGELOG.md). Then, on GitHub, go to **Actions › Build › Run workflow**, tick **Publish a GitHub release**, and run it. Once the tests pass, it builds the Windows installer and portable exe and publishes them on the Releases page as `v` + the version, with download links and the changelog entry. Pushing a `v*` tag does the same.
+Bump `version` in `package.json` and add its entry to the [changelog](CHANGELOG.md). Then, on GitHub, go to **Actions › Build › Run workflow**, tick **Publish a GitHub release**, and run it. Once the tests pass, it builds the Windows installer and portable exe and the Mac disk images, and publishes them on the Releases page as `v` + the version, with download links and the changelog entry. Pushing a `v*` tag does the same.
 
 ## Controls
 
@@ -109,7 +117,7 @@ The iPod also has a tray icon. Click it to show or hide the iPod.
 
 ## Your music
 
-By default the iPod reads your Windows **Music** folder. To add more folders, go to **Settings › Music Library › Add Music Folder…**. The photo, video and notes folders are set there too.
+By default the iPod reads your **Music** folder (on a Mac that includes the Music app's songs). To add more folders, go to **Settings › Music Library › Add Music Folder…**. The photo, video and notes folders are set there too.
 
 Supported audio formats: MP3, AAC/M4A, M4B audiobooks, FLAC, WAV, OGG and Opus. Artwork comes from the file's tags or from a `cover.jpg`/`folder.jpg` next to the files.
 
@@ -125,7 +133,7 @@ Good to know:
 - **Spotify Premium is required to control playback.** This is Spotify's rule for the Web API, and since February 2026 it also applies to the developer account that owns the app.
 - Spotify apps in Development Mode work for up to 5 users, who must be added under **User Management** in the dashboard.
 - In Development Mode, Spotify only lists the songs in playlists you own or collaborate on. For other playlists, the iPod offers **Play Playlist** and **Shuffle Playlist** instead.
-- Sign-in uses PKCE (no client secret). Tokens are stored encrypted with Windows' DPAPI. Spotify asks you to sign in again after about six months.
+- Sign-in uses PKCE (no client secret). Tokens are stored encrypted by the system (DPAPI on Windows, the Keychain on a Mac). Spotify asks you to sign in again after about six months.
 - *Playing audio from the iPod itself:* stock Electron can't play Spotify's protected streams, so by default the iPod drives the Spotify app instead. If you build with a Widevine-enabled Electron (such as [castLabs Electron](https://github.com/castlabs/electron-releases)), the iPod detects it and registers itself as a Spotify Connect speaker named "iPod".
 
 ## Project layout

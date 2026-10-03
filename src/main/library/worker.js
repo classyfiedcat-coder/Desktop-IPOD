@@ -6,8 +6,9 @@
  *
  * Messages in:  { type: 'scan', folders, previous, artDir }
  *               { type: 'files', paths, artDir }
+ *               { type: 'itunes', file }   (read an iTunes / Music library XML)
  * Messages out: { type: 'progress', done, total, phase }
- *               { type: 'done', tracks, playlists }   |   { type: 'error', message }
+ *               { type: 'done', tracks, playlists[, musicFolder] }   |   { type: 'error', message }
  */
 
 const fs = require('fs');
@@ -15,11 +16,15 @@ const fsp = fs.promises;
 const path = require('path');
 const crypto = require('crypto');
 const { parseM3U } = require('./playlist-files');
+const itunes = require('./itunes');
 
 const AUDIO_EXT = new Set(['.mp3', '.m4a', '.m4b', '.aac', '.flac', '.wav', '.ogg', '.oga', '.opus', '.weba', '.alac']);
 const PLAYLIST_EXT = new Set(['.m3u', '.m3u8']);
 const COVER_NAMES = ['cover', 'folder', 'front', 'album', 'albumart', 'albumartsmall', 'artwork'];
 const SKIP_DIRS = new Set(['node_modules', '$recycle.bin', 'system volume information', '.git', '@eadir']);
+// Mac packages that look like folders: the Music app's database, GarageBand
+// and Logic projects, apps. Their audio isn't part of your music.
+const SKIP_PACKAGES = /\.(musiclibrary|tvlibrary|photoslibrary|band|logicx|app|bundle|framework)$/i;
 const MAX_FILES = 200000;
 const CONCURRENCY = 8;
 
@@ -41,6 +46,12 @@ if (process.parentPort) process.parentPort.on('message', async (e) => {
   try {
     if (msg.type === 'scan') post({ type: 'done', ...(await scan(msg)) });
     else if (msg.type === 'files') post({ type: 'done', tracks: await parseFiles(msg), playlists: [] });
+    else if (msg.type === 'itunes') {
+      const plist = itunes.parsePlist(await fsp.readFile(msg.file, 'utf8'));
+      // Half-written (iTunes was saving it), or not a library at all.
+      if (!plist || typeof plist !== 'object' || !plist.Tracks) throw new Error('That isn’t a complete iTunes library file.');
+      post({ type: 'done', ...itunes.readLibrary(plist) });
+    }
   } catch (err) {
     post({ type: 'error', message: err && err.stack ? err.stack : String(err) });
   } finally {
@@ -236,7 +247,7 @@ async function walk(dir, depth, onFile) {
     if (e.name.startsWith('.')) continue;
     const full = path.join(dir, e.name);
     if (e.isDirectory()) {
-      if (SKIP_DIRS.has(e.name.toLowerCase())) continue;
+      if (SKIP_DIRS.has(e.name.toLowerCase()) || SKIP_PACKAGES.test(e.name)) continue;
       if (!(await walk(full, depth + 1, onFile))) return false;
     } else if (e.isFile()) {
       if (onFile(full, path.extname(e.name).toLowerCase()) === false) return false;

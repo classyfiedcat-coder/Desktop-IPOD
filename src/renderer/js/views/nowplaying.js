@@ -145,7 +145,8 @@ export class NowPlayingView extends View {
     this.el.classList.toggle('buffering', !!p.buffering);
     this._setText(this.titleEl, t.title);
     this._setText(this.artistEl, t.artist);
-    this._setText(this.albumEl, t.album);
+    // The year with the album tells versions apart (the original, a remaster, a soundtrack).
+    this._setText(this.albumEl, [t.album, t.year].filter(Boolean).join(' · '));
     this._setArt(t.art);
     this.updateFlags();
     this.updateDevice();
@@ -166,6 +167,7 @@ export class NowPlayingView extends View {
     const s = this.app.store.settings;
     const t = this.app.player.track;
     const parts = [];
+    if (t && t.explicit) parts.push(h('span', { class: 'np-explicit', text: 'E', title: 'Explicit' }));
     if (t && !t.live && s.shuffle !== 'off') parts.push(svg(ICONS.shuffle, 'np-flag'));
     if (t && !t.live && s.repeat !== 'off') {
       const r = svg(ICONS.repeat, 'np-flag');

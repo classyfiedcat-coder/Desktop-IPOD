@@ -264,9 +264,14 @@ export class SpotifyEngine extends Emitter {
     this._busyUntil = performance.now() + 1200;
   }
 
-  async playList(tracks, index, { context, shuffle } = {}) {
+  /**
+   * Play from a list. With a context (an album or playlist) Spotify keeps
+   * the queue; `single` plays just this song, after which Spotify carries on
+   * the way it would itself: your queue, then songs like it (autoplay).
+   */
+  async playList(tracks, index, { context, shuffle, single = false } = {}) {
     this.active = true;
-    this.list = tracks;
+    this.list = single ? null : tracks;
     this.track = tracks[index];
     this._pos = 0;
     this._posAt = performance.now();
@@ -278,12 +283,15 @@ export class SpotifyEngine extends Emitter {
     try {
       const deviceId = await this._targetDevice();
       const want = shuffle && shuffle !== 'off';
-      if (want !== this.shuffleState) {
+      if (!single && want !== this.shuffleState) {
         await this.api.shuffle(want, deviceId).catch(() => {});
         this.shuffleState = want;
       }
       const t = tracks[index];
-      if (context && context.uri) {
+      if (single) {
+        await this.api.play({ deviceId, uris: [t.uri] });
+        this.contextUri = null;
+      } else if (context && context.uri) {
         await this.api.play({ deviceId, contextUri: context.uri, offset: { uri: t.uri } });
         this.contextUri = context.uri;
       } else {

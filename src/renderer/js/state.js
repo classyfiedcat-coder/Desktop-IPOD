@@ -53,8 +53,12 @@ export const DEFAULT_SETTINGS = {
   opacity: 1,
   notifications: false,
   globalShortcuts: true,
+  autoUpdate: true, // install downloaded updates by themselves when the iPod is quiet
+  lastVersion: null, // the version that last ran, to say "Updated to …" once
 
   folders: null, // null = use the system Music folder
+  itunes: true, // use the iTunes / Music library (playlists, ratings, play counts) when there is one
+  itunesFile: null, // null = find it in the Music folder
   autoUpdateLibrary: true,
   autoArtwork: false,
   photosFolder: null,
@@ -152,6 +156,28 @@ class Store extends Emitter {
     this.user = structuredClone(DEFAULT_USER);
     this.env = { platform: 'win32', version: '2.0.0', defaults: {}, packaged: false };
     this._save = debounce(() => this.flush(), 400);
+    /** Ratings, plays and dates from iTunes by track id (set by the library), or null. */
+    this.itunesStats = null;
+  }
+
+  // Song stats: the iPod's own, with iTunes' on top when an iTunes library is
+  // in use. Plays add up (they happened in different places), the latest
+  // play wins, and a rating you give on the iPod wins over iTunes'.
+
+  plays(id) {
+    const it = this.itunesStats && this.itunesStats[id];
+    return (this.user.plays[id] || 0) + ((it && it.p) || 0);
+  }
+
+  lastPlayed(id) {
+    const it = this.itunesStats && this.itunesStats[id];
+    return Math.max(this.user.lastPlayed[id] || 0, (it && it.l) || 0);
+  }
+
+  rating(id) {
+    if (Object.prototype.hasOwnProperty.call(this.user.ratings, id)) return this.user.ratings[id] || 0;
+    const it = this.itunesStats && this.itunesStats[id];
+    return (it && it.r) || 0;
   }
 
   async load() {

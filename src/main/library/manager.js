@@ -15,6 +15,7 @@ const { EventEmitter } = require('events');
 const { utilityProcess, nativeImage } = require('electron');
 const { log } = require('../log');
 const { writeM3U } = require('./playlist-files');
+const itunes = require('./itunes');
 
 const INDEX_VERSION = 4;
 const ART_SIZE = 500;
@@ -255,6 +256,62 @@ class Library extends EventEmitter {
     }
     if (n) await this._save();
     return n;
+  }
+
+  // ---------------------------------------------------------------- iTunes --
+
+  /**
+   * Read the iTunes / Music library (the file given, or the one found in the
+   * Music folder) and match it against this library. The XML is only read
+   * again when it has changed. Returns what the renderer needs, or
+   * { found: false } with where it looked.
+   */
+  async itunes({ file = null, musicDir, force = false } = {}) {
+    const target = file || itunes.findLibrary(musicDir);
+    this._watchITunes(target);
+    if (!target) return { found: false, candidates: itunes.libraryCandidates(musicDir) };
+    let st;
+    try {
+      st = await fsp.stat(target);
+    } catch {
+      return { found: false, file: target, error: 'The library file isn’t there any more.' };
+    }
+    const cached = this._itunesRead && this._itunesRead.file === target ? this._itunesRead : null;
+    let error = null;
+    if (force || !cached || cached.mtime !== st.mtimeMs) {
+      try {
+        const res = await this._runWorker({ type: 'itunes', file: target }, () => {});
+        this._itunesRead = { file: target, mtime: st.mtimeMs, read: { musicFolder: res.musicFolder, tracks: res.tracks, playlists: res.playlists } };
+        log.info(`[itunes] read ${res.tracks.length} songs and ${res.playlists.length} playlists from ${target}`);
+      } catch (err) {
+        log.warn('[itunes] could not read', target, err.message);
+        error = err.message.split('\n')[0];
+        // Keep using the last good read (iTunes may have been half-way through saving).
+        if (!cached) return { found: false, file: target, error };
+      }
+    }
+    const { read, mtime } = this._itunesRead;
+    return { found: true, file: target, modified: mtime, syncedAt: Date.now(), musicFolder: read.musicFolder, error, ...itunes.matchLibrary(read, this.data.tracks) };
+  }
+
+  /** iTunes rewrites the whole file when its library changes; a slow poll is plenty. */
+  _watchITunes(file) {
+    if (this._itunesWatched === file) return;
+    this.stopITunes();
+    this._itunesWatched = file;
+    if (!file) return;
+    fs.watchFile(file, { interval: 60 * 1000, persistent: false }, (cur, prev) => {
+      if (cur.mtimeMs === prev.mtimeMs) return;
+      clearTimeout(this._itunesTimer);
+      this._itunesTimer = setTimeout(() => this.emit('itunes-changed'), 5000);
+    });
+  }
+
+  stopITunes() {
+    if (this._itunesWatched) fs.unwatchFile(this._itunesWatched);
+    clearTimeout(this._itunesTimer);
+    this._itunesWatched = null;
+    this._itunesRead = null;
   }
 
   // ------------------------------------------------------------- playlists --

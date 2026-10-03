@@ -36,8 +36,8 @@ export class ListView extends View {
   }
 
   get rowCount() {
-    if (this.o.rows) return this.o.rows;
-    const n = this.os.ui.rows;
+    // Rows with artwork are taller (two lines), so fewer fit in the same space.
+    const n = this.o.rows || this.os.ui.rows;
     return this.o.thumbs ? Math.max(3, Math.round(n * 0.62)) : n;
   }
 
@@ -191,6 +191,9 @@ export class ListView extends View {
         item.disabled ? 'disabled' : '',
         this.o.thumbs ? 'with-thumb' : '',
         item.center ? 'centered' : '',
+        item.explicit ? 'explicit' : '',
+        // In a list with artwork, rows that never have a picture (headings, recent searches) don't get a blank one.
+        this.o.thumbs && item.thumb === undefined ? 'no-thumb' : '',
       ]
         .filter(Boolean)
         .join(' ');

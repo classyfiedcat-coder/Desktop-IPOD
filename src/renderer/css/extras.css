@@ -81,8 +81,13 @@
   text-shadow: none;
 }
 .search-results.inactive .row.sel .value,
-.search-results.inactive .row.sel .arrow {
+.search-results.inactive .row.sel .arrow,
+.search-results.inactive .row.sel .sub {
   color: var(--muted);
+}
+.search-results.inactive .row.explicit.sel .value {
+  background: var(--muted);
+  color: #fff;
 }
 .search-keys {
   position: absolute;

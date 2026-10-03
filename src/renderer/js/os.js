@@ -298,6 +298,7 @@ export class OS extends Emitter {
   // ------------------------------------------------------------ backlight --
 
   activity() {
+    this.lastActivity = Date.now();
     if (!this.backlit) {
       this.backlit = true;
       this._applyBacklight();

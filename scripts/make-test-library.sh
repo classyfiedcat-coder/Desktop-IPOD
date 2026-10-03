@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Builds a small fake library for the end-to-end tests: 19 tagged MP3s with
-# cover art in 4 albums, a few photos, a test video and a starting profile.
+# cover art in 4 albums, an iTunes library for them, a few photos, a test
+# video and a starting profile.
 #
 #   scripts/make-test-library.sh <dir>      (needs ffmpeg)
 set -euo pipefail
@@ -48,8 +49,11 @@ done
 ff -f lavfi -i "testsrc=size=640x360:rate=25:duration=6" -f lavfi -i "sine=frequency=440:duration=6" \
   -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest "$OUT/videos/Test Pattern.mp4"
 
+# An iTunes library that knows these songs (ratings, play counts, playlists).
+node "$(dirname "$0")/make-test-itunes.js" "$OUT/music" "$OUT/iTunes/iTunes Music Library.xml" > /dev/null
+
 mkdir -p "$OUT/profile"
 cat > "$OUT/profile/state.json" <<JSON
-{"app":{"settings":{"folders":["$OUT/music"],"photosFolder":"$OUT/pictures","videosFolder":"$OUT/videos"},"user":{}}}
+{"app":{"settings":{"folders":["$OUT/music"],"photosFolder":"$OUT/pictures","videosFolder":"$OUT/videos","itunesFile":"$OUT/iTunes/iTunes Music Library.xml"},"user":{}}}
 JSON
 echo "test library ready in $OUT"

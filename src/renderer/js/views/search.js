@@ -7,10 +7,10 @@
 import { View } from './view.js';
 import { ListView } from './list.js';
 import { KeyStrip } from './keystrip.js';
-import { h } from '../util.js';
+import { h, versionLine } from '../util.js';
 
 export class SearchView extends View {
-  constructor(app, { title = 'Search', search, debounce = 0, initial = '', recent = null }) {
+  constructor(app, { title = 'Search', search, debounce = 0, initial = '', recent = null, thumbs = false }) {
     super({ title });
     this.app = app;
     this.searchFn = search;
@@ -19,7 +19,8 @@ export class SearchView extends View {
     this.query = initial;
     this.focus = 'keys';
     this.strip = new KeyStrip('search');
-    this.results = new ListView({ title, rows: 6, items: [], empty: '' });
+    // thumbs: two-line results with artwork (album, artist and year under each song).
+    this.results = new ListView({ title, rows: 6, items: [], empty: '', thumbs });
     this._seq = 0;
   }
 
@@ -200,16 +201,17 @@ export function localSearch(app, initial = '') {
     initial,
     recent: 'music',
     debounce: 120,
+    thumbs: true,
     search: async (q, append) => {
       const { songsView, artistView, trackItems } = await import('./menus.js');
       const r = app.library.search(q, 40);
       const items = [];
       if (r.artists.length) items.push({ label: 'Artists', header: true });
-      for (const ar of r.artists) items.push({ label: ar.name, view: () => artistView(app, ar) });
+      for (const ar of r.artists) items.push({ label: ar.name, thumb: (ar.albums && [...ar.albums].find((al) => al.art)?.art) || '', sub: 'Artist', view: () => artistView(app, ar) });
       if (r.albums.length) items.push({ label: 'Albums', header: true });
-      for (const al of r.albums) items.push({ label: al.title, value: al.artist, view: () => songsView(app, al.title, al.tracks) });
+      for (const al of r.albums) items.push({ label: al.title, thumb: al.art || '', sub: [al.artist, al.year].filter(Boolean).join(' · '), view: () => songsView(app, al.title, al.tracks) });
       if (r.songs.length) items.push({ label: 'Songs', header: true });
-      items.push(...trackItems(app, r.songs).map((it, i) => ({ ...it, value: r.songs[i].artist })));
+      items.push(...trackItems(app, r.songs).map((it, i) => ({ ...it, thumb: r.songs[i].art || '', sub: versionLine(r.songs[i]) })));
       if (app.spotifyApi.connected && q.length >= 2) {
         app.spotifyMenus
           .searchItems(q)

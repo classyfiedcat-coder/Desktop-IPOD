@@ -4,6 +4,7 @@ import { ListView } from './list.js';
 import { SearchView } from './search.js';
 import { songOptions } from './options.js';
 import { CoverFlowView } from './coverflow.js';
+import { versionLine } from '../util.js';
 
 export function createSpotifyMenus(app) {
   const api = app.spotifyApi;
@@ -12,6 +13,8 @@ export function createSpotifyMenus(app) {
     label: t.title,
     sortName: t.title,
     disabled: t.playable === false,
+    value: t.explicit ? 'E' : '',
+    explicit: !!t.explicit,
     icon: () => {
       const cur = app.player.track;
       return cur && cur.uri && cur.uri === t.uri ? 'speaker' : null;
@@ -22,6 +25,24 @@ export function createSpotifyMenus(app) {
       app.nav.nowPlaying();
     },
     onHold: (_item, view) => songOptions(app, t, { view }),
+  });
+
+  /**
+   * A song found by searching: art, and who / which album / which year
+   * underneath, so one version can be told from another at a glance.
+   * Choosing it plays just that song; then Spotify carries on as it would
+   * itself (your queue, then songs like it), not with the other results.
+   */
+  const searchTrackItem = (t) => ({
+    ...trackItem([t], t),
+    thumb: t.art || '',
+    sub: versionLine(t),
+    value: t.explicit ? 'E' : '',
+    explicit: t.explicit,
+    action: () => {
+      app.player.playTracks([t], 0, { single: true });
+      app.nav.nowPlaying();
+    },
   });
 
   /** A lazily-paged list of tracks sharing one queue array, with Shuffle at the top. */
@@ -248,13 +269,7 @@ export function createSpotifyMenus(app) {
     devices: devicesView,
     /** Spotify results for the unified Music › Search. */
     async searchItems(q) {
-      const r = await api.search(q);
-      const items = [];
-      for (const t of r.tracks) items.push({ ...trackItem(r.tracks, t), value: t.artist });
-      for (const al of r.albums) items.push({ label: al.title, value: 'Album', view: () => albumView(al) });
-      for (const ar of r.artists) items.push({ label: ar.name, value: 'Artist', view: () => artistView(ar) });
-      for (const pl of r.playlists) items.push({ label: pl.name, value: 'Playlist', view: () => playlistView(pl) });
-      return items;
+      return searchResultItems(await api.search(q));
     },
     /** Cover Flow over your saved Spotify albums. */
     async coverFlow() {
@@ -283,20 +298,22 @@ export function createSpotifyMenus(app) {
     },
   };
 
+  /** Search results as two-line rows with art: songs, then albums, artists and playlists. */
+  function searchResultItems(r) {
+    const items = [];
+    for (const t of r.tracks) items.push(searchTrackItem(t));
+    for (const al of r.albums) items.push({ label: al.title, thumb: al.art || '', sub: ['Album', al.artist, al.year].filter(Boolean).join(' · '), view: () => albumView(al) });
+    for (const ar of r.artists) items.push({ label: ar.name, thumb: ar.art || '', sub: 'Artist', view: () => artistView(ar) });
+    for (const pl of r.playlists) items.push({ label: pl.name, thumb: pl.art || '', sub: ['Playlist', pl.ownerName && `by ${pl.ownerName}`].filter(Boolean).join(' · '), view: () => playlistView(pl) });
+    return items;
+  }
+
   function spotifySearch() {
     return new SearchView(app, {
       title: 'Search',
       debounce: 380,
-      search: async (q) => {
-        const r = await api.search(q);
-        const items = [];
-        const tracks = r.tracks;
-        for (const t of tracks) items.push({ ...trackItem(tracks, t), sub: t.artist, value: 'Song' });
-        for (const al of r.albums) items.push({ label: al.title, sub: al.artist, view: () => albumView(al), value: 'Album' });
-        for (const ar of r.artists) items.push({ label: ar.name, view: () => artistView(ar), value: 'Artist' });
-        for (const pl of r.playlists) items.push({ label: pl.name, view: () => playlistView(pl), value: 'Playlist' });
-        return items;
-      },
+      thumbs: true,
+      search: async (q) => searchResultItems(await api.search(q)),
     });
   }
 }

@@ -20,6 +20,7 @@ const { Desktop, parseArgs } = require('./desktop');
 const { registerIpc } = require('./ipc');
 
 const DEV = process.argv.includes('--dev');
+const IS_MAC = process.platform === 'darwin';
 const ROOT = path.join(__dirname, '..', '..');
 const RENDERER_DIR = path.join(ROOT, 'src', 'renderer');
 const ASSETS = path.join(ROOT, 'src', 'assets');
@@ -110,16 +111,68 @@ ctx.quit = (animated) => {
   } else app.quit();
 };
 
+function openFiles(files) {
+  ctx.library
+    .openFiles(files)
+    .then((tracks) => command('open-files', tracks))
+    .catch((err) => log.warn('open files failed', err));
+}
+
 function handleArgs(argv, cwd) {
   const args = parseArgs(argv, cwd);
   for (const c of args.commands) command(c);
-  if (args.files.length) {
-    ctx.library
-      .openFiles(args.files)
-      .then((tracks) => command('open-files', tracks))
-      .catch((err) => log.warn('open files failed', err));
-  }
+  if (args.files.length) openFiles(args.files);
   return args;
+}
+
+// Mac: songs opened from Finder (Open With, or dropped on the Dock icon)
+// arrive as events, one per file, and can come before the app is ready.
+const opened = [];
+let openTimer = null;
+app.on('open-file', (e, file) => {
+  e.preventDefault();
+  opened.push(file);
+  clearTimeout(openTimer);
+  openTimer = setTimeout(() => {
+    if (!ctx.library) return; // picked up once the app is ready
+    openFiles(opened.splice(0));
+  }, 250);
+});
+
+/** The Mac menu bar: the app menu (Quit, Hide…), Edit (for typing), Controls and Window. */
+function macMenu() {
+  return Menu.buildFromTemplate([
+    {
+      label: app.name,
+      submenu: [
+        { role: 'about', label: 'About iPod' },
+        { type: 'separator' },
+        { label: 'Settings…', accelerator: 'Command+,', click: () => command('settings') },
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide', label: 'Hide iPod' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { label: 'Quit iPod', accelerator: 'Command+Q', click: () => ctx.quit(false) },
+      ],
+    },
+    { role: 'editMenu' },
+    {
+      label: 'Controls',
+      submenu: [
+        { label: 'Play / Pause', click: () => command('playpause') },
+        { label: 'Next Song', click: () => command('next') },
+        { label: 'Previous Song', click: () => command('prev') },
+        { label: 'Shuffle Songs', click: () => command('shuffle') },
+        { type: 'separator' },
+        { label: 'Hold Switch', click: () => command('hold') },
+        { label: 'Flip iPod', click: () => command('flip') },
+      ],
+    },
+    { role: 'windowMenu' },
+  ]);
 }
 
 app.whenReady().then(() => {
@@ -137,6 +190,7 @@ app.whenReady().then(() => {
   ctx.updater = new Updater(send, {
     beforeInstall: () => {
       ctx.quitting = true;
+      send('app:command', { name: 'flush' });
     },
   });
   ctx.ipodWindow = new IpodWindow({ state, preload: PRELOAD, icon: icon(), dev: DEV, devTools: DEV || TEST_HOOK });
@@ -150,6 +204,7 @@ app.whenReady().then(() => {
     library: ctx.library,
   });
   ctx.library.on('folders-changed', () => send('lib:folders-changed'));
+  ctx.library.on('itunes-changed', () => send('lib:itunes-changed'));
 
   const proto = new Protocol({
     rendererDir: RENDERER_DIR,
@@ -167,7 +222,20 @@ app.whenReady().then(() => {
   session.defaultSession.setPermissionRequestHandler((_wc, permission, cb) => cb(ALLOWED.has(permission)));
   session.defaultSession.setPermissionCheckHandler((_wc, permission) => ALLOWED.has(permission));
 
-  Menu.setApplicationMenu(null);
+  // Windows has no menu bar for a frameless window; a Mac app always has one.
+  Menu.setApplicationMenu(IS_MAC ? macMenu() : null);
+  if (IS_MAC) {
+    app.setAboutPanelOptions({
+      applicationName: 'iPod',
+      applicationVersion: app.getVersion(),
+      copyright: 'An unofficial fan project. Not affiliated with Apple Inc. or Spotify AB.',
+    });
+  }
+  if (IS_MAC && app.dock) {
+    if (state.get('window', {}).showInTaskbar === false) app.dock.hide();
+    // In development the Dock would show Electron's icon.
+    if (!app.isPackaged && icon()) app.dock.setIcon(icon());
+  }
   registerIpc(ctx);
   const args = parseArgs(process.argv);
   const win = ctx.ipodWindow.create({ hidden: args.hidden || state.get('window', {}).startHidden === true });
@@ -187,8 +255,9 @@ app.whenReady().then(() => {
   });
   ctx.desktop.init();
   handleArgs(process.argv);
+  if (opened.length) openFiles(opened.splice(0));
 
-  if (ctx.updater.supported) setTimeout(() => ctx.updater.check(), 8000);
+  ctx.updater.start();
 
   if (TEST_HOOK) {
     win.webContents.once('did-finish-load', () => {
@@ -202,7 +271,16 @@ app.on('second-instance', (_e, argv, cwd) => {
   if (!args.commands.length && !args.files.length && ctx.ipodWindow) ctx.ipodWindow.show();
 });
 
-app.on('before-quit', () => {
+// Clicking the Dock icon shows the iPod (it may be hidden in the menu bar).
+app.on('activate', () => ctx.ipodWindow && ctx.ipodWindow.show());
+
+app.on('before-quit', (e) => {
+  // Quit from the Dock, logging out…: let the UI save first (it debounces its saves).
+  if (!ctx.quitting && ctx.ready) {
+    e.preventDefault();
+    ctx.quit(true);
+    return;
+  }
   ctx.quitting = true;
   if (ctx.ipodWindow) ctx.ipodWindow.stopDrag();
   if (ctx.desktop) ctx.desktop.dispose();

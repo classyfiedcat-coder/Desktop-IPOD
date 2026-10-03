@@ -5,10 +5,25 @@
       artists: [{ id: 'ar1', name: 'Mock Artist' }], album: al });
     const album = { id: 'al1', uri: 'spotify:album:al1', name: 'Mock Album', artists: [{ name: 'Mock Artist' }], images: [{ url: art('#1ed760'), width: 300, height: 300 }], total_tracks: 3, release_date: '2024-01-01' };
     window.__calls = [];
+    window.__plays = [];
+    // Two songs with the same name: only the artist, album and year tell them apart.
+    const powerAlbum = (id, name, artist, date, c) => ({ id, uri: 'spotify:album:' + id, name, artists: [{ name: artist }], images: [{ url: art(c) }], release_date: date });
+    const SEARCH = [
+      { id: 'pow1', uri: 'spotify:track:pow1', name: 'The Power of Love', duration_ms: 341000, explicit: false, artists: [{ id: 'cd', name: 'Céline Dion' }], album: powerAlbum('cdal', 'The Colour of My Love', 'Céline Dion', '1993-11-09', '#c0392b') },
+      { id: 'pow2', uri: 'spotify:track:pow2', name: 'The Power of Love', duration_ms: 236000, explicit: true, artists: [{ id: 'hl', name: 'Huey Lewis & The News' }], album: powerAlbum('bttf', 'Back to the Future (Original Motion Picture Soundtrack)', 'Various Artists', '1985-07-03', '#2980b9') },
+      track(7, album),
+    ];
     let playing = { item: track(1, album), is_playing: true, progress_ms: 4000, device: { id: 'd1', name: 'My PC', type: 'Computer', is_active: true }, shuffle_state: false, repeat_state: 'off', context: { uri: 'spotify:playlist:pl1' } };
     const routes = [
       [/\/me\/player\/devices/, () => ({ devices: [{ id: 'd1', name: 'My PC', type: 'Computer', is_active: true }] })],
-      [/\/me\/player\/play/, (u, o) => { const b = o.body ? JSON.parse(o.body) : {}; if (b.offset && b.offset.uri) playing.item = track(+b.offset.uri.replace(/\D/g, ''), album); playing.is_playing = true; return null; }],
+      [/\/me\/player\/play/, (u, o) => {
+        const b = o.body ? JSON.parse(o.body) : {};
+        window.__plays.push(b);
+        const uri = (b.offset && b.offset.uri) || (b.uris && b.uris[b.offset && b.offset.position ? b.offset.position : 0]);
+        if (uri) playing.item = SEARCH.find((t) => t.uri === uri) || track(+uri.replace(/\D/g, ''), album);
+        playing.is_playing = true;
+        return null;
+      }],
       [/\/me\/player\/pause/, () => { playing.is_playing = false; return null; }],
       [/\/me\/player\/(next|previous|seek|volume|shuffle|repeat)/, () => null],
       [/\/me\/player\/recently-played/, () => ({ items: [{ track: track(2, album) }] })],
@@ -26,7 +41,7 @@
       [/\/me\/shows/, () => ({ items: [], next: null })],
       [/\/me\/library\/contains/, () => [false]],
       [/\/me\/library/, () => null],
-      [/\/search/, () => ({ tracks: { items: [track(7, album)] }, albums: { items: [album] }, artists: { items: [] }, playlists: { items: [null] } })],
+      [/\/search/, () => ({ tracks: { items: SEARCH }, albums: { items: [album] }, artists: { items: [] }, playlists: { items: [null] } })],
       [/\/me(\?|$)/, () => ({ id: 'tester', display_name: 'Test User' })],
     ];
     const realFetch = window.fetch;

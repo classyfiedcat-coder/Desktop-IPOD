@@ -77,7 +77,15 @@ module.exports = async ({ app, win }) => {
     for (let i = 0; i < n; i++) await press('menu');
   };
 
-  const scenario = { spotify: spotifyScenario, media: mediaScenario, motion: motionScenario, reel: reelScenario, finish: finishScenario, screens: screensScenario }[process.env.IPOD_E2E_STEPS];
+  const scenario = {
+    spotify: spotifyScenario,
+    media: mediaScenario,
+    motion: motionScenario,
+    reel: reelScenario,
+    finish: finishScenario,
+    screens: screensScenario,
+    itunes: itunesScenario,
+  }[process.env.IPOD_E2E_STEPS];
   if (scenario) {
     try {
       await ready();
@@ -263,9 +271,27 @@ async function spotifyScenario({ js, wait, shot, press, scroll, open, menu }) {
   await shot('s07-liked');
   await menu();
   await open('Search');
-  for (const k of 'MOCK') await js(`__ipod.device.emit('char', { key: '${k}' })`);
+  for (const k of 'POWER') await js(`__ipod.device.emit('char', { key: '${k}' })`);
   await wait(900);
   await shot('s08-search');
+  // Two songs called "The Power of Love": the second line says which is which.
+  const found = await js(`__ipod.os.current.results.items.map((it) => ({ label: it.label, sub: it.sub, value: it.value, thumb: !!it.thumb }))`);
+  console.log('SPOTIFY search', JSON.stringify(found));
+  const hl = found.findIndex((it) => it.sub && it.sub.startsWith('Huey Lewis'));
+  if (hl < 0 || !found[hl].sub.includes('Back to the Future') || !found[hl].sub.includes('1985') || found[hl].value !== 'E' || !found[hl].thumb)
+    throw new Error('search results should show artist, album, year, explicit and art');
+  // Choosing it plays just that song (Spotify decides what comes next), not the other results.
+  await js(`(() => { const v = __ipod.os.current.results; v.items[${hl}].action(); })()`);
+  await wait(1500);
+  const play = await js(`window.__plays[window.__plays.length - 1]`);
+  console.log('SPOTIFY play from search', JSON.stringify(play));
+  if (!play || !play.uris || play.uris.length !== 1 || play.uris[0] !== 'spotify:track:pow2' || play.context_uri || play.offset)
+    throw new Error('a song picked from search should be played on its own');
+  const np = await js(`({ album: document.querySelectorAll('.np-line .np-text')[2].textContent, explicit: !!document.querySelector('.np-explicit'), info: __ipod.player.queueInfo })`);
+  console.log('SPOTIFY now playing', JSON.stringify(np));
+  if (!np.album.includes('1985') || !np.explicit || np.info) throw new Error('Now Playing should show the year and the explicit mark, and no "x of y"');
+  await shot('s08b-search-nowplaying');
+  await menu();
   await menu();
   await open('Devices');
   await wait(400);
@@ -588,6 +614,83 @@ async function finishScenario({ js, wait, shot }) {
 }
 
 /** A tour of the screens the other scenarios don't reach, for a visual check. */
+/**
+ * iTunes: the test profile points at an iTunes library for the test songs
+ * (scripts/make-test-itunes.js). Its playlists, ratings and play counts show
+ * up on the iPod, the iPod's own ratings win, and turning it off removes it.
+ */
+async function itunesScenario({ js, wait, shot, open, menu }) {
+  const check = (ok, what) => {
+    if (!ok) throw new Error(`iTunes: ${what}`);
+    console.log('ok -', what);
+  };
+  const home = async () => {
+    await js(`__ipod.os.goto([])`).catch(() => {});
+    for (let i = 0; i < 6 && (await js(`__ipod.os.stack.length`)) > 1; i++) await menu();
+  };
+  await js(`__ipod.store.set('idleFloat', false)`);
+  await js(`__ipod.library.scanning ? new Promise(r => __ipod.library.on('scan', on => !on && r())) : null`);
+  for (let i = 0; i < 100 && !(await js(`!!(__ipod.library.itunes && __ipod.library.itunes.matched)`)); i++) await wait(100);
+  const st = await js(`(() => { const s = __ipod.library.itunes; return s && { matched: s.matched, total: s.total, playlists: s.playlists.map((p) => p.name) }; })()`);
+  console.log('ITUNES', JSON.stringify(st));
+  check(st && st.matched === 19 && st.total === 20, 'every song on this computer matched; the one on a missing drive is not');
+  check(JSON.stringify(st.playlists) === JSON.stringify(['Road Trips', 'Night Drive', 'Five Stars']), 'playlists: the folder, the one in it and the smart one (no built-in or empty ones)');
+
+  const stats = await js(`(() => {
+    const L = __ipod.library, S = __ipod.store;
+    const id = (title) => L.tracks.find((t) => t.title === title).id;
+    const top = L.smartPlaylists().find((p) => p.id === 'smart:top25').tracks.map((t) => t.title);
+    const rated = L.smartPlaylists().find((p) => p.id === 'smart:rated').tracks.map((t) => t.title);
+    return { top, rated, coast: S.plays(id('Coastline')), hl: S.rating(id('Highway Lights')), orbit: S.rating(id('Orbit')),
+      added: new Date(L.byId.get(id('Coastline')).addedAt).getFullYear() };
+  })()`);
+  console.log('STATS', JSON.stringify(stats));
+  check(stats.top[0] === 'Coastline' && stats.coast === 77, 'play counts from iTunes fill Top 25 Most Played');
+  check(stats.hl === 5 && stats.rated.includes('Highway Lights') && stats.rated.includes('Coastline'), 'star ratings from iTunes, in My Top Rated');
+  check(stats.orbit === 0, 'a rating iTunes worked out from the album is ignored');
+  check(stats.added === 2006, 'Date Added comes from iTunes');
+
+  await home();
+  await open('Music');
+  await open('Playlists');
+  await wait(900); // software rendering can be a frame or two behind
+  await shot('i01-playlists');
+  const labels = await js(`__ipod.os.current.items.map((i) => i.label)`);
+  check(labels.includes('Road Trips') && labels.includes('Five Stars') && !labels.includes('Empty One') && !labels.includes('Music'), 'iTunes playlists in Music › Playlists');
+  await open('Road Trips');
+  await wait(300);
+  check(JSON.stringify(await js(`__ipod.os.current.items.map((i) => i.label)`)) === JSON.stringify(['Night Drive']), 'a playlist folder opens to the playlists in it');
+  await open('Night Drive');
+  await wait(900);
+  await shot('i02-night-drive');
+  const order = await js(`__ipod.os.current.items.map((i) => typeof i.label === 'function' ? i.label() : i.label)`);
+  console.log('ORDER', JSON.stringify(order));
+  check(JSON.stringify(order) === JSON.stringify(['Tunnel Vision', 'Afterglow', 'Night Bus Home']), 'songs in the playlist’s own order');
+
+  // A rating given on the iPod wins over iTunes'.
+  const mine = await js(`(() => { const id = __ipod.library.tracks.find((t) => t.title === 'Highway Lights').id; __ipod.store.user.ratings[id] = 2; return __ipod.store.rating(id); })()`);
+  check(mine === 2, 'your iPod rating wins over iTunes');
+
+  await home();
+  await open('Settings');
+  await open('Music Library');
+  await wait(300);
+  await js(`(() => { const v = __ipod.os.current; const i = v.items.findIndex((x) => x.label === 'iTunes Library'); v.sel = i; v.paint(); })()`);
+  await shot('i03-library-settings');
+  await open('iTunes Library');
+  await wait(400);
+  await shot('i04-itunes-settings');
+
+  // Off: the playlists and stats go; on again: back.
+  await js(`__ipod.store.set('itunes', false)`);
+  await wait(800);
+  const off = await js(`({ lists: __ipod.library.itunesPlaylists().length, stats: __ipod.store.itunesStats, plays: __ipod.store.plays(__ipod.library.tracks.find((t) => t.title === 'Coastline').id) })`);
+  check(off.lists === 0 && off.stats === null && off.plays === 0, 'turning iTunes off removes its playlists and stats');
+  await js(`__ipod.store.set('itunes', true)`);
+  for (let i = 0; i < 50 && !(await js(`!!__ipod.library.itunes`)); i++) await wait(100);
+  check(await js(`__ipod.library.itunesPlaylists().length === 2`), 'and turning it back on brings them back');
+}
+
 async function screensScenario({ js, wait, shot, press, scroll, open, menu }) {
   const home = async () => {
     await js(`__ipod.os.goto([])`).catch(() => {});

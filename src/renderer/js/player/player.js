@@ -173,9 +173,11 @@ export class Player extends Emitter {
 
   /**
    * Play a list starting at index. Spotify tracks pass a `context`
-   * ({ uri } for albums/playlists) so Spotify keeps the queue.
+   * ({ uri } for albums/playlists) so Spotify keeps the queue, or `single`
+   * (a song picked from search) to play just that song and let Spotify
+   * decide what comes next.
    */
-  async playTracks(tracks, index = 0, { shuffle, context } = {}) {
+  async playTracks(tracks, index = 0, { shuffle, context, single = false } = {}) {
     if (!tracks || !tracks.length) return;
     index = clamp(index, 0, tracks.length - 1);
     const first = tracks[index];
@@ -186,7 +188,7 @@ export class Player extends Emitter {
       this.engine.pause();
       this.source = 'spotify';
       this.emit('track');
-      await this.spotify.playList(tracks, index, { context, shuffle: shuffle || this.store.settings.shuffle });
+      await this.spotify.playList(tracks, index, { context, single, shuffle: shuffle || this.store.settings.shuffle });
       return;
     }
     if (this.source === 'spotify' && this.spotify) this.spotify.pause({ quiet: true });
@@ -524,7 +526,7 @@ export class Player extends Emitter {
 
   get rating() {
     const t = this.track;
-    return t && t.source === 'local' ? this.store.user.ratings[t.id] || 0 : 0;
+    return t && t.source === 'local' ? this.store.rating(t.id) : 0;
   }
 
   setRating(r) {
