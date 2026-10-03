@@ -22,6 +22,8 @@ import { localSearch } from './views/search.js';
 import { SyncView } from './views/sync.js';
 import { ColorEditor } from './views/color-editor.js';
 import { getModel, getColor } from './models.js';
+import { AutoUpdate, announceUpdate } from './updates.js';
+import { stopwatchRunning } from './views/extras/tools.js';
 
 const WINDOW_KEYS = ['alwaysOnTop', 'showInTaskbar', 'openAtLogin', 'opacity', 'snapToEdges', 'startHidden'];
 const DESKTOP_KEYS = ['notifications', 'globalShortcuts', 'color', 'size', 'motion'];
@@ -211,7 +213,20 @@ async function boot() {
   app.podcasts.init();
   await booting;
   app.booted = true;
+  announceUpdate({ store, os });
   if (store.firstRun) os.alert('Welcome! Drag the iPod to move it. Right-click for options.', 3600);
+
+  // Downloaded updates install themselves at a quiet moment. Not while
+  // something on screen is running (a video, a game, the stopwatch, a sleep
+  // timer), and not while it's locked: the lock doesn't survive a restart.
+  app.updates = new AutoUpdate({
+    store,
+    player,
+    os,
+    updates: window.ipod.updates,
+    busy: () => app.locked || !!(os.current && os.current.keepAwake) || stopwatchRunning() || !!(app.sleepTimer && app.sleepTimer.remaining()),
+  });
+  app.updates.start();
 
   // Refresh lists that depend on the library once a scan finishes.
   library.on('change', () => {

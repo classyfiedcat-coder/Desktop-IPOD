@@ -96,7 +96,7 @@ export function settingsMenu(app) {
       { label: 'Radio', view: () => radioSettings(app) },
       { label: 'Appearance', view: () => appearanceSettings(app) },
       { label: 'Desktop', view: () => desktopSettings(app) },
-      { label: 'Software Update', view: () => new UpdateView(app) },
+      { label: 'Software Update', view: () => updateSettings(app) },
       { label: 'Backup & Restore', view: () => backupSettings(app) },
       { label: 'Legal', view: () => new TextView({ title: 'Legal', heading: 'iPod for Desktop', body: LEGAL }) },
       {
@@ -723,6 +723,30 @@ function backupSettings(app) {
 
 // ---------------------------------------------------------------- updates --
 
+// -------------------------------------------------------- software update --
+
+function updateSettings(app) {
+  const { store } = app;
+  // The portable and development builds can't install updates themselves.
+  let canInstall = true;
+  const view = new ListView({
+    title: 'Software Update',
+    items: () => [
+      { label: 'Check for Updates', view: () => new UpdateView(app) },
+      ...(canInstall ? [cycleItem(store, 'Install Automatically', 'autoUpdate', ON_OFF)] : []),
+      { label: 'Version', value: store.env.version, arrow: false },
+    ],
+  });
+  window.ipod.updates
+    .status()
+    .then((s) => {
+      canInstall = !(s && s.state === 'unsupported') && !(s && s.portable);
+      if (view.mounted) view.refresh();
+    })
+    .catch(() => {});
+  return view;
+}
+
 class UpdateView extends View {
   constructor(app) {
     super({ title: 'Software Update' });
@@ -750,13 +774,16 @@ class UpdateView extends View {
   paint(s) {
     this.status = s;
     const v = this.app.store.env.version;
+    const auto = this.app.store.settings.autoUpdate !== false;
     const map = {
-      unsupported: ['Updates', `Version ${v}. Automatic updates work in the installed version of the app.`],
+      unsupported: ['Updates', `Version ${v}. Updates install themselves in the installed version of the app.`],
       idle: ['Checking for updates…', ''],
       checking: ['Checking for updates…', ''],
       current: ['Your iPod is up to date', `Version ${v}`],
       downloading: [`Downloading ${s.version || 'update'}…`, `${s.percent || 0}%`],
-      ready: [`Version ${s.version} is ready`, 'Press Select to restart and install'],
+      ready: [`Version ${s.version} is ready`, auto ? 'It installs when you’re not listening. Press Select to install now.' : 'Press Select to restart and install'],
+      installing: [`Installing ${s.version || 'update'}…`, 'The iPod will be right back'],
+      available: [`Version ${s.version} is available`, 'Press Select to download it'],
       error: ['Couldn’t check for updates', s.message || ''],
     };
     const [a, b] = map[s.state] || map.idle;
@@ -766,7 +793,11 @@ class UpdateView extends View {
     this.fill.style.width = `${s.percent || 0}%`;
   }
   onSelect() {
-    if (this.status.state === 'ready') window.ipod.updates.install();
-    else window.ipod.updates.check();
+    const s = this.status;
+    if (s.state === 'ready') {
+      this.app.store.flush();
+      window.ipod.updates.install();
+    } else if (s.state === 'available' && s.url) window.ipod.system.openExternal(s.url);
+    else if (s.state !== 'installing') window.ipod.updates.check();
   }
 }

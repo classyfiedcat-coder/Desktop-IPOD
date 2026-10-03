@@ -53,6 +53,8 @@ export const DEFAULT_SETTINGS = {
   opacity: 1,
   notifications: false,
   globalShortcuts: true,
+  autoUpdate: true, // install downloaded updates by themselves when the iPod is quiet
+  lastVersion: null, // the version that last ran, to say "Updated to …" once
 
   folders: null, // null = use the system Music folder
   autoUpdateLibrary: true,

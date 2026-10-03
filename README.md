@@ -59,7 +59,8 @@ A free-floating iPod (5th generation) that lives on your Windows desktop. There'
 - A tray icon and a right-click menu (colour, size, motion, always on top, hide, quit…), taskbar play/pause buttons and a jump list.
 - Global shortcuts: Ctrl+Alt+Space play/pause, Ctrl+Alt+← / → previous/next, Ctrl+Alt+↑ / ↓ volume, Ctrl+Alt+I show or hide.
 - Open music files with the iPod, or drop files and folders on it.
-- Snaps to screen edges, optional song notifications, starts with Windows if you like, and updates itself (installed version).
+- Snaps to screen edges, optional song notifications, and starts with Windows if you like.
+- Updates itself (installed version). It checks for new versions every few hours and after your PC wakes up, and downloads them in the background. When the iPod is quiet (nothing playing, untouched for a few minutes), it installs the update and opens again where you left off. Turn this off in Settings › Software Update › Install Automatically, and it installs when you quit instead. The portable version tells you when there's a new version to download.
 
 ## Install
 

@@ -85,7 +85,18 @@ class Desktop {
     });
     const upd = this.updater.status;
     const updLabel =
-      upd.state === 'ready' ? `Restart to Update (${upd.version})` : upd.state === 'downloading' ? `Downloading Update… ${upd.percent || 0}%` : 'Check for Updates…';
+      upd.state === 'ready'
+        ? `Restart to Update (${upd.version})`
+        : upd.state === 'downloading'
+          ? `Downloading Update… ${upd.percent || 0}%`
+          : upd.state === 'available'
+            ? `Download iPod ${upd.version}…`
+            : 'Check for Updates…';
+    const updClick = () => {
+      if (upd.state === 'ready') this.updater.install();
+      else if (upd.state === 'available' && upd.url) require('electron').shell.openExternal(upd.url);
+      else this.updater.check();
+    };
     return [
       ...(np.has ? [{ label: `${np.playing ? '▶' : '❚❚'}  ${trim(np.title, 40)}${np.artist ? ` — ${trim(np.artist, 28)}` : ''}`, enabled: false }, { type: 'separator' }] : []),
       { label: this.w.win && this.w.win.isVisible() ? 'Hide iPod' : 'Show iPod', click: () => this.w.toggle() },
@@ -132,7 +143,7 @@ class Desktop {
       { label: 'Hold Switch', click: () => this.command('hold') },
       { label: 'Minimize', click: () => this.w.win && this.w.win.minimize() },
       { type: 'separator' },
-      { label: updLabel, enabled: this.updater.supported, click: () => (upd.state === 'ready' ? this.updater.install() : this.updater.check()) },
+      { label: updLabel, enabled: this.updater.supported || this.updater.canNotify, click: updClick },
       { label: 'Open Logs Folder', click: () => this.logDir && require('electron').shell.openPath(this.logDir) },
       { type: 'separator' },
       { label: 'Quit iPod', click: () => this.command('quit') },

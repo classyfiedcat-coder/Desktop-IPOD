@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.2
+
+- Updates install themselves. The iPod checks for new versions when it starts, every four hours and when your PC wakes up, and downloads them in the background. Then it waits for a quiet moment (nothing playing, no video, game, stopwatch or sleep timer running, not locked, and untouched for three minutes), installs silently and opens again where you left off. Before, it only checked once at startup and installed when you quit, so an iPod left running never updated.
+- Settings › Software Update is now a menu: Check for Updates, Install Automatically (on by default) and the version. After an update, the iPod says "Updated to …" once.
+- The portable version checks for new versions too, and links to the download.
+
 ## 2.0.1
 
 - The screen stays sharp when the iPod is tilted or floating. When it turned, the screen was drawn flat at normal resolution and then stretched onto the angle, which blurred small text. It's now drawn at twice the resolution and scaled down, so text stays readable at an angle. With Motion off it's always flat, so it's drawn as before.

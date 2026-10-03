@@ -137,6 +137,7 @@ app.whenReady().then(() => {
   ctx.updater = new Updater(send, {
     beforeInstall: () => {
       ctx.quitting = true;
+      send('app:command', { name: 'flush' });
     },
   });
   ctx.ipodWindow = new IpodWindow({ state, preload: PRELOAD, icon: icon(), dev: DEV, devTools: DEV || TEST_HOOK });
@@ -188,7 +189,7 @@ app.whenReady().then(() => {
   ctx.desktop.init();
   handleArgs(process.argv);
 
-  if (ctx.updater.supported) setTimeout(() => ctx.updater.check(), 8000);
+  ctx.updater.start();
 
   if (TEST_HOOK) {
     win.webContents.once('did-finish-load', () => {
