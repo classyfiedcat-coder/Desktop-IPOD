@@ -33,9 +33,23 @@ module.exports = async ({ app, win }) => {
   });
 
   const shot = async (name, w = win) => {
-    const img = await w.webContents.capturePage();
-    fs.writeFileSync(path.join(out, `${name}.png`), img.toPNG());
-    console.log('shot', name);
+    // Grabbing a window's pixels occasionally fails on software GPUs; retry,
+    // and for secondary windows (the Spotify setup) just warn.
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const img = await w.webContents.capturePage();
+        fs.writeFileSync(path.join(out, `${name}.png`), img.toPNG());
+        console.log('shot', name);
+        return;
+      } catch (err) {
+        if (attempt < 3) {
+          await wait(400);
+          continue;
+        }
+        if (w !== win) return console.log(`(couldn't capture ${name}: ${err.message})`);
+        throw err;
+      }
+    }
   };
   const press = async (button, hold = 60) => {
     await js(`__ipod.device.emit('down', { button: '${button}' })`);
@@ -74,7 +88,8 @@ module.exports = async ({ app, win }) => {
     }
     fs.writeFileSync(path.join(out, 'errors.json'), JSON.stringify(errors, null, 2));
     console.log(`E2E done, ${errors.length} renderer errors`);
-    app.quit();
+    for (const e of errors) console.log('  error:', e);
+    app.exit(errors.length ? 1 : 0);
     return;
   }
 
@@ -208,7 +223,8 @@ module.exports = async ({ app, win }) => {
   }
   fs.writeFileSync(path.join(out, 'errors.json'), JSON.stringify(errors, null, 2));
   console.log(`E2E done, ${errors.length} renderer errors`);
-  app.quit();
+  for (const e of errors) console.log('  error:', e);
+  app.exit(errors.length ? 1 : 0);
 };
 
 /** Spotify flows against a mocked Web API (February 2026 response shapes). */
