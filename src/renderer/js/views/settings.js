@@ -9,6 +9,7 @@ import { fmtBytes, h, clamp } from '../util.js';
 import { showSheet } from './sheet.js';
 import { askText } from './textinput.js';
 import { ColorEditor } from './color-editor.js';
+import { playlistsView } from './menus.js';
 import { CITY_COUNTRIES } from './extras/countries.js';
 
 const ON_OFF = [
@@ -188,7 +189,10 @@ function aboutView(app) {
       { label: 'Radio Favorites', value: String(app.store.user.radioFavorites.length) },
       { label: 'Videos', value: app.media.cachedCount('videos') === null ? '—' : String(app.media.cachedCount('videos')) },
       { label: 'Photos', value: app.media.cachedCount('photos') === null ? '—' : String(app.media.cachedCount('photos')) },
-      { label: 'Total Plays', value: String(Object.values(app.store.user.plays).reduce((a, b) => a + b, 0)) },
+      {
+        label: 'Total Plays',
+        value: String(Object.values(app.store.user.plays).reduce((a, b) => a + b, 0) + Object.values(app.store.itunesStats || {}).reduce((n, s) => n + (s.p || 0), 0)),
+      },
     ];
     if (info && info.disk) {
       rows.push({ label: 'Capacity', value: fmtBytes(info.disk.total) });
@@ -434,6 +438,12 @@ function librarySettings(app) {
       items.push(cycleItem(store, 'Update Automatically', 'autoUpdateLibrary', ON_OFF));
       items.push({ label: 'Get Album Artwork', view: () => new ArtworkView(app) });
       items.push(cycleItem(store, 'Artwork Automatically', 'autoArtwork', ON_OFF));
+      items.push({ label: 'iTunes', header: true });
+      items.push({
+        label: 'iTunes Library',
+        value: () => (!store.settings.itunes ? 'Off' : library.itunes ? 'Synced' : library.itunesStatus ? 'Not Found' : ''),
+        view: () => itunesSettings(app),
+      });
       items.push({ label: 'Other Folders', header: true });
       items.push(folderItem('Photos Folder…', 'photosFolder', store.env.defaults.pictures, () => app.media.invalidate()));
       items.push(folderItem('Videos Folder…', 'videosFolder', store.env.defaults.videos, () => app.media.invalidate()));
@@ -443,6 +453,79 @@ function librarySettings(app) {
       return items;
     },
   });
+  return view;
+}
+
+// ----------------------------------------------------------------- iTunes --
+
+const ITUNES_HELP = `The iPod uses the library file that iTunes and the Music app share with other apps: your playlists (smart playlists as they are now, and folders), star ratings, play counts and dates. Nothing in iTunes is changed.
+
+To share it with iTunes on Windows, open iTunes, choose Edit › Preferences › Advanced, and tick “Share iTunes Library XML with other applications”.
+
+With the Music app on a Mac, open Music, choose Music › Settings › Files (Preferences on older Macs), and tick “Share Library XML with other applications”.
+
+The iPod finds it in your Music folder. If yours is somewhere else, choose Library File.
+
+Your songs need to be in one of the iPod's music folders too. iTunes and Music keep them inside your Music folder, which the iPod uses unless you've changed it.
+
+Plays on the iPod are added to the ones from iTunes, and a rating you give a song on the iPod is used instead of the one from iTunes.`;
+
+/** Is a path inside a folder? (Either may use / or \; case doesn't matter.) */
+function within(file, folder) {
+  const norm = (p) => String(p || '').replace(/[\\/]+/g, '/').replace(/\/$/, '').toLowerCase();
+  const f = norm(file);
+  const d = norm(folder);
+  return !!d && (f === d || f.startsWith(`${d}/`));
+}
+
+function itunesSettings(app) {
+  const { store, library } = app;
+  const choose = async () => {
+    const f = await window.ipod.library.chooseITunesLibrary();
+    if (f) store.set('itunesFile', f);
+  };
+  const sync = async () => {
+    const r = await library.syncITunes({ force: true });
+    app.os.alert(r && r.found ? `Synced ${r.matched.toLocaleString()} songs and ${r.playlists.length} playlists` : 'No iTunes library found', 1800);
+  };
+  const view = new ListView({
+    title: 'iTunes',
+    refreshOnEnter: true,
+    items: () => {
+      const items = [cycleItem(store, 'Use iTunes Library', 'itunes', ON_OFF)];
+      if (!store.settings.itunes) {
+        items.push({ label: 'About iTunes Sync', view: () => new TextView({ title: 'iTunes', heading: 'iTunes and Music', body: ITUNES_HELP }) });
+        return items;
+      }
+      const st = library.itunesStatus;
+      if (st && st.found) {
+        items.push({ label: 'Songs', value: `${st.matched.toLocaleString()} of ${st.total.toLocaleString()}`, arrow: false });
+        items.push({ label: 'Playlists', value: String(st.playlists.filter((p) => !p.folder).length), view: () => playlistsView(app) });
+        items.push({ label: 'Last Synced', value: new Date(st.syncedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }), arrow: false });
+        if (st.error) items.push({ label: 'Using the last copy it could read', arrow: false, disabled: true });
+        // Songs iTunes has that the iPod doesn't: their folder isn't one of the iPod's.
+        if (st.musicFolder && st.matched < st.total && !store.musicFolders().some((f) => within(st.musicFolder, f))) {
+          items.push({
+            label: 'Add iTunes Media Folder',
+            arrow: false,
+            action: () => {
+              store.set('folders', [...store.musicFolders(), st.musicFolder.replace(/[\\/]+$/, '')]);
+              app.os.push(new ScanView(app));
+            },
+          });
+        }
+      } else {
+        items.push({ label: st && st.error ? 'Couldn’t read the library file' : st ? 'No iTunes library found' : 'Looking…', arrow: false, disabled: true });
+      }
+      items.push({ label: 'Sync Now', arrow: false, action: sync });
+      items.push({ label: 'Library File…', value: () => (store.settings.itunesFile ? short(store.settings.itunesFile) : 'Automatic'), arrow: false, action: choose });
+      if (store.settings.itunesFile) items.push({ label: 'Find It Automatically', arrow: false, action: () => store.set('itunesFile', null) });
+      items.push({ label: 'About iTunes Sync', view: () => new TextView({ title: 'iTunes', heading: 'iTunes and Music', body: ITUNES_HELP }) });
+      return items;
+    },
+  });
+  // Show the result when a sync (this one, or iTunes saving its library) finishes.
+  const off = library.on('itunes', () => (view.mounted ? view.refresh() : off()));
   return view;
 }
 

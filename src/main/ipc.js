@@ -102,6 +102,12 @@ function registerIpc(ctx) {
   });
   ipcMain.handle('lib:open-files', (_e, paths) => library.openFiles((paths || []).filter((p) => typeof p === 'string')));
   ipcMain.handle('lib:info', (_e, id) => library.info(id));
+  ipcMain.handle('lib:itunes', (_e, o = {}) => {
+    // Only ever an .xml library file (the renderer picks it with the dialog below).
+    const file = typeof o.file === 'string' && /\.xml$/i.test(o.file) ? o.file : null;
+    return library.itunes({ file, force: !!o.force, musicDir: app.getPath('music') });
+  });
+  ipcMain.handle('lib:itunes-off', () => library.stopITunes());
   ipcMain.handle('lib:auto-update', (_e, on) => {
     library.autoUpdate = !!on;
     library.watch(library.data.folders);
@@ -144,6 +150,15 @@ function registerIpc(ctx) {
   // --- dialogs ----------------------------------------------------------------
   ipcMain.handle('dialog:folder', async (_e, title) => {
     const res = await dialog.showOpenDialog(win(), { title: title || 'Choose a folder', properties: ['openDirectory'] });
+    return res.canceled ? null : res.filePaths[0];
+  });
+  ipcMain.handle('dialog:itunes-library', async () => {
+    const res = await dialog.showOpenDialog(win(), {
+      title: 'Choose your iTunes or Music library file',
+      defaultPath: app.getPath('music'),
+      properties: ['openFile'],
+      filters: [{ name: 'iTunes / Music Library', extensions: ['xml'] }],
+    });
     return res.canceled ? null : res.filePaths[0];
   });
 

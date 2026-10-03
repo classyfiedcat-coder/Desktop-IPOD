@@ -151,6 +151,7 @@ app.whenReady().then(() => {
     library: ctx.library,
   });
   ctx.library.on('folders-changed', () => send('lib:folders-changed'));
+  ctx.library.on('itunes-changed', () => send('lib:itunes-changed'));
 
   const proto = new Protocol({
     rendererDir: RENDERER_DIR,

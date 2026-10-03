@@ -203,11 +203,23 @@ export function playlistsView(app) {
       }
       for (const pl of lib.smartPlaylists()) items.push({ label: pl.name, view: () => songsView(app, pl.name, pl.tracks, { empty: 'No songs' }) });
       for (const pl of lib.fileplaylists()) items.push({ label: pl.name, view: () => songsView(app, pl.name, pl.tracks) });
+      for (const pl of lib.itunesPlaylists()) items.push(itunesPlaylistItem(app, pl));
       items.push({ label: 'On-The-Go', view: () => onTheGoView(app) });
       return items;
     },
   });
   return view;
+}
+
+/** A playlist from iTunes, or a playlist folder (a menu of what's inside it). */
+function itunesPlaylistItem(app, pl) {
+  if (pl.folder) {
+    return {
+      label: pl.name,
+      view: () => new ListView({ title: pl.name, refreshOnEnter: true, items: () => app.library.itunesPlaylists(pl.id).map((p) => itunesPlaylistItem(app, p)) }),
+    };
+  }
+  return { label: pl.name, view: () => songsView(app, pl.name, pl.tracks, { empty: 'No songs' }), onHold: () => groupActions(app, pl.name, pl.tracks) };
 }
 
 function playlistActions(app, pl, view) {

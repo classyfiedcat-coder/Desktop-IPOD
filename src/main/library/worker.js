@@ -6,8 +6,9 @@
  *
  * Messages in:  { type: 'scan', folders, previous, artDir }
  *               { type: 'files', paths, artDir }
+ *               { type: 'itunes', file }   (read an iTunes / Music library XML)
  * Messages out: { type: 'progress', done, total, phase }
- *               { type: 'done', tracks, playlists }   |   { type: 'error', message }
+ *               { type: 'done', tracks, playlists[, musicFolder] }   |   { type: 'error', message }
  */
 
 const fs = require('fs');
@@ -15,6 +16,7 @@ const fsp = fs.promises;
 const path = require('path');
 const crypto = require('crypto');
 const { parseM3U } = require('./playlist-files');
+const itunes = require('./itunes');
 
 const AUDIO_EXT = new Set(['.mp3', '.m4a', '.m4b', '.aac', '.flac', '.wav', '.ogg', '.oga', '.opus', '.weba', '.alac']);
 const PLAYLIST_EXT = new Set(['.m3u', '.m3u8']);
@@ -41,6 +43,12 @@ if (process.parentPort) process.parentPort.on('message', async (e) => {
   try {
     if (msg.type === 'scan') post({ type: 'done', ...(await scan(msg)) });
     else if (msg.type === 'files') post({ type: 'done', tracks: await parseFiles(msg), playlists: [] });
+    else if (msg.type === 'itunes') {
+      const plist = itunes.parsePlist(await fsp.readFile(msg.file, 'utf8'));
+      // Half-written (iTunes was saving it), or not a library at all.
+      if (!plist || typeof plist !== 'object' || !plist.Tracks) throw new Error('That isn’t a complete iTunes library file.');
+      post({ type: 'done', ...itunes.readLibrary(plist) });
+    }
   } catch (err) {
     post({ type: 'error', message: err && err.stack ? err.stack : String(err) });
   } finally {

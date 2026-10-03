@@ -524,7 +524,7 @@ export class Player extends Emitter {
 
   get rating() {
     const t = this.track;
-    return t && t.source === 'local' ? this.store.user.ratings[t.id] || 0 : 0;
+    return t && t.source === 'local' ? this.store.rating(t.id) : 0;
   }
 
   setRating(r) {
