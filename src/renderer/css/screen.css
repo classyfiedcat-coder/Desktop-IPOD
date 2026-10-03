@@ -334,6 +334,10 @@
 .row.disabled {
   color: var(--muted);
 }
+/* Still readable when the highlight lands on it. */
+.row.sel.disabled {
+  color: rgba(255, 255, 255, 0.72);
+}
 .row .thumb {
   display: none;
 }

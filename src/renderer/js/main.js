@@ -207,6 +207,7 @@ async function boot() {
   spotify.init();
   app.podcasts.init();
   await booting;
+  app.booted = true;
   if (store.firstRun) os.alert('Welcome! Drag the iPod to move it. Right-click for options.', 3600);
 
   // Refresh lists that depend on the library once a scan finishes.

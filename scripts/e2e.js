@@ -17,6 +17,14 @@ module.exports = async ({ app, win }) => {
   fs.mkdirSync(out, { recursive: true });
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const js = (code) => win.webContents.executeJavaScript(code);
+  /** Wait until the iPod has finished starting up (boot animation, library). */
+  const ready = async () => {
+    for (let i = 0; i < 300; i++) {
+      if (await js('!!(window.__ipod && window.__ipod.booted)').catch(() => false)) return;
+      await wait(100);
+    }
+    throw new Error('the iPod never finished booting');
+  };
   const errors = [];
   win.webContents.on('console-message', (e) => {
     const { level, message } = e;
@@ -55,9 +63,10 @@ module.exports = async ({ app, win }) => {
     for (let i = 0; i < n; i++) await press('menu');
   };
 
-  const scenario = { spotify: spotifyScenario, media: mediaScenario, motion: motionScenario, reel: reelScenario, finish: finishScenario }[process.env.IPOD_E2E_STEPS];
+  const scenario = { spotify: spotifyScenario, media: mediaScenario, motion: motionScenario, reel: reelScenario, finish: finishScenario, screens: screensScenario }[process.env.IPOD_E2E_STEPS];
   if (scenario) {
     try {
+      await ready();
       await scenario({ js, wait, shot, press, scroll, open, menu, select, win });
     } catch (err) {
       console.error('E2E failed', err);
@@ -70,7 +79,7 @@ module.exports = async ({ app, win }) => {
   }
 
   try {
-    await wait(2500);
+    await ready();
     await js(`__ipod.library.scanning ? new Promise(r => __ipod.library.on('scan', on => !on && r())) : null`);
     await wait(500);
     await shot('01-main');
@@ -323,6 +332,9 @@ async function mediaScenario({ js, wait, shot, press, scroll, open, menu }) {
   await open('Main Menu');
   await open('Games');
   await menu(2);
+  // Waking from sleep must light the screen back up.
+  const lit = await js(`({ dim: getComputedStyle(__ipod.os.dimmer).opacity, backlit: __ipod.device.screen.classList.contains('backlit') })`);
+  if (lit.dim !== '0' || !lit.backlit) throw new Error(`screen still dark after waking: ${JSON.stringify(lit)}`);
   await shot('m11-mainmenu-games');
   await open('Settings');
   await open('Desktop');
@@ -557,4 +569,41 @@ async function finishScenario({ js, wait, shot }) {
     await shot(name);
   }
   await js(`(() => { const r = __ipod.device.rig; r.rx.snap(0); r.ry.snap(0); })(); __ipod.store.set('motion', 'cursor'); __ipod.store.set('motionAmount', 'normal'); __ipod.store.set('idleFloat', true)`);
+}
+
+/** A tour of the screens the other scenarios don't reach, for a visual check. */
+async function screensScenario({ js, wait, shot, press, scroll, open, menu }) {
+  const home = async () => {
+    await js(`__ipod.os.goto([])`).catch(() => {});
+    for (let i = 0; i < 6 && (await js(`__ipod.os.stack.length`)) > 1; i++) await menu();
+  };
+  const step = async (name, path, after) => {
+    await home();
+    for (const label of path) await open(label);
+    await wait(500);
+    if (after) await after();
+    await shot(name);
+  };
+  await js(`__ipod.store.set('idleFloat', false)`);
+  await step('v01-coverflow', ['Music', 'Cover Flow'], () => wait(600));
+  await press('select');
+  await wait(700);
+  await shot('v02-coverflow-open');
+  await press('menu');
+  await step('v03-new-playlist', ['Music', 'Playlists', 'New Playlist…']);
+  await step('v04-radio', ['Radio'], () => wait(1500));
+  await step('v05-podcasts', ['Podcasts'], () => wait(800));
+  await step('v06-games', ['Extras', 'Games']);
+  await step('v07-solitaire', ['Extras', 'Games', 'Solitaire'], () => wait(800));
+  await step('v08-contacts', ['Extras', 'Contacts']);
+  await step('v09-notes', ['Extras', 'Notes']);
+  await step('v10-appearance', ['Settings', 'Appearance']);
+  await scroll(1, 12);
+  await wait(300);
+  await shot('v11-appearance-more');
+  await step('v12-colors', ['Settings', 'Appearance', 'Custom Colors…']);
+  await step('v13-eq', ['Settings', 'EQ']);
+  await step('v14-playback', ['Settings', 'Playback']);
+  await home();
+  await js(`__ipod.store.set('idleFloat', true)`);
 }

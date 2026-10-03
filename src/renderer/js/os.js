@@ -314,6 +314,10 @@ export class OS extends Emitter {
     if (!this.asleep) return;
     this.asleep = false;
     this.screen.classList.remove('asleep');
+    // Light the screen back up (activity() only does that if the backlight
+    // had timed out, but sleeping darkened it regardless).
+    this.backlit = true;
+    this._applyBacklight();
     this.activity();
     this.emit('wake');
   }

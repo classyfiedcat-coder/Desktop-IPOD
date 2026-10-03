@@ -120,16 +120,16 @@ export class ClockFace extends View {
     return this.app.store.settings.worldClocks[this.index] || 'local';
   }
   render() {
-    const ticks = h('div', { class: 'cf-ticks' });
+    const ticks = h('div', { class: 'clk-ticks' });
     for (let i = 0; i < 12; i++) ticks.append(h('i', { style: { transform: `rotate(${i * 30}deg)` } }));
-    this.hh = h('div', { class: 'cf-hand cf-h' });
-    this.mh = h('div', { class: 'cf-hand cf-m' });
-    this.sh = h('div', { class: 'cf-hand cf-s' });
-    this.face = h('div', { class: 'cf-face' }, ticks, this.hh, this.mh, this.sh, h('div', { class: 'cf-pin' }));
-    this.city = h('div', { class: 'cf-city' });
-    this.time = h('div', { class: 'cf-time' });
-    this.date = h('div', { class: 'cf-date' });
-    this.el.replaceChildren(this.face, h('div', { class: 'cf-info' }, this.city, this.time, this.date), h('div', { class: 'cf-hint', text: 'Select for options' }));
+    this.hh = h('div', { class: 'clk-hand clk-h' });
+    this.mh = h('div', { class: 'clk-hand clk-m' });
+    this.sh = h('div', { class: 'clk-hand clk-s' });
+    this.face = h('div', { class: 'clk-face' }, ticks, this.hh, this.mh, this.sh, h('div', { class: 'clk-pin' }));
+    this.city = h('div', { class: 'clk-city' });
+    this.time = h('div', { class: 'clk-time' });
+    this.date = h('div', { class: 'clk-date' });
+    this.el.replaceChildren(this.face, h('div', { class: 'clk-info' }, this.city, this.time, this.date), h('div', { class: 'clk-hint', text: 'Select for options' }));
     this.loop(() => this.paint());
     this.paint();
   }
