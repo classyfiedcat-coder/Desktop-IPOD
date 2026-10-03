@@ -1,7 +1,7 @@
 {
   "name": "ipod-desktop",
   "productName": "iPod",
-  "version": "2.0.2",
+  "version": "3.0.0",
   "private": true,
   "description": "A free-floating, 3D iPod (5th generation) for your Windows desktop: click wheel, local music, Spotify, radio, podcasts, games and extras.",
   "author": "iPod Desktop contributors",
@@ -13,7 +13,7 @@
     "lint": "eslint .",
     "icons": "electron scripts/make-icons.js",
     "vendor": "node -e \"const fs=require('fs');fs.copyFileSync('node_modules/three/build/three.module.min.js','src/renderer/vendor/three/three.module.min.js');fs.copyFileSync('node_modules/three/LICENSE','src/renderer/vendor/three/LICENSE')\"",
-    "dist": "electron-builder --win",
+    "dist": "electron-builder",
     "dist:portable": "electron-builder --win portable",
     "test": "node --test \"test/**/*.test.js\" \"test/**/*.test.mjs\"",
     "e2e": "bash scripts/run-e2e.sh"
@@ -69,6 +69,47 @@
     },
     "portable": {
       "artifactName": "iPod-Portable-${version}.${ext}"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "category": "public.app-category.music",
+      "icon": "build/icon.png",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "darkModeSupport": true,
+      "extendInfo": {
+        "LSApplicationCategoryType": "public.app-category.music"
+      },
+      "fileAssociations": [
+        {
+          "ext": [
+            "mp3",
+            "m4a",
+            "m4b",
+            "aac",
+            "flac",
+            "wav",
+            "ogg",
+            "opus"
+          ],
+          "name": "Audio",
+          "role": "Viewer",
+          "rank": "Alternate"
+        }
+      ]
+    },
+    "dmg": {
+      "artifactName": "iPod-${version}-mac-${arch}.${ext}",
+      "title": "iPod ${version}"
     },
     "linux": {
       "target": [

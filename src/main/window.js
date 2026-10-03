@@ -211,7 +211,13 @@ class IpodWindow {
     const w = this.win;
     if (!w) return prefs;
     if ('alwaysOnTop' in patch) w.setAlwaysOnTop(!!prefs.alwaysOnTop, 'floating');
-    if ('showInTaskbar' in patch) w.setSkipTaskbar(prefs.showInTaskbar === false);
+    if ('showInTaskbar' in patch) {
+      // On a Mac it's the Dock icon (the iPod stays in the menu bar either way).
+      if (process.platform === 'darwin' && app.dock) {
+        if (prefs.showInTaskbar === false) app.dock.hide();
+        else app.dock.show();
+      } else w.setSkipTaskbar(prefs.showInTaskbar === false);
+    }
     if ('opacity' in patch) w.setOpacity(Math.min(1, Math.max(0.3, prefs.opacity || 1)));
     if ('openAtLogin' in patch && app.isPackaged) {
       app.setLoginItemSettings({ openAtLogin: !!prefs.openAtLogin, args: prefs.startHidden ? ['--hidden'] : [] });

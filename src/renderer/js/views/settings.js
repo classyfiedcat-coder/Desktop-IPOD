@@ -729,13 +729,14 @@ function appearanceSettings(app) {
 
 function desktopSettings(app) {
   const { store } = app;
+  const mac = store.env.platform === 'darwin';
   return new ListView({
     title: 'Desktop',
     items: () => [
       cycleItem(store, 'Always on Top', 'alwaysOnTop', ON_OFF),
-      cycleItem(store, 'Show in Taskbar', 'showInTaskbar', ON_OFF),
-      cycleItem(store, 'Start with Windows', 'openAtLogin', ON_OFF),
-      cycleItem(store, 'Start Hidden in Tray', 'startHidden', ON_OFF),
+      cycleItem(store, mac ? 'Show in Dock' : 'Show in Taskbar', 'showInTaskbar', ON_OFF),
+      cycleItem(store, mac ? 'Open at Login' : 'Start with Windows', 'openAtLogin', ON_OFF),
+      cycleItem(store, mac ? 'Start Hidden in Menu Bar' : 'Start Hidden in Tray', 'startHidden', ON_OFF),
       cycleItem(store, 'Snap to Screen Edges', 'snapToEdges', ON_OFF),
       cycleItem(store, 'Song Notifications', 'notifications', ON_OFF),
       { label: 'Global Shortcuts', view: () => shortcutsView(app) },
@@ -755,13 +756,15 @@ function desktopSettings(app) {
 
 function shortcutsView(app) {
   const { store } = app;
+  // These work from any app (see SHORTCUTS in main/desktop.js).
+  const mod = store.env.platform === 'darwin' ? '⌃⌥⌘' : 'Ctrl+Alt+';
   const rows = [
-    ['Ctrl+Alt+Space', 'Play / Pause'],
-    ['Ctrl+Alt+→', 'Next'],
-    ['Ctrl+Alt+←', 'Previous'],
-    ['Ctrl+Alt+↑', 'Volume Up'],
-    ['Ctrl+Alt+↓', 'Volume Down'],
-    ['Ctrl+Alt+I', 'Show / Hide'],
+    [`${mod}Space`, 'Play / Pause'],
+    [`${mod}→`, 'Next'],
+    [`${mod}←`, 'Previous'],
+    [`${mod}↑`, 'Volume Up'],
+    [`${mod}↓`, 'Volume Down'],
+    [`${mod}I`, 'Show / Hide'],
   ];
   return new ListView({
     title: 'Global Shortcuts',
@@ -810,7 +813,7 @@ function backupSettings(app) {
 
 function updateSettings(app) {
   const { store } = app;
-  // The portable and development builds can't install updates themselves.
+  // The portable, Mac and development builds can't install updates themselves.
   let canInstall = true;
   const view = new ListView({
     title: 'Software Update',
@@ -823,7 +826,7 @@ function updateSettings(app) {
   window.ipod.updates
     .status()
     .then((s) => {
-      canInstall = !(s && s.state === 'unsupported') && !(s && s.portable);
+      canInstall = !(s && s.state === 'unsupported') && !(s && s.manual);
       if (view.mounted) view.refresh();
     })
     .catch(() => {});

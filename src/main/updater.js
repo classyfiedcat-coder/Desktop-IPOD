@@ -7,8 +7,9 @@
  * when it starts, every few hours and when the PC wakes up, downloads new
  * versions in the background, and installs them silently and restarts (the
  * renderer picks a quiet moment, see renderer/js/updates.js), or when you
- * quit. The portable build can't replace itself, so it only checks and says
- * where to download the new version. Development builds don't update.
+ * quit. The portable build and the Mac app (which isn't signed by Apple, so
+ * macOS won't let it replace itself) only check, and say where to download
+ * the new version. Development builds don't update.
  */
 
 const { app, powerMonitor } = require('electron');
@@ -61,12 +62,13 @@ class Updater {
     this.status = { state: 'idle' };
     this.au = null;
     this.repo = releaseRepo();
-    this.portable = !!process.env.PORTABLE_EXECUTABLE_DIR;
-    // Installed copies update themselves; portable ones can only be told about a new version.
-    this.supported = app.isPackaged && !this.portable && process.platform === 'win32';
-    this.canNotify = app.isPackaged && this.portable && !!this.repo;
+    // Installed Windows copies update themselves; the portable exe and the Mac
+    // app can only be told about a new version (you download it yourself).
+    this.manual = !!process.env.PORTABLE_EXECUTABLE_DIR || process.platform === 'darwin';
+    this.supported = app.isPackaged && !this.manual && process.platform === 'win32';
+    this.canNotify = app.isPackaged && this.manual && !!this.repo;
     if (!this.supported) {
-      this.status = { state: 'unsupported', portable: this.portable };
+      this.status = { state: 'unsupported', manual: this.manual };
       return;
     }
     try {
@@ -75,7 +77,7 @@ class Updater {
     } catch (err) {
       log.warn('[updater] unavailable', err.message);
       this.supported = false;
-      this.status = { state: 'unsupported', portable: false };
+      this.status = { state: 'unsupported', manual: false };
       return;
     }
     const au = this.au;
@@ -120,7 +122,7 @@ class Updater {
     return this.status;
   }
 
-  /** Portable: look at the latest release and, if it's newer, say where to get it. */
+  /** Portable / Mac: look at the latest release and, if it's newer, say where to get it. */
   async _checkPortable() {
     const prev = this.status;
     this._set({ ...prev, state: 'checking' });
@@ -129,13 +131,13 @@ class Updater {
       const version = String(rel.tag_name || '').replace(/^v/i, '');
       if (version && newer(version, app.getVersion())) {
         const url = /^https:\/\/github\.com\//.test(rel.html_url || '') ? rel.html_url : `https://github.com/${this.repo}/releases/latest`;
-        this._set({ state: 'available', version, url, portable: true });
+        this._set({ state: 'available', version, url, manual: true });
       } else {
-        this._set({ state: 'current', version: app.getVersion(), checkedAt: Date.now(), portable: true });
+        this._set({ state: 'current', version: app.getVersion(), checkedAt: Date.now(), manual: true });
       }
     } catch (err) {
-      log.warn('[updater] portable check', err.message);
-      this._set({ state: 'error', message: 'Couldn’t reach GitHub', portable: true });
+      log.warn('[updater] check', err.message);
+      this._set({ state: 'error', message: 'Couldn’t reach GitHub', manual: true });
     }
     return this.status;
   }

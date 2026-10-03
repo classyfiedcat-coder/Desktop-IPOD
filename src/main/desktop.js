@@ -1,9 +1,10 @@
 'use strict';
 
 /**
- * Windows desktop integration: tray icon and menus, taskbar thumbnail
- * buttons, global shortcuts, jump-list tasks, track-change notifications and
- * command-line arguments (Open With, jump-list commands).
+ * Desktop integration: the tray (Windows) or menu bar (Mac) icon and menus,
+ * global shortcuts, track-change notifications, and on Windows the taskbar
+ * thumbnail buttons, jump-list tasks and command-line arguments (Open With,
+ * jump-list commands).
  */
 
 const fs = require('fs');
@@ -13,13 +14,17 @@ const { log } = require('./log');
 
 const AUDIO_RE = /\.(mp3|m4a|m4b|aac|flac|wav|ogg|oga|opus|weba)$/i;
 
+const IS_MAC = process.platform === 'darwin';
+// Ctrl+Alt on Windows. On a Mac, ⌘⌥ + arrows switches tabs in most apps, so
+// it's ⌃⌥⌘ there.
+const MOD = IS_MAC ? 'Control+Alt+Command' : 'Control+Alt';
 const SHORTCUTS = [
-  ['CommandOrControl+Alt+Space', 'playpause'],
-  ['CommandOrControl+Alt+Right', 'next'],
-  ['CommandOrControl+Alt+Left', 'prev'],
-  ['CommandOrControl+Alt+Up', 'volup'],
-  ['CommandOrControl+Alt+Down', 'voldown'],
-  ['CommandOrControl+Alt+I', 'toggle'],
+  [`${MOD}+Space`, 'playpause'],
+  [`${MOD}+Right`, 'next'],
+  [`${MOD}+Left`, 'prev'],
+  [`${MOD}+Up`, 'volup'],
+  [`${MOD}+Down`, 'voldown'],
+  [`${MOD}+I`, 'toggle'],
 ];
 
 /** Pull iPod commands and audio file paths out of a command line. */
@@ -156,13 +161,16 @@ class Desktop {
   }
 
   _tray() {
-    let img = this.icon('tray.png');
+    // Mac: a template image, which the menu bar colours for light and dark.
+    let img = this.icon(IS_MAC ? 'trayTemplate.png' : 'tray.png');
     if (img.isEmpty()) img = this.icon('icon.png').resize({ width: 16, height: 16 });
+    if (IS_MAC) img.setTemplateImage(true);
     this.tray = new Tray(img);
     this.tray.setToolTip('iPod');
     const refresh = () => this.tray.setContextMenu(Menu.buildFromTemplate(this.menuTemplate()));
     refresh();
-    this.tray.on('click', () => this.w.toggle());
+    // On a Mac clicking a menu bar icon opens its menu; on Windows it shows or hides the iPod.
+    if (!IS_MAC) this.tray.on('click', () => this.w.toggle());
     this.tray.on('right-click', refresh);
     this.tray.on('mouse-enter', refresh);
     this._refreshTray = refresh;

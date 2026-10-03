@@ -283,6 +283,8 @@ export class CalendarView extends View {
 
 // ----------------------------------------------------------------- notes --
 
+const IS_MAC = /mac/i.test(navigator.platform);
+
 const BUILT_IN_NOTES = [
   {
     title: 'Welcome',
@@ -302,7 +304,7 @@ Esc or Backspace  Menu
 Space  Play / Pause
 ← →  Previous / Next (hold to rewind or fast-forward)
 H  Hold switch
-Ctrl+Q  Quit`,
+${IS_MAC ? '⌘Q' : 'Ctrl+Q'}  Quit`,
   },
   {
     title: 'Spotify',

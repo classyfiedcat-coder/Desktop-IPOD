@@ -36,7 +36,11 @@ function changes() {
 
 const setup = `iPod-Setup-${version}.exe`;
 const portable = `iPod-Portable-${version}.exe`;
+const macArm = `iPod-${version}-mac-arm64.dmg`;
+const macIntel = `iPod-${version}-mac-x64.dmg`;
 const notes = `## ⬇️ Download
+
+### Windows
 
 | | File | |
 | :-- | :-- | :-- |
@@ -45,7 +49,18 @@ const notes = `## ⬇️ Download
 
 For Windows 10 and 11 (64-bit). The app isn't code-signed yet, so Windows SmartScreen may warn you the first time: click **More info**, then **Run anyway**.
 
-<sub>\`latest.yml\` and the \`.blockmap\` file below are used by installed copies to update themselves. You don't need to download them.</sub>
+### Mac
+
+| | File |
+| :-- | :-- |
+| **Apple silicon** (M1 and later) | **[${macArm}](${file(macArm)})** |
+| **Intel** | [${macIntel}](${file(macIntel)}) |
+
+For macOS 13 Ventura or later. Not sure which? Apple menu › About This Mac: "Chip: Apple M…" is Apple silicon. Open the disk image and drag iPod to Applications.
+
+The app isn't notarized by Apple yet, so the first time macOS won't open it. Open it once, then go to **System Settings › Privacy & Security**, scroll down and click **Open Anyway**. The Mac app tells you when there's a new version, but you download it yourself.
+
+<sub>\`latest.yml\` and the \`.blockmap\` file below are used by installed Windows copies to update themselves. You don't need to download them.</sub>
 
 ## ✨ What's new in ${version}
 

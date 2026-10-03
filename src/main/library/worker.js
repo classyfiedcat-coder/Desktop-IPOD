@@ -22,6 +22,9 @@ const AUDIO_EXT = new Set(['.mp3', '.m4a', '.m4b', '.aac', '.flac', '.wav', '.og
 const PLAYLIST_EXT = new Set(['.m3u', '.m3u8']);
 const COVER_NAMES = ['cover', 'folder', 'front', 'album', 'albumart', 'albumartsmall', 'artwork'];
 const SKIP_DIRS = new Set(['node_modules', '$recycle.bin', 'system volume information', '.git', '@eadir']);
+// Mac packages that look like folders: the Music app's database, GarageBand
+// and Logic projects, apps. Their audio isn't part of your music.
+const SKIP_PACKAGES = /\.(musiclibrary|tvlibrary|photoslibrary|band|logicx|app|bundle|framework)$/i;
 const MAX_FILES = 200000;
 const CONCURRENCY = 8;
 
@@ -244,7 +247,7 @@ async function walk(dir, depth, onFile) {
     if (e.name.startsWith('.')) continue;
     const full = path.join(dir, e.name);
     if (e.isDirectory()) {
-      if (SKIP_DIRS.has(e.name.toLowerCase())) continue;
+      if (SKIP_DIRS.has(e.name.toLowerCase()) || SKIP_PACKAGES.test(e.name)) continue;
       if (!(await walk(full, depth + 1, onFile))) return false;
     } else if (e.isFile()) {
       if (onFile(full, path.extname(e.name).toLowerCase()) === false) return false;

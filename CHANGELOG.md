@@ -1,14 +1,28 @@
 # Changelog
 
-## 2.0.2
+## 3.0.0
 
-- Updates install themselves. The iPod checks for new versions when it starts, every four hours and when your PC wakes up, and downloads them in the background. Then it waits for a quiet moment (nothing playing, no video, game, stopwatch or sleep timer running, not locked, and untouched for three minutes), installs silently and opens again where you left off. Before, it only checked once at startup and installed when you quit, so an iPod left running never updated.
-- Settings › Software Update is now a menu: Check for Updates, Install Automatically (on by default) and the version. After an update, the iPod says "Updated to …" once.
-- The portable version checks for new versions too, and links to the download.
+The iPod comes to the Mac, syncs with your iTunes or Music library, and keeps itself up to date.
 
-## 2.0.1
+### Mac
+- A Mac app for Apple silicon and Intel Macs (macOS 13 Ventura or later), built and released alongside the Windows version.
+- A proper Mac menu bar (iPod, Edit, Controls, Window, with ⌘Q and ⌘, for Settings), a menu bar icon that suits light and dark menu bars, and Show in Dock / Open at Login in Settings › Desktop. Clicking the Dock icon shows the iPod, and songs opened from Finder or dropped on the Dock icon play.
+- Global shortcuts are ⌃⌥⌘ + Space, arrows and I on a Mac (⌘⌥ + arrows switches tabs in most apps).
+- The Mac app isn't notarized by Apple yet: the first time, open it from System Settings › Privacy & Security › Open Anyway. It tells you when there's a new version; you download it yourself.
 
-- The screen stays sharp when the iPod is tilted or floating. When it turned, the screen was drawn flat at normal resolution and then stretched onto the angle, which blurred small text. It's now drawn at twice the resolution and scaled down, so text stays readable at an angle. With Motion off it's always flat, so it's drawn as before.
+### iTunes and the Music app
+- The iPod reads the library file that iTunes (Windows and Mac) and the Music app (Mac) share with other apps, like an iPod synced with iTunes.
+- Your iTunes playlists appear in Music › Playlists, in their own order, including smart playlists (as they are now) and playlist folders.
+- Star ratings, play counts, last played and date added come from iTunes, so Top 25 Most Played, Recently Played and My Top Rated reflect years of listening. Plays on the iPod add to iTunes', and a rating you give on the iPod wins. Nothing in iTunes is changed.
+- It's read again whenever iTunes saves it, and matched to your music files by where they are. Settings › Music Library › iTunes Library shows how many songs matched and how to turn on sharing in iTunes or Music.
+
+### Updates install themselves
+- The Windows app checks for new versions when it starts, every four hours and when your PC wakes up, and downloads them in the background. Then it waits for a quiet moment (nothing playing, no video, game, stopwatch or sleep timer running, not locked, and untouched for three minutes), installs silently and opens again where you left off. Before, it only checked once at startup and installed when you quit.
+- Settings › Software Update is a menu: Check for Updates, Install Automatically (on by default) and the version. After an update, the iPod says "Updated to …" once.
+- The portable version and the Mac app check for new versions too, and link to the download.
+
+### Sharper screen
+- The screen stays sharp when the iPod is tilted or floating. It's drawn at twice the resolution and scaled down, so small text no longer blurs at an angle.
 
 ## 2.0.0
 

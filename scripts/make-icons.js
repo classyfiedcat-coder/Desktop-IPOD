@@ -57,6 +57,20 @@ const traySvg = (size) => `<svg xmlns="http://www.w3.org/2000/svg" width="${size
   <circle cx="16" cy="22" r="2" fill="#ffffff" stroke="#6b7076" stroke-width="0.7"/>
 </svg>`;
 
+/**
+ * The Mac menu bar icon: a "template" (black and transparent; macOS colours
+ * it to suit the menu bar). An iPod with its screen and wheel cut out.
+ */
+const trayTemplateSvg = (size) => `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 32 32">
+  <defs><mask id="m">
+    <rect width="32" height="32" fill="#fff"/>
+    <rect x="10.4" y="5" width="11.2" height="8.6" rx="1" fill="#000"/>
+    <circle cx="16" cy="21.6" r="5.5" fill="#000"/>
+  </mask></defs>
+  <rect x="7.6" y="2" width="16.8" height="28" rx="3.6" fill="#000" mask="url(#m)"/>
+  <circle cx="16" cy="21.6" r="1.9" fill="#000"/>
+</svg>`;
+
 /** Taskbar thumbnail buttons: white glyphs on the dark preview, 16px at 1x. */
 const glyph = (body) => (size) => `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 16 16"><g fill="#ffffff">${body}</g></svg>`;
 const THUMBS = {
@@ -102,8 +116,8 @@ function ico(pngs) {
 app.whenReady().then(async () => {
   const win = new BrowserWindow({
     show: false,
-    width: 512,
-    height: 512,
+    width: 1024,
+    height: 1024,
     frame: false,
     transparent: true,
     webPreferences: { offscreen: true },
@@ -113,8 +127,8 @@ app.whenReady().then(async () => {
   fs.mkdirSync(out('build'), { recursive: true });
   fs.mkdirSync(out('src/assets'), { recursive: true });
 
-  const big = await render(win, svg(512), 512);
-  fs.writeFileSync(out('build/icon.png'), big);
+  // 1024px for the Mac app icon (electron-builder makes the .icns from it).
+  fs.writeFileSync(out('build/icon.png'), await render(win, svg(1024), 1024));
   fs.writeFileSync(out('src/assets/icon.png'), await render(win, svg(256), 256));
 
   const sizes = [16, 24, 32, 48, 64, 128, 256];
@@ -130,6 +144,9 @@ app.whenReady().then(async () => {
   fs.writeFileSync(out('src/assets/tray.png'), await render(win, traySvg(16), 16));
   fs.writeFileSync(out('src/assets/tray@1.5x.png'), await render(win, traySvg(24), 24));
   fs.writeFileSync(out('src/assets/tray@2x.png'), await render(win, traySvg(32), 32));
+  // Mac menu bar: 18pt, at 1x and 2x.
+  fs.writeFileSync(out('src/assets/trayTemplate.png'), await render(win, trayTemplateSvg(18), 18));
+  fs.writeFileSync(out('src/assets/trayTemplate@2x.png'), await render(win, trayTemplateSvg(36), 36));
   for (const [name, make] of Object.entries(THUMBS)) {
     fs.writeFileSync(out(`src/assets/${name}.png`), await render(win, make(16), 16));
     fs.writeFileSync(out(`src/assets/${name}@2x.png`), await render(win, make(32), 32));
