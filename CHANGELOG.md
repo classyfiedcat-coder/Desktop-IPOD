@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.1
+
+### Spotify
+- A song picked from search no longer stops at the end, or when you skip it: your Spotify queue plays next, then a mix of songs like it (more from the same artist, never another version of the same song). If there's nothing like it, the rest of its album plays.
+
 ## 3.0.0
 
 The iPod comes to the Mac, syncs with your iTunes or Music library, and keeps itself up to date.
