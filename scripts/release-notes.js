@@ -15,7 +15,7 @@ const path = require('path');
 const root = path.join(__dirname, '..');
 const { version } = require(path.join(root, 'package.json'));
 const tag = process.argv[2] || `v${version}`;
-const repo = process.env.GITHUB_REPOSITORY || 'classyfiedcat-coder/Ipod';
+const repo = process.env.GITHUB_REPOSITORY || 'classyfiedcat-coder/Desktop-IPOD';
 const file = (name) => `https://github.com/${repo}/releases/download/${tag}/${name}`;
 
 /** The CHANGELOG section for this version, without its heading. */
