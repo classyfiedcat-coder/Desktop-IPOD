@@ -82,7 +82,7 @@ export function songsView(app, title, tracks, opts = {}) {
 
 export class MainMenu extends ListView {
   constructor(app) {
-    super({ title: 'iPod', items: () => mainItems(app) });
+    super({ title: 'iPod', split: true, items: () => mainItems(app) });
     this.app = app;
   }
 
@@ -156,6 +156,7 @@ export async function shuffleSongs(app) {
 export function musicMenu(app) {
   return new ListView({
     title: 'Music',
+    split: true,
     items: () => {
       const m = app.store.settings.musicMenu;
       const lib = app.library;

@@ -16,6 +16,7 @@ export class ListView extends View {
    * @param {Function} [o.loadMore] async (offset) => {items, more}
    * @param {boolean} [o.thumbs] two-line rows with artwork
    * @param {boolean} [o.index] show letter overlay when spinning fast
+   * @param {boolean} [o.split] a top-level menu: on the classic and nano 3rd generation, album art fills the right half
    * @param {string} [o.empty]
    */
   constructor(o) {
@@ -35,16 +36,27 @@ export class ListView extends View {
     return 'list-view';
   }
 
+  /** Shares the screen with album art (classic-style screens). */
+  get split() {
+    return !!this.o.split;
+  }
+
   get rowCount() {
     // Rows with artwork are taller (two lines), so fewer fit in the same space.
     const n = this.o.rows || this.os.ui.rows;
-    return this.o.thumbs ? Math.max(3, Math.round(n * 0.62)) : n;
+    return this.thumbs ? Math.max(3, Math.round(n * 0.62)) : n;
+  }
+
+  /** Two-line rows with artwork, except on the monochrome screens (they never showed pictures). */
+  get thumbs() {
+    return !!this.o.thumbs && this.os.style !== 'mono';
   }
 
   render() {
     const el = this.el;
     el.replaceChildren();
-    el.classList.toggle('thumbs', !!this.o.thumbs);
+    el.classList.toggle('thumbs', this.thumbs);
+    el.classList.toggle('split', !!this.o.split);
     el.style.setProperty('--rows', this.rowCount);
 
     this.listEl = h('div', { class: 'list' });
@@ -189,11 +201,11 @@ export class ListView extends View {
         checked ? 'checked' : '',
         icon ? `has-icon icon-${icon}` : '',
         item.disabled ? 'disabled' : '',
-        this.o.thumbs ? 'with-thumb' : '',
+        this.thumbs ? 'with-thumb' : '',
         item.center ? 'centered' : '',
         item.explicit ? 'explicit' : '',
         // In a list with artwork, rows that never have a picture (headings, recent searches) don't get a blank one.
-        this.o.thumbs && item.thumb === undefined ? 'no-thumb' : '',
+        this.thumbs && item.thumb === undefined ? 'no-thumb' : '',
       ]
         .filter(Boolean)
         .join(' ');
@@ -208,7 +220,7 @@ export class ListView extends View {
         iconEl.dataset.icon = icon || '';
         iconEl.innerHTML = icon && ICONS[icon] ? ICONS[icon] : icon === 'check' ? '✓' : '';
       }
-      if (this.o.thumbs) {
+      if (this.thumbs) {
         const img = row.querySelector('.thumb');
         const src = item.thumb || '';
         if (img.dataset.src !== src) {

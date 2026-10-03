@@ -15,6 +15,7 @@ export function createExtras(app) {
     menu() {
       return new ListView({
         title: 'Extras',
+        split: true,
         items: [
           { label: 'Alarms', view: () => alarmsMenu(app) },
           { label: 'Calendars', view: () => pim.calendars() },

@@ -63,6 +63,7 @@ export function createRadioMenus(app) {
     root() {
       return new ListView({
         title: 'Radio',
+        split: true,
         refreshOnEnter: true,
         items: () => {
           const items = [];

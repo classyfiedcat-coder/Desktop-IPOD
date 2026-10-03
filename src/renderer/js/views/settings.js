@@ -4,7 +4,8 @@ import { ListView } from './list.js';
 import { View } from './view.js';
 import { cycleItem, choiceItem, StaticList, SliderView, TextView, ScanView, confirmView } from './common.js';
 import { EQ_PRESETS, EQ_BANDS } from '../player/eq.js';
-import { SIZES, getModel } from '../models.js';
+import { SIZES, MODELS, getModel } from '../models.js';
+import { previewClicks } from '../sound.js';
 import { fmtBytes, h, clamp } from '../util.js';
 import { showSheet } from './sheet.js';
 import { askText } from './textinput.js';
@@ -21,6 +22,7 @@ export function settingsMenu(app) {
   const { store, player } = app;
   return new ListView({
     title: 'Settings',
+    split: true,
     refreshOnEnter: true,
     items: () => [
       { label: 'About', view: () => aboutView(app) },
@@ -90,6 +92,21 @@ export function settingsMenu(app) {
         ['loud', 'Loud'],
         ['off', 'Off'],
       ]),
+      choiceItem(
+        app,
+        'Click Sound',
+        'clickSound',
+        [
+          ['auto', 'This iPod’s Own'],
+          ['piezo', 'Click Wheel'],
+          ['soft', 'Soft Tick'],
+          ['mechanical', 'Scroll Wheel'],
+          ['pop', 'Pop'],
+          ['typewriter', 'Typewriter'],
+        ],
+        // Play a few ticks of the new sound as it's chosen.
+        { onChange: (v) => (store.set('clickSound', v), previewClicks()) }
+      ),
       { label: 'Lyrics', view: () => lyricsSettings(app) },
       { label: 'Date & Time', view: () => dateTimeSettings(app) },
       { label: 'Music Library', view: () => librarySettings(app) },
@@ -200,7 +217,7 @@ function aboutView(app) {
     }
     rows.push({ label: 'Version', value: (info && info.version) || app.store.env.version });
     rows.push({ label: 'S/N', value: serial(app) });
-    rows.push({ label: 'Model', value: model.era.split(' (')[0] });
+    rows.push({ label: 'Model', value: modelLabel(model) });
     rows.push({ label: 'Format', value: app.store.env.platform === 'darwin' ? 'Macintosh' : 'Windows' });
     if (info && info.electron) rows.push({ label: 'Engine', value: `Electron ${info.electron}` });
     if (app.spotifyApi.user) rows.push({ label: 'Spotify', value: app.spotifyApi.user.display_name || app.spotifyApi.user.id });
@@ -665,14 +682,32 @@ function radioSettings(app) {
 
 // ------------------------------------------------------------- appearance --
 
+/** "iPod classic (2007)": the name and year, enough to tell them apart. */
+const modelLabel = (m) => `${m.id === 'video' ? 'iPod video' : m.id === 'original' ? 'iPod (original)' : m.name} (${m.year})`;
+
 function appearanceSettings(app) {
   const { store } = app;
-  const model = getModel(store.settings.model);
   return new ListView({
     title: 'Appearance',
     refreshOnEnter: true,
     items: () => [
-      choiceItem(app, 'Color', 'color', [...model.colors.map((c) => [c.id, c.name]), ['custom', 'Custom']]),
+      choiceItem(
+        app,
+        'Model',
+        'model',
+        MODELS.map((m) => [m.id, modelLabel(m)]),
+        {
+          onChange: (id) => {
+            // Keep the colour if the new model comes in it (black, silver),
+            // otherwise its first one, without building the old model twice.
+            const next = getModel(id);
+            const c = store.settings.color;
+            if (c !== 'custom' && !next.colors.some((x) => x.id === c)) store.settings.color = next.colors[0].id;
+            store.set('model', id);
+          },
+        }
+      ),
+      choiceItem(app, 'Color', 'color', [...getModel(store.settings.model).colors.map((c) => [c.id, c.name]), ['custom', 'Custom']]),
       { label: 'Custom Colors…', view: () => new ColorEditor(app) },
       choiceItem(
         app,
@@ -720,6 +755,10 @@ function appearanceSettings(app) {
       cycleItem(store, 'Float When Idle', 'idleFloat', ON_OFF),
       cycleItem(store, 'Shadow', 'shadow', ON_OFF),
       cycleItem(store, 'Wheel Glow', 'wheelGlow', ON_OFF),
+      cycleItem(store, 'Now Playing', 'npColors', [
+        ['classic', 'Classic'],
+        ['album', 'Album Colors'],
+      ]),
       cycleItem(store, 'Startup Animation', 'startupAnimation', ON_OFF),
     ],
   });

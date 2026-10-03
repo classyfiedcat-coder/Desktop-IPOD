@@ -1,5 +1,29 @@
 # Changelog
 
+## 4.0.0
+
+Every classic iPod: choose the original from 2001, the iPod mini, the 5th generation, the iPod classic or the 3rd generation nano, each built to its real measurements.
+
+### Five iPods
+- Settings › Appearance › Model picks the iPod: the original (2001), the mini (2004), the 5th generation with video (2005), the iPod classic (2007) or the nano 3rd generation (2007), in their real colours.
+- Measured, not guessed: overall sizes, capacities and model numbers from Apple's specifications; screen windows, wheels, centre buttons and corner radii measured from Apple's own front-on product images (true to scale); colours sampled from those images; port positions from iFixit's photos.
+- Each has its own body: white plastic under clear acrylic, anodised aluminium on polished steel, or the mini's aluminium tube with its plastic end caps. Thickness follows capacity, like the real ones (the 160GB classic is 13.5mm, the 80GB 10.5mm).
+- The original's scroll wheel physically turns under your pointer, inside a ring of four buttons with "menu" in lower case. Its FireWire port, headphone jack and white hold slider are on top, labelled on the white lip below.
+- The nano has everything on its bottom edge: the headphone jack, the dock connector and the hold switch. Its centre button is the colour of the case.
+- The capacity on the back is the smallest of each model's that would hold your music drive.
+
+### Screens
+- The original and the mini have monochrome LCDs: Chicago type, the inverted highlight, the LCD's own grey (and the mini's blue-grey) lit and unlit, a fine pixel grid, and a centred Now Playing without artwork, like the real ones.
+- The classic and nano have the 2007 look: the top menus share the screen with album art that slowly pans and changes, the title bar covers only the menu, only the highlighted row shows its arrow, and Now Playing artwork stands on its reflection.
+
+### Small touches
+- Settings › Click Sound: this iPod's own click, the Click Wheel's tick, a soft tick, the original's mechanical scroll wheel, a pop or a typewriter. You hear it as you choose.
+- Settings › Appearance › Now Playing › Album Colors: Now Playing takes on the colours of the album art, like Apple Music, and the wheel glow follows.
+
+### The 5th generation, corrected
+- Measured against Apple's images, the 5th generation's screen window sits 2.8mm higher, the wheel 5mm higher and a little smaller, the centre button is smaller, and the corners are tighter. The white one's wheel is grey with white labels and a white centre button, as it really is.
+- The top edge is bare chrome, without the printed labels.
+
 ## 3.1.0
 
 A closer likeness of the real iPod, and a screen that stays sharp at any angle.

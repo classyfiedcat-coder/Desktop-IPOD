@@ -4,7 +4,7 @@
  * same button and wheel events a real iPod produces.
  */
 
-import { getModel, getColor, SIZES, PX_PER_MM } from './models.js';
+import { getModel, getColor, SIZES, PX_PER_MM, depthFor, edgeBand } from './models.js';
 import { h, svg, ICONS, shade, Emitter } from './util.js';
 import { MotionRig } from './rig.js';
 import { makeWear, wearCanvases } from './wear.js';
@@ -25,8 +25,8 @@ const PERSPECTIVE_MM = 230;
  */
 const FACE_SUPERSAMPLE = 2;
 
-/** Where the hold switch sits on the top edge, in mm (across, and depth from the front). */
-const HOLD = { x: 10.5, w: 8, z: -3.8 };
+/** The hold switch's width along the edge, in mm, when a model doesn't say. */
+const HOLD_W = 8;
 
 /** CSS custom properties for a colour scheme. */
 export function colorVars(color) {
@@ -71,13 +71,26 @@ const BLACK_STEEL = [
   [1, '#222326'],
 ];
 
+/** Anodised aluminium, edge-on: the colour, lit along the rounded edges. */
+const anodised = (c) => [
+  [0, shade(c, -0.25)],
+  [0.12, shade(c, 0.25)],
+  [0.3, c],
+  [0.7, shade(c, -0.1)],
+  [0.88, shade(c, 0.2)],
+  [1, shade(c, -0.3)],
+];
+
 /**
- * The edge, from the front face (0) to the back (1): the front plastic shows
- * as a thin band of the front colour, then a fine dark seam, then the steel.
+ * The edge, from the front face (0) to the back (1): the front plastic (or
+ * aluminium) shows as a band of the front colour, then a fine dark seam, then
+ * the steel. The mini is aluminium all the way round.
  */
-export function edgeProfile(finish, front) {
+export function edgeProfile(finish, front, model) {
+  if (model && model.back === 'aluminium') return anodised(front);
   const steel = finish === 'black' ? BLACK_STEEL : STEEL;
-  const P = 0.17;
+  // How much of the depth the front piece takes.
+  const P = model ? Math.min(0.4, Math.max(0.12, -model.profile.frontTo / model.depth)) : 0.17;
   return [
     [0, shade(front, -0.12)],
     [0.08, front],
@@ -134,6 +147,9 @@ function serialFor(id) {
   return out;
 }
 
+/** The name etched on the back: just "iPod" (the nano's says so too, iFixit's photos show). */
+export const backWordmark = () => 'iPod';
+
 const HEADPHONES = '<svg viewBox="0 0 16 16"><path d="M8 2.2a6 6 0 0 0-6 6v4.3a1.3 1.3 0 0 0 1.3 1.3H5V9.4H3.4V8.2a4.6 4.6 0 0 1 9.2 0v1.2H11v4.4h1.7a1.3 1.3 0 0 0 1.3-1.3V8.2a6 6 0 0 0-6-6z" fill="currentColor"/></svg>';
 
 /** Facets per rounded corner. */
@@ -149,7 +165,7 @@ const LIGHT = [-0.6, -0.8];
  * y down: 0 = right, 90 = down). Local x runs back → front, local y along
  * the edge.
  */
-function buildShell({ W, H, R, T, u, refl, jack, dock, hold, profile }) {
+function buildShell({ W, H, R, T, u, refl, ports, depth, dock, profile, holdW = HOLD_W, labels = false }) {
   const r = (R + RIM) * u;
   const x0 = -RIM * u;
   const y0 = -RIM * u;
@@ -193,43 +209,37 @@ function buildShell({ W, H, R, T, u, refl, jack, dock, hold, profile }) {
   // Walls along the straight edges.
   panel(180, x0, (y0 + y1) / 2, cy[1] - cy[0], 'wall wall-l');
   panel(0, x1, (y0 + y1) / 2, cy[1] - cy[0], 'wall wall-r');
-  const topLen = cx[1] - cx[0];
-  const bottomLen = topLen;
+  const edgeLen = cx[1] - cx[0];
   // On the top wall, local x is depth (back → front) and local y runs right →
-  // left along the edge. at() places something centred on a point given in
-  // device millimetres across and a fraction of the depth from the front.
-  const topY = (mmX) => topLen / 2 + 0.3 + (x0 + x1) / 2 - mmX * u;
-  const depthX = (depth) => LAP + T * (1 - depth);
-  const at = (mmX, depth, wMm, hMm) => ({
-    left: `${(depthX(depth) - (hMm / 2) * u).toFixed(2)}px`,
-    top: `${(topY(mmX) - (wMm / 2) * u).toFixed(2)}px`,
+  // left along the edge; on the bottom wall it runs left → right. at() places
+  // something centred on a point given in device millimetres across and a
+  // fraction of the depth from the front.
+  const alongY = (edge, mmX) => edgeLen / 2 + 0.3 + (edge === 'top' ? 1 : -1) * ((x0 + x1) / 2 - mmX * u);
+  const depthX = (d) => LAP + T * (1 - d);
+  const at = (edge, mmX, d, wMm, hMm) => ({
+    left: `${(depthX(d) - (hMm / 2) * u).toFixed(2)}px`,
+    top: `${(alongY(edge, mmX) - (wMm / 2) * u).toFixed(2)}px`,
     width: `${(hMm * u).toFixed(2)}px`,
     height: `${(wMm * u).toFixed(2)}px`,
   });
   // Labels read left to right along the top with the front facing you.
-  const label = (mmX, depth, html, cls) =>
-    h('div', { class: `edge-label ${cls}`, html, style: { left: `${depthX(depth).toFixed(2)}px`, top: `${topY(mmX).toFixed(2)}px` } });
-  panel(
-    270,
-    (x0 + x1) / 2,
-    y0,
-    topLen,
-    'wall wall-t',
-    // The slot the hold switch slides in, its label, the headphone jack and its icon.
-    h('div', { class: 'hold-slot', style: at(hold.x, hold.depth, hold.w + 0.6, 2.4) }),
-    label(hold.x + hold.w / 2 + 4.4, hold.depth, 'HOLD', 'lbl-hold'),
-    label(jack.x - 5.8, 0.5, HEADPHONES, 'lbl-phones'),
-    h('div', { class: 'jack', style: at(jack.x, 0.5, jack.d, jack.d) })
-  );
-  panel(
-    90,
-    (x0 + x1) / 2,
-    y1,
-    bottomLen,
-    'wall wall-b',
-    // Dock connector, centred: a chrome-rimmed slot with a row of pins.
-    h('div', { class: 'dock', style: { left: `${(LAP + T / 2 - (dock.h / 2) * u).toFixed(2)}px`, top: `${(bottomLen / 2 - (dock.w / 2) * u + 0.3).toFixed(2)}px`, width: `${(dock.h * u).toFixed(2)}px`, height: `${(dock.w * u).toFixed(2)}px` } }, h('div', { class: 'dock-pins' }))
-  );
+  const label = (mmX, d, html, cls) =>
+    h('div', { class: `edge-label ${cls}`, html, style: { left: `${depthX(d).toFixed(2)}px`, top: `${alongY('top', mmX).toFixed(2)}px` } });
+  // What's cut into an edge: the hold switch's slot (and its label), the
+  // headphone jack (and its icon), the dock connector, a FireWire port.
+  const cutouts = (edge) =>
+    ports
+      .filter((p) => p.edge === edge)
+      .flatMap((p) => {
+        if (p.kind === 'hold')
+          return [h('div', { class: 'hold-slot', style: at(edge, p.x, depth, holdW + 0.6, 2.4) }), labels && edge === 'top' ? label(p.x - holdW / 2 - 4.4, depth, 'HOLD', 'lbl-hold') : null];
+        if (p.kind === 'jack') return [labels && edge === 'top' ? label(p.x - 5.8, depth, HEADPHONES, 'lbl-phones') : null, h('div', { class: 'jack', style: at(edge, p.x, depth, 5.2, 5.2) })];
+        if (p.kind === 'dock') return [h('div', { class: 'dock', style: at(edge, p.x, depth, dock.w, dock.h) }, h('div', { class: 'dock-pins' }))];
+        if (p.kind === 'firewire') return [h('div', { class: 'firewire', style: at(edge, p.x, depth, 11, 4.6) }, h('div', { class: 'firewire-tongue' }))];
+        return [];
+      });
+  panel(270, (x0 + x1) / 2, y0, edgeLen, 'wall wall-t', ...cutouts('top'));
+  panel(90, (x0 + x1) / 2, y1, edgeLen, 'wall wall-b', ...cutouts('bottom'));
 
   // Faceted corners: chords of the corner arc, so they meet the walls exactly.
   const corners = [
@@ -301,9 +311,14 @@ export class Device extends Emitter {
     if (!hi && this.body3d) this.body3d.dispose();
 
     const [W, H] = model.size;
-    // 11mm for a 30GB iPod, 14mm for the 60 and 80GB ones.
-    const depthMm = (model.depths && model.depths[this.capacity]) || model.depth;
+    // How thick it is (a 5th generation 30GB is 11mm, the 60 and 80GB 14mm),
+    // and the band around the edge the ports are cut into.
+    const depthMm = depthFor(model, this.capacity);
     const T = depthMm * u;
+    const band = edgeBand(model, depthMm);
+    const ports = model.ports;
+    const holdPort = ports.find((p) => p.kind === 'hold');
+    const holdW = model.holdW || HOLD_W;
     // Room around the device for tilting, lifting and the shadow on the desk.
     const pad = Math.round(46 * size.scale);
     const widthPx = Math.round(W * u + pad * 2);
@@ -358,16 +373,19 @@ export class Device extends Emitter {
     );
     caseEl.append(bezel);
 
-    // Wheel.
+    // Wheel. The original iPod's turns, inside a ring of four buttons; the
+    // rest are click wheels (touch-sensitive, the labels are the buttons).
     const wd = model.wheel;
+    const scroller = wd.type === 'scroll' ? h('div', { class: 'scroller', style: { width: mm(wd.inner), height: mm(wd.inner) } }, h('div', { class: 'scroller-grain' }), h('div', { class: 'scroller-sheen' })) : null;
     const wheel = h(
       'div',
       {
-        class: 'wheel',
+        class: `wheel wheel-${wd.type}`,
         style: { left: mm(W / 2 - wd.d / 2), top: mm(wd.cy - wd.d / 2), width: mm(wd.d), height: mm(wd.d) },
       },
       h('div', { class: 'wheel-sheen' }, refl('sheen', '-9 8')),
-      h('div', { class: 'lbl lbl-menu', text: 'MENU' }),
+      scroller,
+      h('div', { class: 'lbl lbl-menu', text: wd.menu || 'MENU' }),
       svg(ICONS.prev, 'lbl lbl-prev'),
       svg(ICONS.next, 'lbl lbl-next'),
       svg(ICONS.playpause, 'lbl lbl-play'),
@@ -378,10 +396,15 @@ export class Device extends Emitter {
     wheel.append(center);
     caseEl.append(wheel);
 
-    // Hold switch: a little fin standing up out of the top edge.
-    const holdEl = h('div', { class: `hold-switch hold-${model.hold}`, title: 'Hold switch' }, h('div', { class: 'hold-track' }, h('div', { class: 'hold-knob' })));
+    // Hold switch: a little fin standing up out of the edge (top, or bottom on the nano).
+    const holdEl = h('div', { class: `hold-switch hold-${model.hold} edge-${holdPort.edge}`, title: 'Hold switch' }, h('div', { class: 'hold-track' }, h('div', { class: 'hold-knob' })));
     holdEl.classList.toggle('on', this.hold);
-    holdEl.style.transform = `translateZ(${(HOLD.z * u).toFixed(2)}px)`;
+    Object.assign(holdEl.style, {
+      left: mm(holdPort.x - holdW / 2),
+      width: mm(holdW),
+      top: holdPort.edge === 'top' ? mm(-2) : mm(H - 0.6),
+      transform: `translateZ(${(band.mid * u).toFixed(2)}px)`,
+    });
 
     // The polished stainless back, shown when you flip the iPod over.
     const lines = String(engraving || color.engraved || '').split('\n').filter(Boolean).slice(0, 2);
@@ -397,14 +420,14 @@ export class Device extends Emitter {
       h('div', { class: 'back-env' }, refl('env', '-10 9')),
       h('div', { class: 'back-lines', 'data-glint': '' }),
       h('div', { class: 'back-flare', 'data-flare': '0.75 1.1 0.8' }),
-      h('div', { class: 'back-mark' }, 'iPod'),
+      h('div', { class: 'back-mark' }, backWordmark(model)),
       lines.length ? h('div', { class: 'back-engraving' }, ...lines.map((l) => h('div', { text: l }))) : null,
-      h('div', { class: 'back-cap' }, `${this.capacity || '30GB'}`),
+      h('div', { class: 'back-cap' }, `${this.capacity || ''}`),
       h(
         'div',
         { class: 'back-small' },
         h('div', { text: `Serial No.: ${serialFor(color.id)}` }),
-        h('div', { text: 'Designed in California. Assembled on your desktop. Model No.: A1136  EMC No.: 2065' }),
+        h('div', { text: `Designed in California. Assembled on your desktop. Model No.: ${model.marks.model}  EMC No.: ${model.marks.emc}` }),
         h('div', { text: 'Rated 5-30V \u2393 1A Max.' }),
         h('div', { class: 'back-marks' }, h('span', { class: 'mk-fc', text: 'FC' }), h('span', { class: 'mk-ce', text: 'CE' }), h('span', { class: 'mk-box', text: 'VCI' }), h('span', { class: 'mk-tick', text: '\u2713' }))
       ),
@@ -423,10 +446,12 @@ export class Device extends Emitter {
       T,
       u,
       refl,
-      jack: { x: W - model.jack, d: 5.2 },
-      dock: { w: 21, h: 2.4 },
-      hold: { x: HOLD.x, w: HOLD.w, depth: -HOLD.z / depthMm },
-      profile: edgeProfile(finish, color.front),
+      ports,
+      depth: -band.mid / depthMm,
+      holdW,
+      labels: !!model.edgeLabels,
+      dock: { w: model.id === 'nano3' ? 19 : 21, h: 2.4 },
+      profile: edgeProfile(finish, color.front, model),
     });
 
     let backFace = null;
@@ -459,6 +484,9 @@ export class Device extends Emitter {
         class: [
           'ipod',
           `model-${model.id}`,
+          `front-${model.front}`,
+          `back-${model.back}`,
+          `screen-${s.style}`,
           color.dark ? 'dark' : 'light',
           `color-${color.id}`,
           `finish-${finish}`,
@@ -475,14 +503,22 @@ export class Device extends Emitter {
       flipper
     );
     for (const [k, v] of Object.entries(vars)) el.style.setProperty(k, v);
+    // A monochrome LCD's colours: unlit, and with the backlight on.
+    if (s.lcd) {
+      el.style.setProperty('--lcd-off', s.lcd.off);
+      el.style.setProperty('--lcd-on', s.lcd.on);
+      el.style.setProperty('--lcd-ink', s.lcd.ink);
+      el.style.setProperty('--lcd-sel', s.lcd.sel);
+    }
     // Label sizing relative to the wheel so all models look right.
     el.style.setProperty('--wheel-d', mm(wd.d));
+    if (wd.inner) el.style.setProperty('--inner-d', mm(wd.inner));
     el.style.setProperty('--center-d', mm(wd.center));
 
     this.stage.replaceChildren(el);
     this.el = el;
     this.hi = false;
-    if (hi) this.hi = this._mountBody3D({ el, flipper, W, H, u, pad, model, depthMm, color, finish, wear, engraving: lines });
+    if (hi) this.hi = this._mountBody3D({ el, flipper, W, H, u, pad, model, depthMm, band, color, finish, wear, engraving: lines });
     if (hi && !this.hi) {
       // WebGL refused to start: fall back to the CSS body for good.
       this._noWebGL = true;
@@ -492,11 +528,14 @@ export class Device extends Emitter {
     this.caseEl = caseEl;
     this.wheel = wheel;
     this.centerEl = center;
+    this.scroller = scroller;
+    this._spin = 0;
     this.holdEl = holdEl;
     this.screen = screen;
     this.screenWrap = screenWrap;
     this.zoom = zoom * ss; // canvases (games, visualizer) size their pixels from this
     this._centerRatio = wd.center / wd.d; // the centre button's radius, as a share of the wheel's
+    this._innerRatio = (wd.inner || wd.d) / wd.d; // the original iPod's turning wheel, inside its ring of buttons
 
     this._bindWheel(wheel, center);
     this._bindCase(flipper);
@@ -530,7 +569,7 @@ export class Device extends Emitter {
   }
 
   /** Build the WebGL body and hook it to the motion rig. Returns false if WebGL won't start. */
-  _mountBody3D({ el, flipper, W, H, u, pad, model, depthMm, color, finish, wear, engraving }) {
+  _mountBody3D({ el, flipper, W, H, u, pad, model, depthMm, band, color, finish, wear, engraving }) {
     if (!this.body3d) this.body3d = new Body3D();
     const body = this.body3d;
     body.hold = this.hold;
@@ -547,8 +586,11 @@ export class Device extends Emitter {
       color,
       finish,
       wear: rough,
-      ports: { jackX: W - model.jack, holdX: HOLD.x, holdW: HOLD.w, holdZ: HOLD.z, dockW: 21, dockH: 2.4 },
-      back: { capacity: this.capacity || '30GB', lines: engraving, serial: serialFor(color.id) },
+      model,
+      band,
+      ports: model.ports,
+      holdW: model.holdW || HOLD_W,
+      back: { capacity: this.capacity || '', lines: engraving, serial: serialFor(color.id), wordmark: backWordmark(model), marks: model.marks },
     });
     if (!ok) return false;
     // Between the shadow on the desk and the HTML face.
@@ -664,19 +706,27 @@ export class Device extends Emitter {
       const g = geometry();
       const dx = e.clientX - g.cx;
       const dy = e.clientY - g.cy;
-      const isCenter = e.target === center || Math.hypot(dx, dy) < g.r * this._centerRatio;
+      const dist = Math.hypot(dx, dy);
+      const isCenter = e.target === center || dist < g.r * this._centerRatio;
+      // The original iPod: the inner wheel only turns (it doesn't click), the
+      // buttons are on the ring around it, and the ring doesn't scroll.
+      const turning = !isCenter && this.scroller && dist < g.r * this._innerRatio;
+      const ring = !isCenter && this.scroller && !turning;
       wheel.setPointerCapture(e.pointerId);
       active = {
         id: e.pointerId,
         g,
         center: isCenter,
-        zone: isCenter ? 'select' : zoneFor(dx, dy),
+        ring,
+        zone: turning ? null : isCenter ? 'select' : zoneFor(dx, dy),
         angle: Math.atan2(dy, dx),
         accum: 0,
         travelled: 0,
-        scrolling: false,
-        cancelled: false,
+        scrolling: !!turning,
+        cancelled: !!turning,
       };
+      wheel.classList.toggle('turning', !!turning);
+      if (turning) return;
       if (isCenter) center.classList.add('pressed');
       else this._showPress(wheel, active.zone);
       wheel.style.setProperty('--ga', `${((Math.atan2(dx, -dy) * 180) / Math.PI).toFixed(1)}deg`);
@@ -690,13 +740,15 @@ export class Device extends Emitter {
       const dx = e.clientX - g.cx;
       const dy = e.clientY - g.cy;
       const dist = Math.hypot(dx, dy);
-      if (dist < g.r * 0.12) return; // too close to the centre to read an angle
+      if (dist < g.r * 0.12 || active.ring) return; // too close to the centre to read an angle, or a button
       const angle = Math.atan2(dy, dx);
       let d = angle - active.angle;
       if (d > Math.PI) d -= Math.PI * 2;
       if (d < -Math.PI) d += Math.PI * 2;
       active.angle = angle;
       active.travelled += Math.abs(d);
+      // The original's wheel turns under your finger.
+      if (this.scroller && !active.center) this._turn((d * 180) / Math.PI);
       wheel.style.setProperty('--ga', `${((Math.atan2(dx, -dy) * 180) / Math.PI).toFixed(1)}deg`);
       if (active.center && dist < g.r * this._centerRatio * 1.05 && !active.scrolling) return;
       active.accum += (d * 180) / Math.PI;
@@ -712,20 +764,20 @@ export class Device extends Emitter {
       while (Math.abs(active.accum) >= step) {
         const dir = Math.sign(active.accum);
         active.accum -= dir * step;
-        this._tick(dir);
+        this._tick(dir, true);
       }
     });
 
     const end = (e) => {
       if (!active || e.pointerId !== active.id) return;
-      if (!active.cancelled) this._press(active.zone, false);
+      if (!active.cancelled && active.zone) this._press(active.zone, false);
       this._clearPress(wheel, center);
-      wheel.classList.remove('touching');
+      wheel.classList.remove('touching', 'turning');
       active = null;
     };
     wheel.addEventListener('pointerup', end);
     wheel.addEventListener('pointercancel', (e) => {
-      if (active && !active.cancelled) this.emit('cancel', { button: active.zone });
+      if (active && !active.cancelled && active.zone) this.emit('cancel', { button: active.zone });
       if (active) active.cancelled = true;
       end(e);
     });
@@ -746,7 +798,15 @@ export class Device extends Emitter {
     center.classList.remove('pressed');
   }
 
-  _tick(dir) {
+  /** Turn the original iPod's scroll wheel by some degrees (it follows your finger, the mouse wheel and the arrow keys). */
+  _turn(deg) {
+    if (!this.scroller) return;
+    this._spin = (this._spin + deg) % 360;
+    this.scroller.style.transform = `translate(-50%, -50%) rotate(${this._spin.toFixed(1)}deg)`;
+  }
+
+  _tick(dir, fromWheel = false) {
+    if (!fromWheel) this._turn(dir * (WHEEL_STEP_DEG[this.wheelSpeed] || 19));
     const now = performance.now();
     this._tickTimes.push(now);
     while (this._tickTimes.length && now - this._tickTimes[0] > 500) this._tickTimes.shift();

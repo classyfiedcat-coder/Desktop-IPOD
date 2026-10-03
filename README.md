@@ -1,6 +1,6 @@
 # iPod for Desktop
 
-A free-floating iPod (5th generation) that lives on your desktop, on Windows and Mac. There's no window frame, just the iPod, and it's a real 3D object that turns toward your mouse. Drag it anywhere, spin the click wheel, and play your music, internet radio, podcasts or your Spotify library. See what's new in the [changelog](CHANGELOG.md).
+A free-floating iPod that lives on your desktop, on Windows and Mac: the 5th generation, the iPod classic, the 3rd generation nano, the iPod mini or the original from 2001. There's no window frame, just the iPod, and it's a real 3D object that turns toward your mouse. Drag it anywhere, spin the click wheel, and play your music, internet radio, podcasts or your Spotify library. See what's new in the [changelog](CHANGELOG.md).
 
 <p align="center">
   <img src="docs/white-nowplaying.png" width="300" alt="White iPod showing Now Playing" />
@@ -23,14 +23,22 @@ A free-floating iPod (5th generation) that lives on your desktop, on Windows and
 - Settings › Appearance › Detail: High (the 3D model) or Light (a lighter CSS version, also used automatically if your graphics don't support WebGL).
 - It's light on your computer. When nothing moves, nothing is drawn. Motion is capped at about 90 frames a second on high refresh rate screens, and the idle float only needs about 20. Playing music repaints the screen once a second, when the clock ticks. If your graphics can't keep up, the 3D body is drawn at a lower resolution automatically.
 
+**Every classic iPod**
+- Settings › Appearance › Model: the iPod with video (5th generation, 2005), the iPod classic (2007), the iPod nano (3rd generation, 2007), the iPod mini (2004) or the original iPod (2001), in their real colours.
+- Each is built to its real measurements: overall sizes, capacities and model numbers from Apple's specifications; screen windows, wheels, centre buttons and corner radii measured from Apple's own product images; colours sampled from them; port positions from iFixit's photos.
+- Each has its own body: white plastic under clear acrylic (5th generation, original), anodised aluminium on polished steel (classic, nano), or the mini's aluminium tube with plastic end caps. The 5th generation 60/80GB and the 160GB classic are thicker, like the real ones.
+- Its own controls: the original's wheel physically turns (drag around it and it spins under your pointer) inside a ring of four buttons; the others have the Click Wheel. Ports where they really are: FireWire on top of the original, everything on the bottom of the nano.
+- Its own screen: the original and mini have monochrome LCDs in the Chicago typeface, with the inverted highlight and a backlight that lights the grey LCD; the classic and nano have the 2007 look, with album art panning beside the menus.
+
 **It feels like the real thing**
 - A frameless, transparent window shaped like the iPod. Clicks pass through the empty space around it, and you drag it by its body.
 - The click wheel works like the real one: drag around it to scroll, click MENU, ⏮, ⏭ or ▶❚❚, and press the centre button. It makes the clicker sound, and the part you press visibly sinks.
 - Long presses behave like an iPod: hold ▶❚❚ to turn it off, hold MENU to jump to the main menu, hold ⏮/⏭ to rewind or fast-forward, and hold the centre button for a song's options.
 - A working hold switch on the top edge, with the orange flag and a lock on screen.
 - The backlight turns off after the timeout. Screens slide in and out, long titles scroll, and spinning fast through a long list shows a big letter.
-- The 5th generation screen, with its cool white LCD: full-width menus with the blue highlight, and Now Playing with "6 of 15", album art and the glossy progress bar.
-- White, Black, U2 Special Edition or your own colours (there's a colour editor), in four sizes, with an engraving on the back.
+- The 5th generation screen, with its cool white LCD: full-width menus with the blue highlight, and Now Playing with "6 of 15", album art and the glossy progress bar. Settings › Appearance › Now Playing › Album Colors tints it in the colours of the album art instead.
+- Each model's colours (White, Black, U2 Special Edition; Silver and Black; the nano's and mini's colours) or your own (there's a colour editor), in four sizes, with an engraving on the back.
+- Settings › Click Sound: the iPod's own click (the original's soft mechanical detent, or the Click Wheel's tick), a soft tick, a pop or a typewriter.
 
 **Music**
 - Local library: Cover Flow, Playlists (your own, and `.m3u` files), Artists, Albums, Compilations, Songs, Podcasts, Genres, Composers, Audiobooks and Search.
@@ -153,7 +161,7 @@ scripts/         Icon generator, test library generator and the end-to-end tests
 test/            Unit tests (npm test)
 ```
 
-The device is data-driven (`src/renderer/js/models.js`), so more iPod models can be added later as device themes.
+Every model is data in `src/renderer/js/models.js` (sizes, edge profile, screen, wheel, ports, colours), with notes on where each measurement comes from.
 
 ## Credits
 
@@ -161,6 +169,6 @@ The 3D body is drawn with [three.js](https://threejs.org) (MIT licence, included
 
 ## Legal
 
-An unofficial fan project. It is not affiliated with, endorsed by or sponsored by Apple Inc. or Spotify AB. iPod and Click Wheel are trademarks of Apple Inc., and Spotify is a trademark of Spotify AB. The interface font is Source Sans 3 by Adobe, used under the SIL Open Font License 1.1 (`src/renderer/fonts/OFL.txt`).
+An unofficial fan project. It is not affiliated with, endorsed by or sponsored by Apple Inc. or Spotify AB. iPod and Click Wheel are trademarks of Apple Inc., and Spotify is a trademark of Spotify AB. The interface font is Source Sans 3 by Adobe, used under the SIL Open Font License 1.1 (`src/renderer/fonts/OFL.txt`). The monochrome screens use ChicagoFLF by Robin Casady, which he placed in the public domain (`src/renderer/fonts/chicago-flf-README.txt`).
 
 MIT License.

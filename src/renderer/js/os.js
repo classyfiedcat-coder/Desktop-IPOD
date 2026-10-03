@@ -64,7 +64,9 @@ export class OS extends Emitter {
     const ui = model.screen.ui;
     this._ui = { ...ui, width: w, height: hgt, viewH: hgt - ui.title, rowH: (hgt - ui.title) / ui.rows };
 
-    screen.className = 'screen';
+    // The screen's look: 5th generation, 6th generation (classic, nano) or monochrome.
+    this.style = model.screen.style || 'video';
+    screen.className = `screen style-${this.style}`;
     screen.style.setProperty('--sw', `${w}px`);
     screen.style.setProperty('--sh', `${hgt}px`);
     screen.style.setProperty('--title-h', `${ui.title}px`);
@@ -90,7 +92,10 @@ export class OS extends Emitter {
     // The 5th generation LCD's cool, slightly blue white (under the dimmer, so
     // a sleeping screen stays charcoal).
     const tint = h('div', { class: 'lcd-tint' });
-    screen.replaceChildren(h('div', { class: 'os' }, this.titlebar, this.viewport, this.overlay), tint, this.dimmer);
+    // Classic-style screens: album art on the right half of the top menus.
+    this.artPanel = h('div', { class: 'art-panel' }, h('div', { class: 'art-empty', text: 'No Songs' }));
+    this._artImgs = [];
+    screen.replaceChildren(h('div', { class: 'os' }, this.titlebar, this.viewport, this.artPanel, this.overlay), tint, this.dimmer);
 
     // Re-mount the current view into the fresh screen.
     const cur = this.current;
@@ -111,7 +116,44 @@ export class OS extends Emitter {
     this.viewport.append(el);
     view.mount(el, this);
     this.screen.classList.toggle('fullscreen', !!view.fullscreen);
+    this._split(!!view.split && this.style === 'classic');
     return el;
+  }
+
+  /**
+   * Show or hide the album art beside a top menu (classic style). It pans
+   * slowly across one cover, then fades to another, every few seconds.
+   */
+  _split(on) {
+    if (!this.screen) return;
+    this.screen.classList.toggle('split', on);
+    clearInterval(this._artTimer);
+    this._artTimer = null;
+    if (!on) return;
+    const next = () => {
+      if (document.hidden || this.asleep) return;
+      const arts = (this.artSource && this.artSource()) || [];
+      this.artPanel.classList.toggle('has-art', arts.length > 0);
+      if (!arts.length) return;
+      const url = arts[Math.floor(Math.random() * arts.length)];
+      const img = h('img', { alt: '', draggable: 'false' });
+      img.style.setProperty('--ox', `${20 + Math.random() * 60}%`);
+      img.style.setProperty('--oy', `${20 + Math.random() * 60}%`);
+      img.style.setProperty('--dx', `${(Math.random() * 8 - 4).toFixed(1)}%`);
+      img.style.setProperty('--dy', `${(Math.random() * 8 - 4).toFixed(1)}%`);
+      img.onload = () => {
+        this.artPanel.append(img);
+        requestAnimationFrame(() => img.classList.add('show'));
+        // Keep only the one fading out and the new one.
+        const old = [...this.artPanel.querySelectorAll('img')].slice(0, -2);
+        for (const o of old) o.remove();
+        const prev = this.artPanel.querySelectorAll('img')[0];
+        if (prev && prev !== img) setTimeout(() => prev.classList.remove('show'), 50);
+      };
+      img.src = url;
+    };
+    next();
+    this._artTimer = setInterval(next, 7000);
   }
 
   push(view, { animate = true } = {}) {
@@ -321,7 +363,10 @@ export class OS extends Emitter {
     this.screen.classList.toggle('backlit', lit);
     this.device.setBacklit(lit);
     const bright = Math.max(0.15, Math.min(1, s.brightness));
-    this.dimmer.style.opacity = this.asleep ? 1 : lit ? (1 - bright) * 0.6 : 0.72;
+    // A monochrome LCD reflects the room: with the backlight off it's still
+    // readable, just greyer (the tint changes colour, see screen.css).
+    const unlit = this.style === 'mono' ? 0 : 0.72;
+    this.dimmer.style.opacity = this.asleep ? 1 : lit ? (1 - bright) * (this.style === 'mono' ? 0.25 : 0.6) : unlit;
   }
 
   sleep() {

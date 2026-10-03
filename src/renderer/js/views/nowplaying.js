@@ -9,7 +9,7 @@
  */
 
 import { View } from './view.js';
-import { h, svg, ICONS, fmtTime, clamp, debounce } from '../util.js';
+import { h, svg, ICONS, fmtTime, clamp, debounce, artPalette, mixRgb } from '../util.js';
 import { songOptions } from './options.js';
 import { upNextView } from './upnext.js';
 import { showSheet } from './sheet.js';
@@ -122,6 +122,7 @@ export class NowPlayingView extends View {
     this.listen(p, 'volume', () => this.updateVolume());
     this.listen(p, 'buffering', (b) => this.el.classList.toggle('buffering', !!b));
     this.listen(p, 'stopped', () => this.os.current === this && this.os.pop());
+    this.listen(this.app.store, 'change:npColors', () => this._tint(this._artUrl));
     this.listen(this.app.store, 'change:shuffle', () => this.updateFlags());
     this.listen(this.app.store, 'change:repeat', () => this.updateFlags());
     this.every(() => this.updateTime(), 250);
@@ -206,6 +207,7 @@ export class NowPlayingView extends View {
   _setArt(url) {
     if (url === this._artUrl) return;
     this._artUrl = url;
+    this._tint(url);
     this.el.classList.toggle('no-art', !url);
     const [show, hide] = this._artFlip ? [this.artA, this.artB] : [this.artB, this.artA];
     this._artFlip = !this._artFlip;
@@ -226,6 +228,40 @@ export class NowPlayingView extends View {
       show.classList.remove('show');
       hide.classList.remove('show');
     }
+  }
+
+  /**
+   * Now Playing in the album's colours (Settings › Appearance › Now Playing):
+   * a gradient of the cover's strongest colour behind white type (or dark
+   * type on a pale cover), and the wheel glows the same colour.
+   */
+  async _tint(url) {
+    const on = this.app.store.settings.npColors === 'album' && this.os && this.os.style !== 'mono';
+    const pal = on ? await artPalette(url) : null;
+    if (this._artUrl !== url || !this.el) return;
+    const el = this.el;
+    const device = this.app.device.el;
+    el.classList.toggle('album-colors', !!pal);
+    if (!pal) {
+      if (device) device.style.removeProperty('--glow-rgb');
+      return;
+    }
+    const a = pal.accent;
+    const css = (c) => `rgb(${c.join(', ')})`;
+    if (pal.light) {
+      el.style.setProperty('--np-bg1', css(mixRgb(a, [255, 255, 255], 0.55)));
+      el.style.setProperty('--np-bg2', css(mixRgb(a, [255, 255, 255], 0.2)));
+      el.style.setProperty('--np-fg', css(mixRgb(a, [0, 0, 0], 0.82)));
+      el.style.setProperty('--np-fg2', css(mixRgb(a, [0, 0, 0], 0.6)));
+      el.style.setProperty('--np-track', 'rgba(0, 0, 0, 0.14)');
+    } else {
+      el.style.setProperty('--np-bg1', css(mixRgb(a, [0, 0, 0], 0.18)));
+      el.style.setProperty('--np-bg2', css(mixRgb(a, [0, 0, 0], 0.58)));
+      el.style.setProperty('--np-fg', '#ffffff');
+      el.style.setProperty('--np-fg2', 'rgba(255, 255, 255, 0.72)');
+      el.style.setProperty('--np-track', 'rgba(255, 255, 255, 0.22)');
+    }
+    if (device) device.style.setProperty('--glow-rgb', mixRgb(a, [255, 255, 255], 0.25).join(', '));
   }
 
   updateTime() {

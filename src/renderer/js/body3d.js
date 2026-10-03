@@ -21,14 +21,8 @@ import * as THREE from '../vendor/three/three.module.min.js';
 
 const DEG = Math.PI / 180;
 
-/** Cross-section, in millimetres: r is outward from the front outline, z is depth (negative = back). */
-const LIP = 0.4; // radius of the rounded front plastic edge
-const CLEAR_TO = -0.9; // the clear acrylic layer over the colour, seen edge-on
-const PLASTIC_TO = -2.0; // where the plastic band ends
-const BAND_R = 0.5; // the flat steel band sticks out this far
-const BAND_FROM = -2.6;
-/** The steel's curve over onto the back: deeper on the thicker 60/80GB back. */
-const backFillet = (T) => (T >= 13 ? 4.4 : 3.0);
+/** The dock connector's width, mm (the nano's is a little narrower). */
+const dockW = (model) => (model.id === 'nano3' ? 19 : 21);
 
 const SMOOTH_CORNER = 28; // segments per rounded corner
 const SMOOTH_ARC = 18; // segments per curved part of the cross-section
@@ -66,7 +60,10 @@ export class Body3D {
    * @param {number} o.perspective CSS perspective, px
    * @param {object} o.color the colour scheme (front, dark…)
    * @param {'steel'|'black'} o.finish
-   * @param {object} o.ports { jackX, holdX, holdW, holdDepth, dockW, dockH } in mm
+   * @param {object} o.model the model (models.js): profile, ports, marks
+   * @param {object} o.band where the flat band around the edge runs (models.js › edgeBand)
+   * @param {Array} o.ports [{ kind, edge, x }] in mm from the left
+   * @param {number} o.holdW the hold switch's width, mm
    * @param {object} o.back { capacity, lines: [engraving], serial }
    * @param {{rough?: HTMLCanvasElement}} [o.wear]
    */
@@ -154,7 +151,7 @@ export class Body3D {
 
   // ------------------------------------------------------------- materials --
 
-  _materials({ color, finish, wear }) {
+  _materials({ color, finish, wear, model }) {
     let rough = null;
     if (wear && wear.rough) {
       rough = new THREE.CanvasTexture(wear.rough);
@@ -175,6 +172,10 @@ export class Body3D {
         ior: 1.49,
         specularIntensity: 1,
       }),
+      // Anodised aluminium: the colour is in the metal, with a soft satin sheen.
+      alu: new THREE.MeshPhysicalMaterial({ color: front, metalness: 0.8, roughness: 0.4, clearcoat: 0.3, clearcoatRoughness: 0.35 }),
+      // The iPod mini's plastic end caps, tinted to go with the aluminium.
+      endcap: new THREE.MeshPhysicalMaterial({ color: front.clone().lerp(new THREE.Color(0xf2f2f2), 0.55), roughness: 0.35, metalness: 0, clearcoat: 0.6, clearcoatRoughness: 0.2 }),
       // Under the HTML face, so never really seen: flat colour costs nothing to draw.
       cap: new THREE.MeshBasicMaterial({ color: front }),
       seam: new THREE.MeshStandardMaterial({ color: 0x0b0b0c, roughness: 0.85, metalness: 0 }),
@@ -185,7 +186,14 @@ export class Body3D {
       pins: new THREE.MeshStandardMaterial({ color: 0xd9c37a, roughness: 0.25, metalness: 1 }),
       orange: new THREE.MeshStandardMaterial({ color: 0xff8a00, roughness: 0.5, emissive: 0x401a00 }),
     };
-    if (finish === 'black') {
+    if (model && model.back === 'aluminium') {
+      // The mini is aluminium all the way round; wear scuffs the anodising.
+      m.steel = m.alu;
+      if (rough) {
+        m.alu.roughnessMap = rough;
+        m.alu.roughness = 0.75;
+      }
+    } else if (finish === 'black') {
       // Black steel: a deep base under a perfect clear coat; wear dulls the coat.
       m.steel = new THREE.MeshPhysicalMaterial({
         color: 0x0c0c0d,
@@ -204,27 +212,31 @@ export class Body3D {
 
   setFrontColor(hex) {
     if (!this.ok) return;
-    this.materials.plastic.color.set(hex);
-    this.materials.clear.color.set(hex).lerp(new THREE.Color(0xc9d3dc), 0.45);
-    this.materials.cap.color.set(hex);
+    const M = this.materials;
+    M.plastic.color.set(hex);
+    M.clear.color.set(hex).lerp(new THREE.Color(0xc9d3dc), 0.45);
+    M.alu.color.set(hex);
+    M.endcap.color.set(hex).lerp(new THREE.Color(0xf2f2f2), 0.55);
+    M.cap.color.set(hex);
     this.render();
   }
 
   // ------------------------------------------------------------- geometry --
 
   _build(o) {
-    const { W, H, R, T, u, finish, ports, back } = o;
-    const BACK_FILLET = backFillet(T);
-    const BAND_TO = -(T - BACK_FILLET);
+    const { W, H, R, T, u, finish, model, band, back } = o;
+    const P = model.profile;
+    const BACK_FILLET = band.fillet;
+    const BAND_TO = band.to;
     const mm = (v) => v * u;
     const a = mm(W / 2);
     const b = mm(H / 2);
     const Rc = mm(R);
     const M = this.materials;
-    const bands = { top: b + mm(BAND_R), bottom: -(b + mm(BAND_R)) };
+    const bands = { top: b + mm(P.bandR), bottom: -(b + mm(P.bandR)) };
     // Planar UVs over the whole device for the wear map.
-    const A = a + mm(1);
-    const B = b + mm(1);
+    const A = a + mm(1 + P.bandR);
+    const B = b + mm(1 + P.bandR);
     const uv = (x, y) => [(x + A) / (2 * A), (y + B) / (2 * B)];
 
     // Outline of the front face, as runs of (point, outward normal).
@@ -264,20 +276,29 @@ export class Body3D {
         { r: r1, z: z1, nr, nz },
       ];
     };
-    const backInset = BAND_R - BACK_FILLET;
-    const pieces = [
-      // The front is colour under a layer of clear acrylic: edge-on, the clear
-      // layer reads as a glassy band before the coloured plastic starts.
-      { mat: 'clear', pts: [...arc(0, -LIP, LIP, 90, 0, 10), ...line(LIP, -LIP, LIP, CLEAR_TO).slice(1)] },
-      { mat: 'plastic', pts: line(LIP, CLEAR_TO, LIP, PLASTIC_TO) },
-      // The seam: a fine groove where the plastic meets the steel.
-      { mat: 'seam', pts: line(LIP, PLASTIC_TO, 0.22, PLASTIC_TO - 0.14) },
-      { mat: 'seam', pts: line(0.22, PLASTIC_TO - 0.14, 0.22, PLASTIC_TO - 0.28) },
-      { mat: 'seam', pts: line(0.22, PLASTIC_TO - 0.28, 0.44, PLASTIC_TO - 0.4) },
-      { mat: 'steel', pts: line(0.44, PLASTIC_TO - 0.4, BAND_R, BAND_FROM) },
-      { mat: 'steel', pts: line(BAND_R, BAND_FROM, BAND_R, BAND_TO), band: true },
-      { mat: 'steel', pts: arc(backInset, BAND_TO, BACK_FILLET, 0, -90, SMOOTH_ARC) },
-    ];
+    const LIP = P.lip;
+    const backInset = P.bandR - BACK_FILLET;
+    const lipArc = arc(0, -LIP, LIP, 90, 0, LIP > 1 ? 16 : 10);
+    const pieces = [];
+    if (P.clearTo != null) {
+      // Plastic fronts: colour under a layer of clear acrylic. Edge-on, the
+      // clear layer reads as a glassy band before the coloured plastic starts.
+      pieces.push({ mat: 'clear', pts: [...lipArc, ...line(LIP, -LIP, LIP, P.clearTo).slice(1)] });
+      pieces.push({ mat: 'plastic', pts: line(LIP, P.clearTo, LIP, P.frontTo) });
+    } else {
+      // Anodised aluminium fronts.
+      pieces.push({ mat: 'alu', pts: [...lipArc, ...line(LIP, -LIP, LIP, P.frontTo).slice(1)] });
+    }
+    if (P.bandFrom < P.frontTo - 0.01) {
+      // The seam: a fine groove where the front meets the steel.
+      const g = P.frontTo;
+      pieces.push({ mat: 'seam', pts: line(LIP, g, LIP - 0.18, g - 0.14) });
+      pieces.push({ mat: 'seam', pts: line(LIP - 0.18, g - 0.14, LIP - 0.18, g - 0.28) });
+      pieces.push({ mat: 'seam', pts: line(LIP - 0.18, g - 0.28, LIP + 0.04, g - 0.4) });
+      pieces.push({ mat: 'steel', pts: line(LIP + 0.04, g - 0.4, P.bandR, P.bandFrom) });
+    }
+    pieces.push({ mat: 'steel', pts: line(P.bandR, P.bandFrom, P.bandR, BAND_TO), band: true });
+    pieces.push({ mat: 'steel', pts: arc(backInset, BAND_TO, BACK_FILLET, 0, -90, SMOOTH_ARC) });
 
     // Sweep each piece around the outline.
     const buffers = new Map();
@@ -286,10 +307,12 @@ export class Body3D {
       return buffers.get(mat);
     };
     for (const piece of pieces) {
-      const g = buf(piece.mat);
       for (const run of runs) {
         // The flat bands on the top and bottom are built separately, with holes for the ports.
         if (piece.band && (run.tag === 'top' || run.tag === 'bottom')) continue;
+        // The mini's top and bottom are its plastic end caps.
+        const capped = P.caps && (run.tag === 'top' || run.tag === 'bottom');
+        const g = buf(capped ? 'endcap' : piece.mat);
         const base = g.pos.length / 3;
         const cols = run.pts.length;
         for (const p of piece.pts) {
@@ -325,7 +348,7 @@ export class Body3D {
 
     // The back: a flat rounded rectangle where the curve ends.
     const inset = mm(backInset);
-    const backShape = roundedRect(a + inset, b + inset, Rc + inset);
+    const backShape = roundedRect(a + inset, b + inset, Math.max(mm(0.5), Rc + inset));
     const backGeo = new THREE.ShapeGeometry(backShape, SMOOTH_CORNER);
     planarUv(backGeo, uv);
     backGeo.rotateY(Math.PI); // face backwards
@@ -346,28 +369,34 @@ export class Body3D {
 
     // Top and bottom bands, with the ports cut into them.
     const xr = a - Rc;
-    const z0 = mm(BAND_FROM);
+    const z0 = mm(P.bandFrom);
     const z1 = mm(BAND_TO);
     const zc = (z0 + z1) / 2;
-    const holdZ = mm(ports.holdZ);
-    const holdX = mm(ports.holdX - W / 2);
-    const jackX = mm(ports.jackX - W / 2);
-    this._band({
-      y: bands.top,
-      up: true,
-      xr,
-      z0,
-      z1,
-      holes: [circlePath(jackX, zc, mm(2.6)), roundedRectPath(holdX, holdZ, mm(ports.holdW + 0.6) / 2, mm(1.25), mm(1.2))],
-    });
-    this._band({ y: bands.bottom, up: false, xr, z0, z1, holes: [roundedRectPath(0, zc, mm(ports.dockW + 0.6) / 2, mm(ports.dockH + 0.6) / 2, mm(0.9))] });
-
-    this._jack({ x: jackX, y: bands.top, z: zc, u });
-    this._holdSwitch({ x: holdX, y: bands.top, z: holdZ, w: mm(ports.holdW), u });
-    this._dock({ y: bands.bottom, z: zc, w: mm(ports.dockW), h: mm(ports.dockH), u });
-    this._topLabels({ y: bands.top, z: zc, holdX, holdW: mm(ports.holdW), jackX, u });
+    // The headphone jack's ring, as big as the band allows (the nano's is a tight fit).
+    const jackR = Math.min(2.6, (P.bandFrom - BAND_TO) / 2 - 0.1);
+    const xOf = (p) => mm(p.x - W / 2);
+    for (const edge of ['top', 'bottom']) {
+      const up = edge === 'top';
+      const y = up ? bands.top : bands.bottom;
+      const here = o.ports.filter((p) => p.edge === edge);
+      const holes = here.map((p) => {
+        if (p.kind === 'jack') return circlePath(xOf(p), zc, mm(jackR));
+        if (p.kind === 'hold') return roundedRectPath(xOf(p), zc, mm(o.holdW + 0.6) / 2, mm(1.25), mm(1.2));
+        if (p.kind === 'dock') return roundedRectPath(xOf(p), zc, mm(dockW(model) + 0.6) / 2, mm(1.5), mm(0.9));
+        return roundedRectPath(xOf(p), zc, mm(5.6), mm(2.4), mm(0.8)); // FireWire
+      });
+      this._band({ y, up, xr, z0, z1, holes, mat: P.caps ? M.endcap : M.steel });
+      for (const p of here) {
+        const at = { x: xOf(p), y, z: zc, u, up };
+        if (p.kind === 'jack') this._jack({ ...at, r: jackR });
+        else if (p.kind === 'hold') this._holdSwitch({ ...at, w: mm(o.holdW) });
+        else if (p.kind === 'dock') this._dock({ ...at, w: mm(dockW(model)), h: mm(2.4) });
+        else if (p.kind === 'firewire') this._firewire(at);
+      }
+    }
+    // Only the original has its ports labelled (printed on the white lip below them).
+    if (model.edgeLabels) this._topLabels({ ports: o.ports.filter((p) => p.edge === 'top'), xOf, u });
   }
-
   _add(mesh, hit = false) {
     if (hit) mesh.userData.hit = true;
     this.pivot.add(mesh);
@@ -375,7 +404,7 @@ export class Body3D {
   }
 
   /** A flat band on the top or bottom edge, with holes. */
-  _band({ y, up, xr, z0, z1, holes }) {
+  _band({ y, up, xr, z0, z1, holes, mat }) {
     // Shape coordinates: (x, z).
     const s = new THREE.Shape();
     s.moveTo(-xr, z1);
@@ -400,37 +429,45 @@ export class Body3D {
     const A = this.o.W * this.o.u * 0.5 + this.o.u;
     const Dp = this.o.T * this.o.u;
     planarUv(geo, (x, _y, z) => [(x + A) / (2 * A), 0.5 + z / (3 * Dp)]);
-    this._add(new THREE.Mesh(geo, this.materials.steel), true);
+    this._add(new THREE.Mesh(geo, mat || this.materials.steel), true);
+  }
+
+  /** Parts standing on the bottom edge are built for the top and turned over. */
+  _place(g, { x, y, z, up }) {
+    if (!up) g.rotation.z = Math.PI;
+    g.position.set(x, y, z);
+    this.pivot.add(g);
+    return g;
   }
 
   /** The headphone jack: a polished chrome ring around a hole you can see into. */
-  _jack({ x, y, z, u }) {
+  _jack({ x, y, z, u, up, r = 2.6 }) {
     const M = this.materials;
+    const k = r / 2.6;
     const ring = new THREE.LatheGeometry(
       [
-        new THREE.Vector2(2.6 * u, 0.0),
-        new THREE.Vector2(2.45 * u, 0.12 * u),
-        new THREE.Vector2(2.1 * u, 0.12 * u),
-        new THREE.Vector2(1.85 * u, -0.15 * u),
-        new THREE.Vector2(1.75 * u, -0.6 * u),
+        new THREE.Vector2(2.6 * k * u, 0.0),
+        new THREE.Vector2(2.45 * k * u, 0.12 * u),
+        new THREE.Vector2(2.1 * k * u, 0.12 * u),
+        new THREE.Vector2(1.85 * k * u, -0.15 * u),
+        new THREE.Vector2(1.75 * k * u, -0.6 * u),
       ],
       64
     );
     const g = new THREE.Group();
     g.add(new THREE.Mesh(ring, M.chrome));
-    const tube = new THREE.CylinderGeometry(1.75 * u, 1.75 * u, 6 * u, 48, 1, true);
+    const tube = new THREE.CylinderGeometry(1.75 * k * u, 1.75 * k * u, 6 * u, 48, 1, true);
     tube.translate(0, -3.6 * u, 0);
     g.add(new THREE.Mesh(tube, M.hole));
-    const floor = new THREE.CircleGeometry(1.75 * u, 48);
+    const floor = new THREE.CircleGeometry(1.75 * k * u, 48);
     floor.rotateX(-Math.PI / 2);
     floor.translate(0, -6.5 * u, 0);
     g.add(new THREE.Mesh(floor, M.holeFloor));
-    g.position.set(x, y, z);
-    this.pivot.add(g);
+    this._place(g, { x, y, z, up });
   }
 
   /** The hold switch: a slot with an orange flag, and a chrome slider that moves. */
-  _holdSwitch({ x, y, z, w, u }) {
+  _holdSwitch({ x, y, z, w, u, up }) {
     const M = this.materials;
     const g = new THREE.Group();
     const slotW = w + 0.6 * u;
@@ -457,11 +494,11 @@ export class Body3D {
     });
     pill.rotateX(-Math.PI / 2); // extrude upward (+y)
     pill.translate(0, -0.55 * u, 0);
-    const slider = new THREE.Mesh(pill, M.chrome);
+    // Chrome on most; a white plastic slider on the original.
+    const slider = new THREE.Mesh(pill, this.o.model.holdSlider === 'plastic' ? M.plastic : M.chrome);
     slider.userData.hit = true;
     g.add(slider);
-    g.position.set(x, y, z);
-    this.pivot.add(g);
+    this._place(g, { x, y, z, up });
     this.slider = slider;
     this.slideRange = (slotW - pillW) / 2 - 0.2 * u;
     this._placeSlider();
@@ -479,8 +516,8 @@ export class Body3D {
     this.render();
   }
 
-  /** The dock connector: a chrome-framed cavity with a tongue of pins inside. */
-  _dock({ y, z, w, h, u }) {
+  /** The dock connector: a chrome-framed cavity with a tongue of pins inside (built for the bottom edge). */
+  _dock({ x = 0, y, z, w, h, u }) {
     const M = this.materials;
     const g = new THREE.Group();
     const W2 = w / 2 + 0.3 * u;
@@ -509,54 +546,102 @@ export class Body3D {
       inst.setMatrixAt(i, mtx);
     }
     g.add(inst);
-    g.position.set(0, y, z);
+    g.position.set(x, y, z);
     this.pivot.add(g);
   }
 
-  /** "HOLD" and the headphone icon, printed on the top edge. */
-  _topLabels({ y, z, holdX, holdW, jackX, u }) {
-    const dark = this.o.finish === 'black';
-    const ink = dark ? 'rgba(225,228,232,0.95)' : 'rgba(60,64,70,0.9)';
-    const w = 14 * u;
-    const h = 3 * u;
+  /** The original iPod's FireWire port: a plain six-pin socket in the top edge. */
+  _firewire({ x, y, z, u, up }) {
+    const M = this.materials;
+    const g = new THREE.Group();
+    const hw = 5.6 * u;
+    const hh = 2.4 * u;
+    const cavity = new THREE.ExtrudeGeometry(roundedRect(hw, hh, 0.8 * u), { depth: 4 * u, bevelEnabled: false, curveSegments: 12 });
+    cavity.rotateX(Math.PI / 2); // into the body (−y from the top band)
+    g.add(new THREE.Mesh(cavity, M.hole));
+    // The tongue inside, with its contacts.
+    const tongue = new THREE.BoxGeometry(hw * 1.3, 2.6 * u, hh * 0.5);
+    tongue.translate(0, -2.4 * u, 0);
+    g.add(new THREE.Mesh(tongue, M.tongue));
+    const inst = new THREE.InstancedMesh(new THREE.BoxGeometry(0.5 * u, 2.2 * u, 0.1 * u), M.pins, 6);
+    const mtx = new THREE.Matrix4();
+    for (let i = 0; i < 6; i++) {
+      mtx.makeTranslation(-hw * 0.55 + (i * hw * 1.1) / 5, -2.2 * u, hh * 0.27);
+      inst.setMatrixAt(i, mtx);
+    }
+    g.add(inst);
+    this._place(g, { x, y, z, up });
+  }
+
+  /**
+   * The original iPod's port labels: the FireWire symbol, a headphone and
+   * "| HOLD", printed in grey on the white plastic lip just below each port.
+   */
+  _topLabels({ ports, xOf, u }) {
+    const P = this.o.model.profile;
+    const ink = 'rgba(120,124,130,0.95)';
+    const y = this.o.H * u * 0.5 + P.lip * u + 0.02 * u;
+    const z = (P.frontTo / 2 - 0.3) * u;
+    const w = 9 * u;
+    const h = 2.2 * u;
     const make = (draw, x) => {
-      const scale = 4;
+      const scale = 5;
       const c = document.createElement('canvas');
       c.width = Math.round(w * scale);
       c.height = Math.round(h * scale);
       const g = c.getContext('2d');
       g.scale(scale, scale);
       g.fillStyle = ink;
+      g.strokeStyle = ink;
       draw(g);
       const tex = new THREE.CanvasTexture(c);
       tex.colorSpace = THREE.SRGBColorSpace;
       tex.anisotropy = 8;
-      const mat = decalMaterial(tex);
       const plane = new THREE.PlaneGeometry(w, h);
       plane.rotateX(-Math.PI / 2);
-      const mesh = new THREE.Mesh(plane, mat);
-      mesh.position.set(x, y + 0.02 * u, z);
+      const mesh = new THREE.Mesh(plane, decalMaterial(tex));
+      mesh.position.set(x, y, z);
       this.pivot.add(mesh);
     };
-    make((g) => {
-      g.font = `700 ${1.6 * u}px "iPod Sans", "Helvetica Neue", Arial, sans-serif`;
-      g.textAlign = 'left';
-      g.textBaseline = 'middle';
-      g.fillText('HOLD', 0, h / 2);
-    }, holdX + holdW / 2 + 1.6 * u + w / 2);
-    make((g) => {
-      // Headphones.
-      const s = 2.2 * u;
-      const cx = w - s / 2 - 0.2 * u;
-      const cy = h / 2;
-      g.lineWidth = 0.32 * u;
-      g.strokeStyle = ink;
-      g.beginPath();
-      g.arc(cx, cy + s * 0.12, s * 0.42, Math.PI, 0);
-      g.stroke();
-      g.fillRect(cx - s * 0.5, cy + s * 0.05, s * 0.2, s * 0.38);
-      g.fillRect(cx + s * 0.3, cy + s * 0.05, s * 0.2, s * 0.38);
-    }, jackX - 3.6 * u - w / 2);
+    const s = 1.5 * u; // icon size
+    const cx = w / 2;
+    const cy = h / 2;
+    for (const p of ports) {
+      if (p.kind === 'firewire') {
+        // The FireWire "Y": three prongs from a stem.
+        make((g) => {
+          g.lineWidth = 0.18 * u;
+          g.beginPath();
+          g.moveTo(cx, cy + s * 0.5);
+          g.lineTo(cx, cy - s * 0.1);
+          g.moveTo(cx, cy - s * 0.1);
+          g.lineTo(cx - s * 0.42, cy - s * 0.5);
+          g.moveTo(cx, cy - s * 0.1);
+          g.lineTo(cx + s * 0.42, cy - s * 0.5);
+          g.moveTo(cx, cy - s * 0.1);
+          g.lineTo(cx, cy - s * 0.55);
+          g.stroke();
+        }, xOf(p));
+      } else if (p.kind === 'jack') {
+        make((g) => {
+          // Headphones.
+          g.lineWidth = 0.2 * u;
+          g.beginPath();
+          g.arc(cx, cy + s * 0.12, s * 0.4, Math.PI, 0);
+          g.stroke();
+          g.fillRect(cx - s * 0.48, cy + s * 0.05, s * 0.18, s * 0.36);
+          g.fillRect(cx + s * 0.3, cy + s * 0.05, s * 0.18, s * 0.36);
+        }, xOf(p));
+      } else if (p.kind === 'hold') {
+        make((g) => {
+          g.fillRect(cx - 2.6 * u, cy - s * 0.4, 0.14 * u, s * 0.8);
+          g.font = `600 ${1.15 * u}px "iPod Sans", "Helvetica Neue", Arial, sans-serif`;
+          g.textAlign = 'left';
+          g.textBaseline = 'middle';
+          g.fillText('HOLD', cx - 2.1 * u, cy + 0.05 * u);
+        }, xOf(p));
+      }
+    }
   }
 
   /** The back's etched lettering: matte, light, so it stays put while the steel reflects. */
@@ -569,7 +654,8 @@ export class Body3D {
     c.height = Math.round(h * scale);
     const g = c.getContext('2d');
     g.scale(scale, scale);
-    const ink = finish === 'black' ? 'rgba(214,217,221,0.96)' : 'rgba(236,238,241,0.96)';
+    // Etched into steel it's a light matte grey; into anodised aluminium, the bare metal shows silver.
+    const ink = this.o.model.back === 'aluminium' ? 'rgba(232,234,237,0.9)' : finish === 'black' ? 'rgba(214,217,221,0.96)' : 'rgba(236,238,241,0.96)';
     g.fillStyle = ink;
     g.strokeStyle = ink;
     g.textAlign = 'center';
@@ -580,18 +666,30 @@ export class Body3D {
     const top = (frac) => frac * full - (full - h) / 2;
     // Laid out like the real back: the wordmark a little above the middle,
     // any engraving under it, and the capacity and fine print near the bottom.
-    g.font = font(500, 10.5);
-    g.fillText('iPod', w / 2, top(0.47));
+    const word = back.wordmark || 'iPod';
+    // Narrow backs (the nano, the mini) get a smaller wordmark.
+    g.font = font(500, Math.min(10.5, (w / u) * (word.length > 4 ? 0.2 : 0.17)));
+    g.fillText(word, w / 2, top(0.47));
     const lines = (back.lines || []).slice(0, 2);
     g.font = font(400, 3);
     lines.forEach((l, i) => g.fillText(l, w / 2, top(0.565) + i * 4.4 * u));
     g.font = font(500, 3.4);
-    g.fillText(back.capacity || '30GB', w / 2, top(0.82));
+    if (back.capacity) {
+      g.fillText(back.capacity, w / 2, top(0.82));
+      // The nano's capacity sits in a rounded box.
+      if (this.o.model.backCapacityBox) {
+        const tw = g.measureText(back.capacity).width;
+        g.lineWidth = 0.22 * u;
+        roundRectPath(g, w / 2 - tw / 2 - 1.2 * u, top(0.82) - 3.1 * u, tw + 2.4 * u, 4.0 * u, 0.9 * u);
+        g.stroke();
+      }
+    }
     // Fine print and marks.
     g.font = font(400, 1.25);
     const fy = top(0.86);
     g.fillText('Designed in California. Assembled on your desktop.', w / 2, fy);
-    g.fillText(`Model No.: A1136  EMC No.: 2065  Serial No.: ${back.serial || ''}`, w / 2, fy + 1.85 * u);
+    const marks = back.marks || { model: 'A1136', emc: '2065' };
+    g.fillText(`Model No.: ${marks.model}  EMC No.: ${marks.emc}  Serial No.: ${back.serial || ''}`, w / 2, fy + 1.85 * u);
     g.fillText('Rated 5-30V ⎓ 1A Max.', w / 2, fy + 3.7 * u);
     const my = fy + 7 * u;
     g.textBaseline = 'middle';
