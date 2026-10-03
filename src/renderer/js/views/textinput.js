@@ -1,6 +1,4 @@
-/**
- * A text field you fill in with the click wheel (or the keyboard, or paste).
- */
+/** A text field filled with the click wheel, keyboard or paste. */
 
 import { View } from './view.js';
 import { KeyStrip } from './keystrip.js';

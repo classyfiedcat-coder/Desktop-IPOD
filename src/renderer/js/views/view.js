@@ -1,8 +1,4 @@
-/**
- * Base class for every screen. Views can be mounted, unmounted and mounted
- * again (e.g. when you go back, or when the iPod model changes) so they keep
- * their state in the instance and rebuild their DOM in render().
- */
+/** Base screen. Views can be remounted (back, model change), so state lives on the instance and render() rebuilds the DOM. */
 
 export class View {
   constructor(opts = {}) {

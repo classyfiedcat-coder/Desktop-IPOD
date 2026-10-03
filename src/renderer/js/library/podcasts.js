@@ -1,7 +1,4 @@
-/**
- * Podcast subscriptions: search (iTunes directory), top charts, RSS feeds,
- * episode downloads, played state and resume positions.
- */
+/** Podcasts: search, charts, feeds, downloads, played state and resume. */
 
 import { Emitter } from '../util.js';
 

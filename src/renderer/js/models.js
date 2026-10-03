@@ -1,34 +1,13 @@
 /**
- * The iPods you can choose from. Everything about each one is data here: its
- * size, the shape of its edge, where the screen, wheel and ports are, its
- * colours and which screen style it runs. The device renderer (device.js and
- * body3d.js) and the screen (os.js) build whichever one is picked.
- *
- * Geometry is in millimetres, from the real devices, and is converted to
- * pixels by the device renderer. `size` is the flat front face; the edge's
- * profile can curve out beyond it (`profile`, measured outward from the front
- * outline r and into the depth z).
- *
- * Screens: `res` is the layout size of the screen in CSS pixels (the
- * monochrome ones are laid out at about twice their real resolution, so text
- * stays smooth), `ui` its title bar height, rows per screen and font size,
- * and `style` the look: 'video' (5th generation), 'classic' (6th/7th
- * generation and the 3rd generation nano: menus on the left, album art on
- * the right) or 'mono' (the black-and-grey LCDs of the original and mini).
+ * Every model as data: size, edge profile, screen, wheel, ports, colours and screen style.
+ * Geometry in mm; `size` is the flat face, the profile curves out beyond it.
+ * Screens: `res` is the layout size (mono ones at ~2x), `ui` title/rows/font, `style` video | classic | mono.
  */
 
 /*
- * Where the numbers come from. Overall sizes, capacities, colours and model
- * numbers: Apple's technical specifications and "Identify your iPod model"
- * page (support.apple.com/103823). Screen windows, wheels, centre buttons and
- * corner radii: measured from Apple's own front-on product images on that
- * page (their outlines match the published sizes to within 0.5%), scaled to
- * the published dimensions. Colours: sampled from the same images. Port
- * positions: from iFixit's photos of each model's edges. Values marked "est."
- * are estimates where no reference showed them.
- *
- * Measurements are taken from the outside edge; `size` is the flat face, so
- * it's the overall size less the edge's curve on each side (`e` below).
+ * Sources: sizes, capacities, colours, model numbers from Apple's specs and support.apple.com/103823; screen,
+ * wheel and corner positions measured from Apple's product images there (true to scale within 0.5%); ports from
+ * iFixit photos; "est." = no reference found. `size` = overall size less the edge curve on each side.
  */
 
 export const MODELS = [
@@ -318,10 +297,7 @@ export function depthFor(model, capacity) {
   return (model.depths && model.depths[capacity]) || model.depth;
 }
 
-/**
- * Where the flat band around the edge (the part the ports are cut into)
- * runs, in mm of depth from the front (negative), for a body T mm thick.
- */
+/** Where the flat edge band (with the ports) runs, in mm of depth, for a body T mm thick. */
 export function edgeBand(model, T) {
   const p = model.profile;
   const fillet = (p.fillet && (p.fillet[T] || p.fillet[Object.keys(p.fillet)[0]])) || 3;

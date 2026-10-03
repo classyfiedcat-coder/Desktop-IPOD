@@ -79,10 +79,7 @@ test('presses push the pressed edge in', () => {
 
 // ------------------------------------------------------------- frame pacing --
 
-/**
- * Runs the rig against a simulated display (vsync at `hz`) and clock, so the
- * number of frames it draws can be counted. Returns helpers to drive it.
- */
+/** Runs the rig against a simulated display and clock to count frames drawn. */
 function simulate(hz = 60) {
   const saved = { performance: globalThis.performance, raf: globalThis.requestAnimationFrame, st: globalThis.setTimeout, ct: globalThis.clearTimeout };
   let now = 100000;

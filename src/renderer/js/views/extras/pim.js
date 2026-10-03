@@ -76,7 +76,7 @@ export function createPim(app) {
       return new ListView({
         title: 'Contacts',
         index: true,
-        empty: 'No contacts. Choose a folder of .vcf files in Settings › Music Library.',
+        empty: 'No contacts. Add a .vcf folder in Settings › Music Library.',
         load: async () => (await loadContacts()).map((c) => ({ label: c.name, sortName: c.last || c.name, view: () => contactView(c) })),
       });
     },
@@ -103,7 +103,7 @@ export function createPim(app) {
             view: () =>
               new ListView({
                 title: 'Upcoming',
-                empty: 'No upcoming events. Choose a folder of .ics files in Settings › Music Library.',
+                empty: 'No upcoming events. Add an .ics folder in Settings › Music Library.',
                 load: async () => {
                   const now = new Date();
                   const from = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();

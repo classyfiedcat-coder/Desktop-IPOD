@@ -1,8 +1,4 @@
-/**
- * Solitaire (Klondike), played with the click wheel: turn to move the hand,
- * Select to pick up or put down, ▶❚❚ to send cards to the foundations,
- * Menu to cancel. Win and the cards bounce off the screen.
- */
+/** Klondike with the click wheel: turn to move, Select to pick up/drop, ▶❚❚ to foundations, Menu to cancel. */
 
 import { CanvasGame } from './canvas-game.js';
 import { Klondike, SPOTS, SUITS, RANKS, isRed } from './klondike.js';

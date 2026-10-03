@@ -1,11 +1,6 @@
 'use strict';
 
-/**
- * SHOUTcast/Icecast "ICY" metadata. When asked with `Icy-MetaData: 1`, radio
- * servers interleave a metadata block every `icy-metaint` bytes of audio. This
- * transform strips those blocks out of the stream (so the audio decodes
- * cleanly) and reports the StreamTitle ("Artist - Song") as it changes.
- */
+/** ICY radio metadata: strips the blocks interleaved every icy-metaint bytes and reports StreamTitle changes. */
 
 const utf8 = new TextDecoder('utf-8', { fatal: true });
 const latin1 = new TextDecoder('latin1');

@@ -1,17 +1,9 @@
 'use strict';
 
 /**
- * Reads an iTunes or Music app library, so the iPod is "synced" with it:
- * playlists (smart playlists as they are right now, and folders), star
- * ratings, play counts, last played and date added.
- *
- * It reads the XML that iTunes and the Music app write when "Share Library
- * XML with other applications" is on:
- *   Windows (iTunes):   Music\iTunes\iTunes Music Library.xml (or iTunes Library.xml)
- *   Mac (iTunes ≤ 12.9): ~/Music/iTunes/iTunes Music Library.xml
- *   Mac (Music app):    ~/Music/Music/Library.xml
- *
- * No Electron here, so it runs in the library scanner and in tests.
+ * Reads the iTunes / Music library XML ("Share Library XML" on): playlists, ratings, play counts, dates.
+ * Windows: Music\iTunes\iTunes (Music) Library.xml · Mac: ~/Music/iTunes/… or ~/Music/Music/Library.xml.
+ * No Electron, so it runs in the scanner and in tests.
  */
 
 const fs = require('fs');
@@ -31,10 +23,7 @@ function unescapeXml(s) {
   });
 }
 
-/**
- * Parse an Apple XML property list into plain values: dict → object,
- * array → array, date → epoch ms, data → base64 string.
- */
+/** Apple plist XML to plain values (date → epoch ms, data → base64). */
 function parsePlist(xml) {
   const re = /<(\/?)([A-Za-z]+)\b[^>]*?(\/?)>|([^<]+)/g;
   const stack = [];
@@ -133,10 +122,7 @@ function fileFromLocation(loc, platform = process.platform) {
   return p;
 }
 
-/**
- * The parts of a parsed library the iPod uses: local files with their stats,
- * and the user's playlists as lists of files.
- */
+/** Local files with their stats, and user playlists as file lists. */
 function readLibrary(plist, platform = process.platform) {
   const byKey = new Map();
   for (const [key, t] of Object.entries((plist && plist.Tracks) || {})) {
@@ -200,10 +186,7 @@ function findLibrary(musicDir, platform = process.platform) {
 /** Normalise a path for matching: iTunes and the file system can disagree on case. */
 const matchKey = (p) => path.resolve(p).normalize('NFC').toLowerCase();
 
-/**
- * Match a read library against the iPod's own index (tracks with .path and .id).
- * Returns stats by track id and playlists as track ids.
- */
+/** Match a library against the iPod's index: stats by track id, playlists as track ids. */
 function matchLibrary(read, indexTracks) {
   const byPath = new Map(indexTracks.map((t) => [matchKey(t.path), t.id]));
   const idOf = (file) => byPath.get(matchKey(file));

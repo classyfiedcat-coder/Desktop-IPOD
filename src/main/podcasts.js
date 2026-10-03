@@ -1,8 +1,6 @@
 'use strict';
 
-/**
- * Podcast feeds (RSS 2.0 + iTunes tags) and episode downloads.
- */
+/** Podcast feeds (RSS + iTunes tags) and episode downloads. */
 
 const fs = require('fs');
 const fsp = fs.promises;

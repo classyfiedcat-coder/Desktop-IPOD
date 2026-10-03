@@ -1,10 +1,6 @@
 'use strict';
 
-/**
- * Small rotating file logger. Writes to <userData>/logs/main.log and mirrors to
- * the console in development. Also captures uncaught errors from the main
- * process and console errors from renderers.
- */
+/** Rotating file logger (<userData>/logs/main.log); also catches uncaught and renderer errors. */
 
 const fs = require('fs');
 const path = require('path');

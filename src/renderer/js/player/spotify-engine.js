@@ -1,10 +1,4 @@
-/**
- * Spotify playback. Two ways to make sound:
- *  - "This iPod": the Web Playback SDK turns the iPod into a Spotify Connect
- *    speaker. Needs Spotify Premium and a Widevine-enabled Electron build.
- *  - Spotify Connect remote: the iPod drives the Spotify app on this PC (or
- *    your phone/speaker) through the Web API. Works with stock Electron.
- */
+/** Spotify playback: as a Connect speaker (Web Playback SDK, needs Widevine) or as a remote for the Spotify app (Web API). */
 
 import { Emitter, sleep, throttle } from '../util.js';
 import { normTrack } from '../library/spotify.js';
@@ -137,9 +131,7 @@ export class SpotifyEngine extends Emitter {
 
   async refresh() {
     if (!this.api.connected) return;
-    // Quick while Spotify is what you're using; otherwise just an occasional
-    // look to notice music started from another device (Spotify rate-limits,
-    // and this runs all day).
+    // Poll often while in use, rarely otherwise (rate limits; this runs all day).
     let next = this.active ? (this.playing ? 1500 : 3000) : 20000;
     if (document.hidden) next = Math.max(next, this.active && this.playing ? 5000 : 30000);
     if (performance.now() < this._busyUntil) {
@@ -264,13 +256,7 @@ export class SpotifyEngine extends Emitter {
     this._busyUntil = performance.now() + 1200;
   }
 
-  /**
-   * Play from a list. With a context (an album or playlist) Spotify keeps
-   * the queue; `single` plays just this song, then your Spotify queue, then
-   * songs like it (Spotify doesn't start its own radio for songs played this
-   * way, so without them it would just stop). If there's nothing like it,
-   * the rest of its album follows.
-   */
+  /** Play from a list: a context keeps Spotify's queue; `single` plays the song, then a mix like it (else its album). */
   async playList(tracks, index, { context, shuffle, single = false } = {}) {
     this.active = true;
     this.list = single ? null : tracks;

@@ -1,14 +1,9 @@
 'use strict';
 
 /**
- * Library scanner. Runs in an Electron utility process so tag parsing for
- * large libraries never blocks the main process (which serves the audio).
- *
- * Messages in:  { type: 'scan', folders, previous, artDir }
- *               { type: 'files', paths, artDir }
- *               { type: 'itunes', file }   (read an iTunes / Music library XML)
- * Messages out: { type: 'progress', done, total, phase }
- *               { type: 'done', tracks, playlists[, musicFolder] }   |   { type: 'error', message }
+ * Library scanner (utility process, so tag parsing never blocks the main process).
+ * In:  scan { folders, previous, artDir } · files { paths, artDir } · itunes { file }
+ * Out: progress { done, total, phase } · done { tracks, playlists, musicFolder? } · error { message }
  */
 
 const fs = require('fs');

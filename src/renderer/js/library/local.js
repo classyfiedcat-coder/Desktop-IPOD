@@ -39,11 +39,7 @@ export class LocalLibrary extends Emitter {
 
   // ---- iTunes -----------------------------------------------------------
 
-  /**
-   * Read the iTunes / Music library and use its playlists, ratings, play
-   * counts and dates (see main/library/itunes.js). Turned off, they go away
-   * again; nothing of the iPod's own is changed either way.
-   */
+  /** Use the iTunes library's playlists, ratings, plays and dates (main/library/itunes.js); off removes them. */
   async syncITunes({ force = false } = {}) {
     const s = this.store.settings;
     let res = null;

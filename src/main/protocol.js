@@ -1,21 +1,10 @@
 'use strict';
 
 /**
- * The privileged app:// scheme. Serves the renderer bundle and every piece of
- * media the iPod plays or shows:
- *
- *   app://ipod/<file>                    renderer files
- *   app://ipod/media/track/<id>          local songs (range requests for seeking)
- *   app://ipod/media/art/<key>           album artwork, resized on demand
- *   app://ipod/media/photo|thumb/<id>    photos and thumbnails
- *   app://ipod/media/video/<id>          videos, /media/sub/<id> subtitles (VTT)
- *   app://ipod/media/download/<id>       downloaded podcast episodes
- *   app://ipod/media/remote?u=…[&icy=1]  internet radio / podcast streams
- *   app://ipod/media/img?u=…             remote images (station logos, podcast art)
- *
- * Streams go through the main process so audio stays same-origin (the Web
- * Audio EQ can't process cross-origin audio) and so ICY "now playing" titles
- * can be read out of radio streams.
+ * The app:// scheme: the renderer and all media.
+ *   app://ipod/<file> · media/track/<id> (ranges) · media/art/<key> · media/photo|thumb/<id>
+ *   media/video/<id>, media/sub/<id> · media/download/<id> · media/remote?u=…[&icy=1] · media/img?u=…
+ * Streams are proxied so audio is same-origin (for the EQ) and ICY titles can be read.
  */
 
 const fs = require('fs');

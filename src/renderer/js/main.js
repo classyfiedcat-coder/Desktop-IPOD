@@ -224,9 +224,7 @@ async function boot() {
   announceUpdate({ store, os });
   if (store.firstRun) os.alert('Welcome! Drag the iPod to move it. Right-click for options.', 3600);
 
-  // Downloaded updates install themselves at a quiet moment. Not while
-  // something on screen is running (a video, a game, the stopwatch, a sleep
-  // timer), and not while it's locked: the lock doesn't survive a restart.
+  // Updates install at a quiet moment: not during a video, game, stopwatch, sleep timer or screen lock.
   app.updates = new AutoUpdate({
     store,
     player,

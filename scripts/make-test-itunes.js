@@ -1,13 +1,6 @@
 #!/usr/bin/env node
 'use strict';
-/**
- * Writes an iTunes library XML for the end-to-end tests, pointing at the
- * songs of the test library: star ratings, play counts and dates, a playlist
- * folder, a smart playlist, an empty playlist, the built-in lists, a song
- * that isn't on this computer and one that's only in the cloud.
- *
- *   node scripts/make-test-itunes.js <music dir> <out.xml>
- */
+/** iTunes library XML for the e2e tests (ratings, plays, folders, smart/empty/missing/cloud items): make-test-itunes.js <music dir> <out.xml> */
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');

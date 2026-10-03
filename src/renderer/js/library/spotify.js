@@ -1,9 +1,4 @@
-/**
- * Spotify Web API client. Written against the 2026 Development Mode API:
- * playlist contents come from /playlists/{id}/items (entries expose `item`),
- * search is capped at 10 results, and saving uses /me/library with URIs —
- * with fallbacks to the older shapes so Extended Quota apps keep working.
- */
+/** Spotify Web API client for the 2026 Development Mode API (with fallbacks for Extended Quota apps). */
 
 import { Emitter, sleep } from '../util.js';
 
@@ -302,11 +297,8 @@ export class SpotifyAPI extends Emitter {
   }
 
   /**
-   * Songs to play after `track` when it was picked on its own (from search):
-   * Spotify's own radio isn't reachable from the Web API, so this is the next
-   * best thing. Recommendations where the app may use them, otherwise more
-   * by the same artist. Never another song with the same title, so picking
-   * one "The Power of Love" isn't followed by the other.
+   * What plays after a song picked on its own (Spotify's radio isn't in the Web API): recommendations if
+   * allowed, else more by the artist. Never the same title again.
    */
   async songsLike(track, limit = 25) {
     const name = (t) => String(t.title || '').toLowerCase().replace(/\s*(\(|\[|\s-\s).*$/, '').trim();

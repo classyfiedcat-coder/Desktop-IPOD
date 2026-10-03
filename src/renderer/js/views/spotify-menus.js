@@ -27,12 +27,7 @@ export function createSpotifyMenus(app) {
     onHold: (_item, view) => songOptions(app, t, { view }),
   });
 
-  /**
-   * A song found by searching: art, and who / which album / which year
-   * underneath, so one version can be told from another at a glance.
-   * Choosing it plays just that song; then Spotify carries on as it would
-   * itself (your queue, then songs like it), not with the other results.
-   */
+  /** A search result: art plus artist · album · year. Choosing it plays just that song, then Spotify's own mix. */
   const searchTrackItem = (t) => ({
     ...trackItem([t], t),
     thumb: t.art || '',

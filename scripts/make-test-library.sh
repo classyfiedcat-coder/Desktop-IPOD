@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
-# Builds a small fake library for the end-to-end tests: 19 tagged MP3s with
-# cover art in 4 albums, an iTunes library for them, a few photos, a test
-# video and a starting profile.
-#
-#   scripts/make-test-library.sh <dir>      (needs ffmpeg)
+# Test library for e2e: 19 tagged MP3s in 4 albums, an iTunes XML, photos, a video, a profile.
+#   scripts/make-test-library.sh <dir>   (needs ffmpeg)
 set -euo pipefail
 OUT="${1:?usage: make-test-library.sh <dir>}"
 mkdir -p "$OUT/music" "$OUT/pictures/Holiday" "$OUT/videos" "$OUT/covers"

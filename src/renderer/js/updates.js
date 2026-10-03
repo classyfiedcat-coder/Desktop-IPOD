@@ -1,11 +1,4 @@
-/**
- * Updates install themselves. The main process downloads new versions in the
- * background (see main/updater.js); once one is ready, it's installed at the
- * next quiet moment: nothing playing and the iPod left alone for a few
- * minutes. The app closes, installs and opens again where you left off.
- * Settings › Software Update › Install Automatically turns this off (it
- * then installs when you quit, or when you choose to).
- */
+/** Installs a downloaded update at a quiet moment (nothing playing, untouched for minutes), then reopens. Off: on quit. */
 
 /** How long the iPod has to be left alone before it restarts to update. */
 export const QUIET_FOR = 3 * 60 * 1000;

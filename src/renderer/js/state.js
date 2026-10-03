@@ -162,9 +162,7 @@ class Store extends Emitter {
     this.itunesStats = null;
   }
 
-  // Song stats: the iPod's own, with iTunes' on top when an iTunes library is
-  // in use. Plays add up (they happened in different places), the latest
-  // play wins, and a rating you give on the iPod wins over iTunes'.
+  // Stats: the iPod's own plus iTunes'. Plays add up, the latest play wins, the iPod's rating wins.
 
   plays(id) {
     const it = this.itunesStats && this.itunesStats[id];

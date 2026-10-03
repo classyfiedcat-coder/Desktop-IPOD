@@ -1,8 +1,4 @@
-/**
- * Renders the physical iPod (case, screen window, click wheel, hold switch)
- * for the chosen model + colour, and turns mouse/keyboard input into the
- * same button and wheel events a real iPod produces.
- */
+/** The physical iPod for the chosen model and colour, and its mouse/keyboard input as iPod button and wheel events. */
 
 import { getModel, getColor, SIZES, PX_PER_MM, depthFor, edgeBand } from './models.js';
 import { h, svg, ICONS, shade, Emitter } from './util.js';
@@ -13,15 +9,8 @@ import { Body3D } from './body3d.js';
 /** Viewer distance in millimetres (CSS perspective and the 3D camera share it). */
 const PERSPECTIVE_MM = 230;
 /**
- * The front face is laid out this many times larger than it's shown, then
- * scaled back down. In a 3D scene Chromium paints each flat face into an
- * image of its own (a render surface) and then warps that image onto the
- * screen. With perspective it paints that image at exactly the screen's
- * resolution, so warping it smears small text into a blur. The image is
- * painted in the face's own units, so a face laid out at 2x (zoom) and shown
- * at half size (transform) gets twice the pixels, and stays crisp at an angle.
- * (Supersampling just the screen doesn't help: it's painted into the face's
- * image at 1x either way.)
+ * The front face is laid out 2x and shown at half size. Chromium paints each 3D face into its own image at
+ * screen resolution and warps it; at 1x that blurs text when tilted. (Supersampling just the screen doesn't help.)
  */
 const FACE_SUPERSAMPLE = 2;
 
@@ -81,11 +70,7 @@ const anodised = (c) => [
   [1, shade(c, -0.3)],
 ];
 
-/**
- * The edge, from the front face (0) to the back (1): the front plastic (or
- * aluminium) shows as a band of the front colour, then a fine dark seam, then
- * the steel. The mini is aluminium all the way round.
- */
+/** The edge from front (0) to back (1): front colour, a dark seam, then steel. The mini is aluminium throughout. */
 export function edgeProfile(finish, front, model) {
   if (model && model.back === 'aluminium') return anodised(front);
   const steel = finish === 'black' ? BLACK_STEEL : STEEL;
@@ -105,11 +90,7 @@ export const profileGradient = (dir, stops) => `linear-gradient(${dir}, ${stops.
 /** Which back an iPod gets when the setting is "Auto": black steel to go with a black front. */
 export const backFinishFor = (color, setting) => (setting === 'steel' || setting === 'black' ? setting : color.dark && color.id !== 'u2' ? 'black' : 'steel');
 
-/**
- * The soft shadow the iPod casts on the desk: one smooth falloff from the
- * middle out, drawn once into a canvas (so moving it costs nothing, and
- * there's no visible edge between a fill and a blur however far it turns).
- */
+/** The desk shadow: one soft falloff drawn once into a canvas, so moving it is free. */
 function groundShadow(w, h, radius, u) {
   const blur = 2.8 * u;
   const m = Math.ceil(blur * 3);
@@ -159,12 +140,7 @@ const RIM = 0.35;
 /** Light direction in the plane of the device (from the top left). */
 const LIGHT = [-0.6, -0.8];
 
-/**
- * Flat panels around the outline. Each one stands perpendicular to the front,
- * spans the full thickness and faces outward at angle θ (screen coordinates,
- * y down: 0 = right, 90 = down). Local x runs back → front, local y along
- * the edge.
- */
+/** Flat panels around the outline, facing outward at θ (0 = right, 90 = down); local x back → front, y along the edge. */
 function buildShell({ W, H, R, T, u, refl, ports, depth, dock, profile, holdW = HOLD_W, labels = false }) {
   const r = (R + RIM) * u;
   const x0 = -RIM * u;
@@ -210,10 +186,7 @@ function buildShell({ W, H, R, T, u, refl, ports, depth, dock, profile, holdW = 
   panel(180, x0, (y0 + y1) / 2, cy[1] - cy[0], 'wall wall-l');
   panel(0, x1, (y0 + y1) / 2, cy[1] - cy[0], 'wall wall-r');
   const edgeLen = cx[1] - cx[0];
-  // On the top wall, local x is depth (back → front) and local y runs right →
-  // left along the edge; on the bottom wall it runs left → right. at() places
-  // something centred on a point given in device millimetres across and a
-  // fraction of the depth from the front.
+  // Top wall: y runs right → left; bottom: left → right. at() centres something at mm across and a depth fraction.
   const alongY = (edge, mmX) => edgeLen / 2 + 0.3 + (edge === 'top' ? 1 : -1) * ((x0 + x1) / 2 - mmX * u);
   const depthX = (d) => LAP + T * (1 - d);
   const at = (edge, mmX, d, wMm, hMm) => ({
@@ -408,10 +381,7 @@ export class Device extends Emitter {
 
     // The polished stainless back, shown when you flip the iPod over.
     const lines = String(engraving || color.engraved || '').split('\n').filter(Boolean).slice(0, 2);
-    // Mirror steel: the room slides across it (broken up by scratches and
-    // smudges), the scratches catch the light, and tipped toward the light
-    // the whole back flares. The lettering is etched: matte, so it stays put
-    // while the reflections move around it.
+    // Mirror steel with etched (matte) lettering; scratches catch the light, and it flares facing the light.
     const back = hi
       ? null
       : h(
@@ -434,9 +404,7 @@ export class Device extends Emitter {
       h('div', { class: 'back-edge' })
     );
 
-    // The body: the stainless edge is a closed shell of flat panels around
-    // the rounded-rectangle outline (four walls plus faceted corners), so it
-    // has real thickness from every angle.
+    // The steel edge: panels around the outline (walls plus faceted corners).
     const shell = hi
       ? []
       : buildShell({

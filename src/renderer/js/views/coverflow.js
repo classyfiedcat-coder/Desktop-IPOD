@@ -1,7 +1,4 @@
-/**
- * Cover Flow: spin through your albums in 3D. Select flips the album over to
- * its track list; ▶❚❚ plays the album; type a letter to jump.
- */
+/** Cover Flow: Select flips to tracks, ▶❚❚ plays, type a letter to jump. */
 
 import { View } from './view.js';
 import { ListView } from './list.js';

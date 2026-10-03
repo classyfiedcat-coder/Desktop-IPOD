@@ -1,9 +1,6 @@
 'use strict';
 
-/**
- * Renders the app icon (an iPod 5th gen front) to PNG and ICO.
- * Run with: npx electron scripts/make-icons.js
- */
+/** App icon (a 5th gen front) to PNG and ICO: npx electron scripts/make-icons.js */
 
 const fs = require('fs');
 const path = require('path');
@@ -57,10 +54,7 @@ const traySvg = (size) => `<svg xmlns="http://www.w3.org/2000/svg" width="${size
   <circle cx="16" cy="22" r="2" fill="#ffffff" stroke="#6b7076" stroke-width="0.7"/>
 </svg>`;
 
-/**
- * The Mac menu bar icon: a "template" (black and transparent; macOS colours
- * it to suit the menu bar). An iPod with its screen and wheel cut out.
- */
+/** Mac menu bar template icon: an iPod with the screen and wheel cut out. */
 const trayTemplateSvg = (size) => `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 32 32">
   <defs><mask id="m">
     <rect width="32" height="32" fill="#fff"/>

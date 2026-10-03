@@ -218,13 +218,7 @@ export function hslToHex({ h: hh, s, l }) {
 
 const palettes = new Map();
 
-/**
- * The colours of a piece of album art, for tinting Now Playing the way Apple
- * Music does: `accent` favours its strongest mid-tone colour (not a muddy
- * average), `light` says whether it's a pale cover. Null if the image can't
- * be read (a cross-origin image without CORS, a broken link).
- * @returns {Promise<{accent: number[], light: boolean} | null>}
- */
+/** Album art colours for Now Playing: `accent` (strongest mid-tone), `light` (pale cover). Null if unreadable. */
 export function artPalette(url) {
   if (!url) return Promise.resolve(null);
   if (palettes.has(url)) return palettes.get(url);

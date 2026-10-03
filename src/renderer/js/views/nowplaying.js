@@ -1,12 +1,4 @@
-/**
- * Now Playing, laid out like the iPod 5th generation: "6 of 15" in the
- * corner, artwork on the left, title / artist / album, and the glossy blue
- * progress bar with elapsed and remaining time.
- *
- * Wheel: volume. The centre button cycles through the scrubber, rating
- * (Spotify: Liked Songs, podcasts: playback speed), lyrics, the visualizer
- * and full-screen artwork. Hold the centre button for options.
- */
+/** Now Playing: count, artwork, title/artist/album, progress. Wheel: volume. Centre cycles scrubber, rating, lyrics, visualizer, art. */
 
 import { View } from './view.js';
 import { h, svg, ICONS, fmtTime, clamp, debounce, artPalette, mixRgb } from '../util.js';
@@ -230,11 +222,7 @@ export class NowPlayingView extends View {
     }
   }
 
-  /**
-   * Now Playing in the album's colours (Settings › Appearance › Now Playing):
-   * a gradient of the cover's strongest colour behind white type (or dark
-   * type on a pale cover), and the wheel glows the same colour.
-   */
+  /** Album colours (Settings › Appearance › Now Playing): the cover's colour behind the type, and the wheel glow. */
   async _tint(url) {
     const on = this.app.store.settings.npColors === 'album' && this.os && this.os.style !== 'mono';
     const pal = on ? await artPalette(url) : null;
@@ -284,10 +272,7 @@ export class NowPlayingView extends View {
     const dur = p.duration || 0;
     const pos = this._seekPos !== null ? this._seekPos : p.position;
     const pct = dur ? clamp(pos / dur, 0, 1) : 0;
-    // This runs several times a second, and every change repaints the
-    // screen, so only touch it when something you'd see changes. Like the
-    // real iPod, the clocks and the bar move together, once a second (the
-    // bar moves in between only on short songs, where it would jump).
+    // Runs several times a second: only touch the DOM when something visible changes (clock and bar tick once a second).
     const elapsed = fmtTime(pos);
     const rate = p.rate;
     // At normal speed, remaining is counted from the same whole second as

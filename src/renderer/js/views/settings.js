@@ -901,12 +901,12 @@ class UpdateView extends View {
     const v = this.app.store.env.version;
     const auto = this.app.store.settings.autoUpdate !== false;
     const map = {
-      unsupported: ['Updates', `Version ${v}. Updates install themselves in the installed version of the app.`],
+      unsupported: ['Updates', `Version ${v}. The installed app updates itself.`],
       idle: ['Checking for updates…', ''],
       checking: ['Checking for updates…', ''],
       current: ['Your iPod is up to date', `Version ${v}`],
       downloading: [`Downloading ${s.version || 'update'}…`, `${s.percent || 0}%`],
-      ready: [`Version ${s.version} is ready`, auto ? 'It installs when you’re not listening. Press Select to install now.' : 'Press Select to restart and install'],
+      ready: [`Version ${s.version} is ready`, auto ? 'Installs when you’re not listening. Select to install now.' : 'Press Select to restart and install'],
       installing: [`Installing ${s.version || 'update'}…`, 'The iPod will be right back'],
       available: [`Version ${s.version} is available`, 'Press Select to download it'],
       error: ['Couldn’t check for updates', s.message || ''],

@@ -1,9 +1,6 @@
 'use strict';
 
-/**
- * Photos, videos, notes, contacts and calendars read from user folders. Files
- * are registered under opaque ids that the app:// protocol can serve.
- */
+/** Photos, videos, notes, contacts and calendars from user folders, served by opaque id over app://. */
 
 const fs = require('fs');
 const fsp = fs.promises;

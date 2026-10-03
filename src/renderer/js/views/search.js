@@ -1,8 +1,4 @@
-/**
- * Search with the click wheel: spin through the letter strip at the bottom
- * and press the centre button to type. Choose DONE (or press ⏭) to move into
- * the results. You can also just type, or paste.
- */
+/** Search: spin the letter strip, press to type, DONE or ⏭ for results. Typing and pasting work too. */
 
 import { View } from './view.js';
 import { ListView } from './list.js';

@@ -1,18 +1,7 @@
 /**
- * The motion rig makes the iPod behave like a real object sitting on your
- * desktop. Everything is driven by damped springs:
- *
- *  - it turns gently toward the mouse pointer, wherever it is on screen;
- *  - picking it up (dragging) lifts it off the desk and it sways with the
- *    movement, then settles with a small bounce when you put it down;
- *  - pressing the wheel pushes that edge in, and spinning it gives a tiny
- *    twist, like the torque from your thumb;
- *  - left alone it floats very slightly, as if it's breathing;
- *  - flipping it over is a real 3D turn with momentum.
- *
- * Reflections are separate layers (marked with data-par in the DOM) that the
- * rig slides across the glass, gloss and chrome as the device turns. They are
- * moved with transforms only, so nothing is repainted while it moves.
+ * Makes the iPod behave like a real object, with damped springs: turns toward the pointer, lifts and sways
+ * when dragged, nudges when pressed, floats when idle, flips with momentum. Reflection layers (data-par)
+ * slide with transforms only, so nothing repaints.
  */
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -94,11 +83,7 @@ export class MotionRig {
     this.lcdDepth = depth;
     this.pad = pad;
     this.flipS.snap(flipped ? 180 : 0);
-    // Layers the rig drives (all optional, combined freely):
-    //   data-par="kx ky" or "a b c d" [unit]: slide with the light
-    //     (tx = a·lx + b·ly, ty = c·lx + d·ly)
-    //   data-glint: brighten as the surface turns toward the light
-    //   data-flare="threshold gain max": flare up only when it faces the light squarely
+    // data-par="kx ky" | "a b c d" [unit]: slide with the light · data-glint: brighten toward it · data-flare="threshold gain max"
     this.layers = [...(reflections ? el.querySelectorAll('[data-par], [data-glint], [data-flare]') : [])].map((n) => {
       let m = null;
       let unit = '%';
@@ -149,9 +134,7 @@ export class MotionRig {
       aim = { ry: nx * this.amount * 1.45, rx: -ny * this.amount * 1.15 };
     }
     if (inside) this.lastInput = performance.now();
-    // Far from the iPod the tilt hardly changes as the pointer moves, so
-    // don't draw a frame for a change nobody could see. Small moves add up:
-    // the aim only updates once it's moved far enough from the last one.
+    // Far from the iPod, tilt barely changes: skip frames nobody could see until the aim moves enough.
     const changed =
       Math.abs(aim.rx - this.aim.rx) + Math.abs(aim.ry - this.aim.ry) > AIM_EPSILON ||
       Math.abs(room.x - this.room.x) + Math.abs(room.y - this.room.y) > 0.002 ||

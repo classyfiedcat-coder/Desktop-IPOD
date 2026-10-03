@@ -1,7 +1,4 @@
-/* ------------------------------------------------------------------------
-   The iPod 5th generation screen (320x240). Sizes are logical screen
-   pixels; the screen element is zoomed to fit the physical screen window.
-   ------------------------------------------------------------------------ */
+/* The screen, in logical pixels (320x240 on most); zoomed to fit the physical window. */
 
 @font-face {
   font-family: 'iPod Sans';
@@ -639,9 +636,7 @@
   transform: translate(-50%, -50%) scale(1);
 }
 
-/* ================================================================================
-   Screen styles for the other iPods (os.js sets .style-<name> from the model)
-   ================================================================================ */
+/* --- Screen styles per model (os.js sets .style-<name>) --------------------------------- */
 
 /* --- monochrome LCD: the original iPod and the mini ---------------------------- */
 /* ChicagoFLF: a public-domain revival of Chicago, the iPod's original typeface
@@ -766,9 +761,7 @@
   background: var(--lcd-ink);
   border-radius: 4px;
 }
-/* The LCD itself: grey-green unlit, lighter and cooler with the backlight
-   on, and a faint grid between its pixels (it's laid out at about twice the
-   real resolution, so a line every 2px). */
+/* The LCD: grey-green unlit, cooler with the backlight, and a faint pixel grid (2px at 2x layout). */
 .style-mono .lcd-tint {
   background-color: var(--lcd-off);
   background-image:
@@ -802,9 +795,7 @@
   -webkit-box-reflect: below 2px linear-gradient(transparent 62%, rgba(255, 255, 255, 0.32));
 }
 
-/* Menus share the screen with album art: the list on the left half, the art
-   on the right, slowly panning and changing. The title bar covers only the
-   menu's half, with the title on the left. */
+/* Top menus share the screen with panning album art; the title bar covers only the menu half. */
 .art-panel {
   position: absolute;
   top: 0;

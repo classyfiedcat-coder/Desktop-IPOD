@@ -1,9 +1,4 @@
-/**
- * What happens when you hold the centre button on a song, episode or
- * station: an options sheet (Play Next, Add to Playlist, Browse Album, Song
- * Info…). With Settings › Hold Select › On-The-Go, holding a local song just
- * adds it to On-The-Go, exactly like the 5th gen.
- */
+/** Hold the centre button: an options sheet, or (Hold Select › On-The-Go) add to On-The-Go like the 5th gen. */
 
 import { ListView } from './list.js';
 import { StaticList } from './common.js';

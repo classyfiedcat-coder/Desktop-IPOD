@@ -1,11 +1,8 @@
 'use strict';
 
 /**
- * Drives the running app and saves screenshots. Used for development:
- *
- *   IPOD_E2E=scripts/e2e.js IPOD_SHOTS=./shots IPOD_USER_DATA=./tmp-profile electron .
- *
- * Optional IPOD_E2E_STEPS selects a scenario (default "tour").
+ * Drives the running app and saves screenshots (IPOD_E2E_STEPS picks a scenario):
+ *   IPOD_E2E=scripts/e2e.js IPOD_SHOTS=dir IPOD_USER_DATA=dir electron .
  */
 
 const fs = require('fs');
@@ -503,11 +500,7 @@ async function motionScenario({ js, wait, shot, win }) {
   await js(`__ipod.store.set('motion', 'cursor'); __ipod.store.set('color', 'white'); __ipod.store.set('motionAmount', 'normal'); __ipod.store.set('idleFloat', true)`);
 }
 
-/**
- * Frames for an animated preview: the pointer circles the iPod, it gets
- * picked up and put down, then flipped over and back. Turn them into a GIF
- * with ffmpeg (see docs).
- */
+/** GIF frames: the pointer circles the iPod, it's picked up, then flipped. */
 async function reelScenario({ js, wait, win }) {
   const out = path.resolve(process.env.IPOD_SHOTS || 'shots');
   await wait(2500);
@@ -616,11 +609,7 @@ async function finishScenario({ js, wait, shot }) {
 }
 
 /** A tour of the screens the other scenarios don't reach, for a visual check. */
-/**
- * iTunes: the test profile points at an iTunes library for the test songs
- * (scripts/make-test-itunes.js). Its playlists, ratings and play counts show
- * up on the iPod, the iPod's own ratings win, and turning it off removes it.
- */
+/** iTunes: playlists, ratings and play counts show up; the iPod's ratings win; turning it off removes them. */
 async function itunesScenario({ js, wait, shot, open, menu }) {
   const check = (ok, what) => {
     if (!ok) throw new Error(`iTunes: ${what}`);
@@ -729,11 +718,7 @@ async function screensScenario({ js, wait, shot, press, scroll, open, menu }) {
   await js(`__ipod.store.set('idleFloat', true)`);
 }
 
-/**
- * Every iPod model: built in each of its colours without errors, seen from
- * the front, tilted, and from the back; the screen style each one runs; and
- * the original's scroll wheel turning under real mouse input.
- */
+/** Every model in every colour (3D and Light), front, tilted and back; each screen style; the original's wheel under real mouse input. */
 async function modelsScenario({ js, wait, shot, win, open, menu, press }) {
   await wait(1500);
   const pointAt = (dx, dy) =>
