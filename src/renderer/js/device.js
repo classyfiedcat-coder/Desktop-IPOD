@@ -301,7 +301,9 @@ export class Device extends Emitter {
     if (!hi && this.body3d) this.body3d.dispose();
 
     const [W, H] = model.size;
-    const T = model.depth * u;
+    // 11mm for a 30GB iPod, 14mm for the 60 and 80GB ones.
+    const depthMm = (model.depths && model.depths[this.capacity]) || model.depth;
+    const T = depthMm * u;
     // Room around the device for tilting, lifting and the shadow on the desk.
     const pad = Math.round(46 * size.scale);
     const widthPx = Math.round(W * u + pad * 2);
@@ -423,7 +425,7 @@ export class Device extends Emitter {
       refl,
       jack: { x: W - model.jack, d: 5.2 },
       dock: { w: 21, h: 2.4 },
-      hold: { x: HOLD.x, w: HOLD.w, depth: -HOLD.z / model.depth },
+      hold: { x: HOLD.x, w: HOLD.w, depth: -HOLD.z / depthMm },
       profile: edgeProfile(finish, color.front),
     });
 
@@ -480,7 +482,7 @@ export class Device extends Emitter {
     this.stage.replaceChildren(el);
     this.el = el;
     this.hi = false;
-    if (hi) this.hi = this._mountBody3D({ el, flipper, W, H, u, pad, model, color, finish, wear, engraving: lines });
+    if (hi) this.hi = this._mountBody3D({ el, flipper, W, H, u, pad, model, depthMm, color, finish, wear, engraving: lines });
     if (hi && !this.hi) {
       // WebGL refused to start: fall back to the CSS body for good.
       this._noWebGL = true;
@@ -528,7 +530,7 @@ export class Device extends Emitter {
   }
 
   /** Build the WebGL body and hook it to the motion rig. Returns false if WebGL won't start. */
-  _mountBody3D({ el, flipper, W, H, u, pad, model, color, finish, wear, engraving }) {
+  _mountBody3D({ el, flipper, W, H, u, pad, model, depthMm, color, finish, wear, engraving }) {
     if (!this.body3d) this.body3d = new Body3D();
     const body = this.body3d;
     body.hold = this.hold;
@@ -538,7 +540,7 @@ export class Device extends Emitter {
       W,
       H,
       R: model.radius,
-      T: model.depth,
+      T: depthMm,
       u,
       pad,
       perspective: PERSPECTIVE_MM * u,

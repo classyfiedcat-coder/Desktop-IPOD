@@ -13,29 +13,33 @@ export const MODELS = [
     name: 'iPod',
     era: '5th generation (video)',
     size: [61.8, 103.5],
-    depth: 11, // the 30GB model; the 60/80GB one is 14mm
+    depth: 11, // the 30GB model
+    // The 60GB and 80GB models have a thicker back for the bigger drive.
+    depths: { '30GB': 11, '60GB': 14, '80GB': 14 },
     radius: 7.4,
     hold: 'top-left',
     jack: 11, // headphone jack centre, from the right edge
     screen: {
-      x: 4.6,
-      y: 7.2,
-      w: 52.6,
-      h: 41.6,
-      inset: [1.5, 1.3],
-      radius: 1.8,
+      // The black window printed under the clear front, around a 2.5" LCD
+      // (50.8 x 38.1mm of picture, centred left to right).
+      x: 4.2,
+      y: 7.0,
+      w: 53.4,
+      h: 41.5,
+      inset: [1.3, 1.7],
+      radius: 0.9,
       depth: 2.4, // how far the LCD sits behind the clear front (a touch exaggerated)
       res: [320, 240],
       ui: { title: 22, rows: 9, fs: 16 },
     },
-    wheel: { cy: 77.6, d: 38.6, center: 14.8 },
+    wheel: { cy: 77.6, d: 38.6, center: 15.4 },
     colors: [
       {
         id: 'white',
         name: 'White',
         front: '#fbfbfb',
-        wheel: '#ececec',
-        label: '#bdbdbd',
+        wheel: '#efefef',
+        label: '#a9abad',
         center: '#fbfbfb',
         bezel: '#1b1c1d',
       },
@@ -43,7 +47,7 @@ export const MODELS = [
         id: 'black',
         name: 'Black',
         front: '#121212',
-        wheel: '#3a3a3b',
+        wheel: '#2e2e2f',
         label: '#e4e4e4',
         center: '#070707',
         bezel: '#050505',
