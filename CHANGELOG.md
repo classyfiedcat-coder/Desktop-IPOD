@@ -12,6 +12,7 @@ A closer likeness of the real iPod, and a screen that stays sharp at any angle.
 - The back is laid out like the real one: the wordmark, then the capacity and fine print near the bottom, and the mirror steel reflects with more contrast.
 
 ### Fixes
+- Software Update explains why a check failed in one short line (for example, that GitHub hides a private repository's releases) instead of showing the raw server response.
 - The screen no longer goes soft when the iPod is tilted or floating. The whole front is now drawn at twice the resolution, so tilting it doesn't smear the text.
 
 ## 3.0.1
