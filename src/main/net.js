@@ -13,7 +13,7 @@ const nodeNet = require('net');
 const { log } = require('./log');
 
 const version = () => (electron.app && electron.app.getVersion ? electron.app.getVersion() : '0.0.0');
-const UA = () => `iPodDesktop/${version()} (+https://github.com/classyfiedcat-coder/Ipod)`;
+const UA = () => `iPodDesktop/${version()} (+https://github.com/classyfiedcat-coder/Desktop-IPOD)`;
 
 /** Hosts the renderer may query for JSON. */
 const API_HOSTS = [
