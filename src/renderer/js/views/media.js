@@ -31,6 +31,7 @@ export function createMedia(app) {
     photosMenu() {
       return new ListView({
         title: 'Photos',
+        split: true,
         empty: 'No photos found. Choose a folder in Settings › Music Library.',
         load: async () => {
           const { photos, albums } = await loadPhotos();
@@ -54,6 +55,7 @@ export function createMedia(app) {
       const list = (title, vids, label) => new ListView({ title, index: vids.length > 30, refreshOnEnter: true, items: () => vids.map((v) => item(v, label ? label(v) : v.title)) });
       return new ListView({
         title: 'Videos',
+        split: true,
         empty: 'No videos found. Choose a folder in Settings › Music Library.',
         load: async () => {
           const vids = await loadVideos();

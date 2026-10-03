@@ -21,6 +21,7 @@ export function settingsMenu(app) {
   const { store, player } = app;
   return new ListView({
     title: 'Settings',
+    split: true,
     refreshOnEnter: true,
     items: () => [
       { label: 'About', view: () => aboutView(app) },

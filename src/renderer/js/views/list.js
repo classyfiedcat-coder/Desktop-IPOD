@@ -16,6 +16,7 @@ export class ListView extends View {
    * @param {Function} [o.loadMore] async (offset) => {items, more}
    * @param {boolean} [o.thumbs] two-line rows with artwork
    * @param {boolean} [o.index] show letter overlay when spinning fast
+   * @param {boolean} [o.split] a top-level menu: on the classic and nano 3rd generation, album art fills the right half
    * @param {string} [o.empty]
    */
   constructor(o) {
@@ -35,6 +36,11 @@ export class ListView extends View {
     return 'list-view';
   }
 
+  /** Shares the screen with album art (classic-style screens). */
+  get split() {
+    return !!this.o.split;
+  }
+
   get rowCount() {
     // Rows with artwork are taller (two lines), so fewer fit in the same space.
     const n = this.o.rows || this.os.ui.rows;
@@ -45,6 +51,7 @@ export class ListView extends View {
     const el = this.el;
     el.replaceChildren();
     el.classList.toggle('thumbs', !!this.o.thumbs);
+    el.classList.toggle('split', !!this.o.split);
     el.style.setProperty('--rows', this.rowCount);
 
     this.listEl = h('div', { class: 'list' });

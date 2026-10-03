@@ -882,12 +882,29 @@ body {
 }
 
 /* --- the original iPod's scroll wheel ---------------------------------------------- */
-/* A ring of four buttons, and inside it a wheel that physically turns. */
+/* A ring of four domed buttons split by diagonal gaps, and inside it a wheel
+   that physically turns. */
 .wheel-scroll {
   background:
-    var(--grain, none),
+    /* Each button is rounded over: darker at its inner and outer edges. */
+    radial-gradient(circle closest-side, transparent 78%, rgba(0, 0, 0, 0.1) 78.5%, rgba(255, 255, 255, 0.5) 83%, rgba(255, 255, 255, 0) 90%, rgba(0, 0, 0, 0.08) 98%, rgba(0, 0, 0, 0.16) 100%),
     linear-gradient(180deg, var(--wheel-hi) 0%, var(--wheel) 50%, var(--wheel-lo) 100%);
-  background-size: calc(var(--u) * 6) calc(var(--u) * 6), 100% 100%;
+}
+/* The four gaps between the buttons, at the diagonals. */
+.wheel-scroll::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  background: repeating-conic-gradient(from 44.4deg, rgba(60, 64, 70, 0.55) 0deg 1.2deg, transparent 1.2deg 90deg);
+  -webkit-mask: radial-gradient(circle closest-side, transparent 77%, #000 78.5%, #000 99%, transparent 100%);
+  mask: radial-gradient(circle closest-side, transparent 77%, #000 78.5%, #000 99%, transparent 100%);
+}
+.wheel-scroll .lbl-menu {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
 }
 .wheel-scroll .lbl-menu {
   top: 3.4%;
@@ -916,7 +933,7 @@ body {
   cursor: grab;
   /* The turned plastic: a faint radial grain, so you can see it turn. */
   background:
-    repeating-conic-gradient(from 0deg, rgba(0, 0, 0, 0.035) 0deg 1.2deg, rgba(255, 255, 255, 0.05) 1.2deg 3deg),
+    repeating-conic-gradient(from 0deg, rgba(0, 0, 0, 0.012) 0deg 1.2deg, rgba(255, 255, 255, 0.02) 1.2deg 3deg),
     radial-gradient(circle at 50% 50%, #ffffff 0%, var(--center) 70%, var(--wheel-lo) 100%);
   box-shadow:
     0 0 0 calc(var(--u) * 0.12) rgba(0, 0, 0, 0.2),

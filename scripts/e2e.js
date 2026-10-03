@@ -757,6 +757,8 @@ async function modelsScenario({ js, wait, shot, win, open, menu }) {
     if (built.model !== `model-${m.id}`) throw new Error(`model ${m.id} didn't build (${built.model})`);
     await pointAt(0, 0);
     await settle();
+    await js(`__ipod.os.activity()`);
+    await wait(700);
     await shot(`x-${m.id}-1-front`);
     await open('Music');
     await wait(400);
@@ -802,6 +804,16 @@ async function modelsScenario({ js, wait, shot, win, open, menu }) {
   await wait(500);
   const back = await js(`__ipod.os.stack.length`);
   if (back !== 1) throw new Error(`MENU on the original's button ring didn't go back (stack ${back})`);
-  await js(`__ipod.store.set('model', 'video'); __ipod.store.set('color', 'white'); __ipod.store.set('size', 'medium')`);
+
+  // The light (CSS) body too: every model's edges and ports, tilted.
+  await js(`__ipod.store.set('detail', 'light')`);
+  for (const m of models) {
+    await js(`__ipod.store.settings.color = ${JSON.stringify(m.colors[0])}; __ipod.store.set('model', ${JSON.stringify(m.id)})`);
+    await wait(700);
+    await pointAt(800, m.id === 'nano3' ? 600 : -500);
+    await settle();
+    await shot(`x-${m.id}-6-light`);
+  }
+  await js(`__ipod.store.set('detail', 'high'); __ipod.store.set('model', 'video'); __ipod.store.set('color', 'white'); __ipod.store.set('size', 'medium')`);
   await wait(600);
 }

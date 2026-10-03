@@ -224,6 +224,7 @@ export function createSpotifyMenus(app) {
       if (!api.connected) return notConnected();
       return new ListView({
         title: 'Spotify',
+        split: true,
         items: [
           {
             label: 'Playlists',

@@ -25,7 +25,7 @@ const PERSPECTIVE_MM = 230;
  */
 const FACE_SUPERSAMPLE = 2;
 
-/** The hold switch's width along the edge, in mm. */
+/** The hold switch's width along the edge, in mm, when a model doesn't say. */
 const HOLD_W = 8;
 
 /** CSS custom properties for a colour scheme. */
@@ -147,8 +147,8 @@ function serialFor(id) {
   return out;
 }
 
-/** The name etched on the back. */
-export const backWordmark = (model) => (model.id === 'mini' ? 'iPod mini' : model.id === 'nano3' ? 'iPod nano' : 'iPod');
+/** The name etched on the back: just "iPod" (the nano's says so too, iFixit's photos show). */
+export const backWordmark = () => 'iPod';
 
 const HEADPHONES = '<svg viewBox="0 0 16 16"><path d="M8 2.2a6 6 0 0 0-6 6v4.3a1.3 1.3 0 0 0 1.3 1.3H5V9.4H3.4V8.2a4.6 4.6 0 0 1 9.2 0v1.2H11v4.4h1.7a1.3 1.3 0 0 0 1.3-1.3V8.2a6 6 0 0 0-6-6z" fill="currentColor"/></svg>';
 
@@ -165,7 +165,7 @@ const LIGHT = [-0.6, -0.8];
  * y down: 0 = right, 90 = down). Local x runs back → front, local y along
  * the edge.
  */
-function buildShell({ W, H, R, T, u, refl, ports, depth, dock, profile }) {
+function buildShell({ W, H, R, T, u, refl, ports, depth, dock, profile, holdW = HOLD_W, labels = false }) {
   const r = (R + RIM) * u;
   const x0 = -RIM * u;
   const y0 = -RIM * u;
@@ -232,8 +232,8 @@ function buildShell({ W, H, R, T, u, refl, ports, depth, dock, profile }) {
       .filter((p) => p.edge === edge)
       .flatMap((p) => {
         if (p.kind === 'hold')
-          return [h('div', { class: 'hold-slot', style: at(edge, p.x, depth, HOLD_W + 0.6, 2.4) }), edge === 'top' ? label(p.x + HOLD_W / 2 + 4.4, depth, 'HOLD', 'lbl-hold') : null];
-        if (p.kind === 'jack') return [edge === 'top' ? label(p.x - 5.8, depth, HEADPHONES, 'lbl-phones') : null, h('div', { class: 'jack', style: at(edge, p.x, depth, 5.2, 5.2) })];
+          return [h('div', { class: 'hold-slot', style: at(edge, p.x, depth, holdW + 0.6, 2.4) }), labels && edge === 'top' ? label(p.x - holdW / 2 - 4.4, depth, 'HOLD', 'lbl-hold') : null];
+        if (p.kind === 'jack') return [labels && edge === 'top' ? label(p.x - 5.8, depth, HEADPHONES, 'lbl-phones') : null, h('div', { class: 'jack', style: at(edge, p.x, depth, 5.2, 5.2) })];
         if (p.kind === 'dock') return [h('div', { class: 'dock', style: at(edge, p.x, depth, dock.w, dock.h) }, h('div', { class: 'dock-pins' }))];
         if (p.kind === 'firewire') return [h('div', { class: 'firewire', style: at(edge, p.x, depth, 11, 4.6) }, h('div', { class: 'firewire-tongue' }))];
         return [];
@@ -318,6 +318,7 @@ export class Device extends Emitter {
     const band = edgeBand(model, depthMm);
     const ports = model.ports;
     const holdPort = ports.find((p) => p.kind === 'hold');
+    const holdW = model.holdW || HOLD_W;
     // Room around the device for tilting, lifting and the shadow on the desk.
     const pad = Math.round(46 * size.scale);
     const widthPx = Math.round(W * u + pad * 2);
@@ -384,7 +385,7 @@ export class Device extends Emitter {
       },
       h('div', { class: 'wheel-sheen' }, refl('sheen', '-9 8')),
       scroller,
-      h('div', { class: 'lbl lbl-menu', text: 'MENU' }),
+      h('div', { class: 'lbl lbl-menu', text: wd.menu || 'MENU' }),
       svg(ICONS.prev, 'lbl lbl-prev'),
       svg(ICONS.next, 'lbl lbl-next'),
       svg(ICONS.playpause, 'lbl lbl-play'),
@@ -399,7 +400,8 @@ export class Device extends Emitter {
     const holdEl = h('div', { class: `hold-switch hold-${model.hold} edge-${holdPort.edge}`, title: 'Hold switch' }, h('div', { class: 'hold-track' }, h('div', { class: 'hold-knob' })));
     holdEl.classList.toggle('on', this.hold);
     Object.assign(holdEl.style, {
-      left: mm(holdPort.x - HOLD_W / 2),
+      left: mm(holdPort.x - holdW / 2),
+      width: mm(holdW),
       top: holdPort.edge === 'top' ? mm(-2) : mm(H - 0.6),
       transform: `translateZ(${(band.mid * u).toFixed(2)}px)`,
     });
@@ -446,6 +448,8 @@ export class Device extends Emitter {
       refl,
       ports,
       depth: -band.mid / depthMm,
+      holdW,
+      labels: !!model.edgeLabels,
       dock: { w: model.id === 'nano3' ? 19 : 21, h: 2.4 },
       profile: edgeProfile(finish, color.front, model),
     });
@@ -503,6 +507,8 @@ export class Device extends Emitter {
     if (s.lcd) {
       el.style.setProperty('--lcd-off', s.lcd.off);
       el.style.setProperty('--lcd-on', s.lcd.on);
+      el.style.setProperty('--lcd-ink', s.lcd.ink);
+      el.style.setProperty('--lcd-sel', s.lcd.sel);
     }
     // Label sizing relative to the wheel so all models look right.
     el.style.setProperty('--wheel-d', mm(wd.d));
@@ -583,7 +589,7 @@ export class Device extends Emitter {
       model,
       band,
       ports: model.ports,
-      holdW: HOLD_W,
+      holdW: model.holdW || HOLD_W,
       back: { capacity: this.capacity || '', lines: engraving, serial: serialFor(color.id), wordmark: backWordmark(model), marks: model.marks },
     });
     if (!ok) return false;

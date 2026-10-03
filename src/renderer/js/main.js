@@ -73,6 +73,14 @@ async function boot() {
     window.ipod.win.quit();
   };
   app.models = MODELS;
+  // Album art for the classic-style menus (iPod classic, nano): the covers in
+  // your library, and whatever's playing.
+  os.artSource = () => {
+    const arts = library.albums.filter((a) => a.art).map((a) => a.art);
+    const t = player.track;
+    if (t && t.art) arts.push(t.art);
+    return arts;
+  };
   window.__ipod = app; // handy for debugging from DevTools
 
   // How big the music drive is, for the capacity on the back.

@@ -60,7 +60,10 @@ export class Body3D {
    * @param {number} o.perspective CSS perspective, px
    * @param {object} o.color the colour scheme (front, dark…)
    * @param {'steel'|'black'} o.finish
-   * @param {object} o.ports { jackX, holdX, holdW, holdDepth, dockW, dockH } in mm
+   * @param {object} o.model the model (models.js): profile, ports, marks
+   * @param {object} o.band where the flat band around the edge runs (models.js › edgeBand)
+   * @param {Array} o.ports [{ kind, edge, x }] in mm from the left
+   * @param {number} o.holdW the hold switch's width, mm
    * @param {object} o.back { capacity, lines: [engraving], serial }
    * @param {{rough?: HTMLCanvasElement}} [o.wear]
    */
@@ -391,7 +394,8 @@ export class Body3D {
         else if (p.kind === 'firewire') this._firewire(at);
       }
     }
-    this._topLabels({ y: bands.top, z: zc, ports: o.ports.filter((p) => p.edge === 'top'), xOf, holdW: mm(o.holdW), u });
+    // Only the original has its ports labelled (printed on the white lip below them).
+    if (model.edgeLabels) this._topLabels({ ports: o.ports.filter((p) => p.edge === 'top'), xOf, u });
   }
   _add(mesh, hit = false) {
     if (hit) mesh.userData.hit = true;
@@ -490,7 +494,8 @@ export class Body3D {
     });
     pill.rotateX(-Math.PI / 2); // extrude upward (+y)
     pill.translate(0, -0.55 * u, 0);
-    const slider = new THREE.Mesh(pill, M.chrome);
+    // Chrome on most; a white plastic slider on the original.
+    const slider = new THREE.Mesh(pill, this.o.model.holdSlider === 'plastic' ? M.plastic : M.chrome);
     slider.userData.hit = true;
     g.add(slider);
     this._place(g, { x, y, z, up });
@@ -568,59 +573,77 @@ export class Body3D {
     this._place(g, { x, y, z, up });
   }
 
-  /** "HOLD" and the headphone icon, printed on the top edge. */
-  _topLabels({ y, z, ports, xOf, holdW, u }) {
-    const dark = this.o.finish === 'black';
-    const ink = dark ? 'rgba(225,228,232,0.95)' : 'rgba(60,64,70,0.9)';
-    const w = 14 * u;
-    const h = 3 * u;
+  /**
+   * The original iPod's port labels: the FireWire symbol, a headphone and
+   * "| HOLD", printed in grey on the white plastic lip just below each port.
+   */
+  _topLabels({ ports, xOf, u }) {
+    const P = this.o.model.profile;
+    const ink = 'rgba(120,124,130,0.95)';
+    const y = this.o.H * u * 0.5 + P.lip * u + 0.02 * u;
+    const z = (P.frontTo / 2 - 0.3) * u;
+    const w = 9 * u;
+    const h = 2.2 * u;
     const make = (draw, x) => {
-      const scale = 4;
+      const scale = 5;
       const c = document.createElement('canvas');
       c.width = Math.round(w * scale);
       c.height = Math.round(h * scale);
       const g = c.getContext('2d');
       g.scale(scale, scale);
       g.fillStyle = ink;
+      g.strokeStyle = ink;
       draw(g);
       const tex = new THREE.CanvasTexture(c);
       tex.colorSpace = THREE.SRGBColorSpace;
       tex.anisotropy = 8;
-      const mat = decalMaterial(tex);
       const plane = new THREE.PlaneGeometry(w, h);
       plane.rotateX(-Math.PI / 2);
-      const mesh = new THREE.Mesh(plane, mat);
-      mesh.position.set(x, y + 0.02 * u, z);
+      const mesh = new THREE.Mesh(plane, decalMaterial(tex));
+      mesh.position.set(x, y, z);
       this.pivot.add(mesh);
     };
-    const hold = ports.find((p) => p.kind === 'hold');
-    const jack = ports.find((p) => p.kind === 'jack');
-    if (hold) {
-      // To the right of the switch, or to its left when it's near the right edge (the original).
-      const right = xOf(hold) < 0;
-      make((g) => {
-        g.font = `700 ${1.6 * u}px "iPod Sans", "Helvetica Neue", Arial, sans-serif`;
-        g.textAlign = right ? 'left' : 'right';
-        g.textBaseline = 'middle';
-        g.fillText('HOLD', right ? 0 : w, h / 2);
-      }, right ? xOf(hold) + holdW / 2 + 1.6 * u + w / 2 : xOf(hold) - holdW / 2 - 1.6 * u - w / 2);
-    }
-    if (jack) {
-      make((g) => {
-        // Headphones.
-        const s = 2.2 * u;
-        const cx = w - s / 2 - 0.2 * u;
-        const cy = h / 2;
-        g.lineWidth = 0.32 * u;
-        g.strokeStyle = ink;
-        g.beginPath();
-        g.arc(cx, cy + s * 0.12, s * 0.42, Math.PI, 0);
-        g.stroke();
-        g.fillRect(cx - s * 0.5, cy + s * 0.05, s * 0.2, s * 0.38);
-        g.fillRect(cx + s * 0.3, cy + s * 0.05, s * 0.2, s * 0.38);
-      }, xOf(jack) - 3.6 * u - w / 2);
+    const s = 1.5 * u; // icon size
+    const cx = w / 2;
+    const cy = h / 2;
+    for (const p of ports) {
+      if (p.kind === 'firewire') {
+        // The FireWire "Y": three prongs from a stem.
+        make((g) => {
+          g.lineWidth = 0.18 * u;
+          g.beginPath();
+          g.moveTo(cx, cy + s * 0.5);
+          g.lineTo(cx, cy - s * 0.1);
+          g.moveTo(cx, cy - s * 0.1);
+          g.lineTo(cx - s * 0.42, cy - s * 0.5);
+          g.moveTo(cx, cy - s * 0.1);
+          g.lineTo(cx + s * 0.42, cy - s * 0.5);
+          g.moveTo(cx, cy - s * 0.1);
+          g.lineTo(cx, cy - s * 0.55);
+          g.stroke();
+        }, xOf(p));
+      } else if (p.kind === 'jack') {
+        make((g) => {
+          // Headphones.
+          g.lineWidth = 0.2 * u;
+          g.beginPath();
+          g.arc(cx, cy + s * 0.12, s * 0.4, Math.PI, 0);
+          g.stroke();
+          g.fillRect(cx - s * 0.48, cy + s * 0.05, s * 0.18, s * 0.36);
+          g.fillRect(cx + s * 0.3, cy + s * 0.05, s * 0.18, s * 0.36);
+        }, xOf(p));
+      } else if (p.kind === 'hold') {
+        make((g) => {
+          g.fillRect(cx - 2.6 * u, cy - s * 0.4, 0.14 * u, s * 0.8);
+          g.font = `600 ${1.15 * u}px "iPod Sans", "Helvetica Neue", Arial, sans-serif`;
+          g.textAlign = 'left';
+          g.textBaseline = 'middle';
+          g.fillText('HOLD', cx - 2.1 * u, cy + 0.05 * u);
+        }, xOf(p));
+      }
     }
   }
+
   /** The back's etched lettering: matte, light, so it stays put while the steel reflects. */
   _backDecal({ a, b, z, finish, back, u }) {
     const w = a * 2;
@@ -651,7 +674,16 @@ export class Body3D {
     g.font = font(400, 3);
     lines.forEach((l, i) => g.fillText(l, w / 2, top(0.565) + i * 4.4 * u));
     g.font = font(500, 3.4);
-    if (back.capacity) g.fillText(back.capacity, w / 2, top(0.82));
+    if (back.capacity) {
+      g.fillText(back.capacity, w / 2, top(0.82));
+      // The nano's capacity sits in a rounded box.
+      if (this.o.model.backCapacityBox) {
+        const tw = g.measureText(back.capacity).width;
+        g.lineWidth = 0.22 * u;
+        roundRectPath(g, w / 2 - tw / 2 - 1.2 * u, top(0.82) - 3.1 * u, tw + 2.4 * u, 4.0 * u, 0.9 * u);
+        g.stroke();
+      }
+    }
     // Fine print and marks.
     g.font = font(400, 1.25);
     const fy = top(0.86);

@@ -638,3 +638,237 @@
   opacity: 1;
   transform: translate(-50%, -50%) scale(1);
 }
+
+/* ================================================================================
+   Screen styles for the other iPods (os.js sets .style-<name> from the model)
+   ================================================================================ */
+
+/* --- monochrome LCD: the original iPod and the mini ---------------------------- */
+/* ChicagoFLF: a public-domain revival of Chicago, the iPod's original typeface
+   (see fonts/chicago-flf-README.txt). */
+@font-face {
+  font-family: 'Chicago FLF';
+  src: url(../fonts/chicago-flf.woff) format('woff');
+}
+/* Drawn in black and white; the tint layer below turns white into the LCD's
+   own grey (or its backlit blue-white) and black into its ink. */
+.screen.style-mono {
+  --font: 'Chicago FLF', 'iPod Sans', 'Helvetica Neue', Arial, sans-serif;
+  --bg: #ffffff;
+  --fg: var(--lcd-ink);
+  --muted: var(--lcd-ink);
+  --blue: var(--lcd-ink);
+  --sel-bg: var(--lcd-sel);
+  --sel-fg: #ffffff;
+  --tb-bg: #ffffff;
+  --tb-border: var(--lcd-ink);
+  --bar-track: #ffffff;
+  --bar-fill: var(--lcd-ink);
+  --bar-border: var(--lcd-ink);
+  --noart: #ffffff;
+}
+.style-mono .os {
+  /* The pixels sit a little above the reflector: each casts a faint shadow. */
+  text-shadow: 1px 1.5px 0 rgba(0, 0, 0, 0.12);
+}
+.style-mono .row,
+.style-mono .tb-title,
+.style-mono .np-line,
+.style-mono .np-count,
+.style-mono .list-message {
+  font-weight: 400;
+}
+.style-mono .row.sel {
+  box-shadow: none;
+  text-shadow: none;
+}
+.style-mono .titlebar {
+  border-bottom-width: 2px;
+}
+.style-mono .tb-title {
+  font-size: calc(var(--title-h) * 0.62);
+  color: var(--lcd-ink);
+  text-shadow: none;
+}
+.style-mono .tb-play {
+  width: calc(var(--title-h) * 0.4);
+  color: var(--lcd-ink);
+  filter: none;
+}
+/* The battery: an outline with four bars. */
+.style-mono .tb-battery {
+  width: calc(var(--title-h) * 0.95);
+  height: calc(var(--title-h) * 0.42);
+  border: 2px solid var(--lcd-ink);
+  border-radius: 1px;
+  background: #ffffff;
+}
+.style-mono .tb-battery::after {
+  background: var(--lcd-ink);
+  right: -5px;
+  width: 3px;
+}
+.style-mono .batt-fill {
+  left: 2px;
+  top: 2px;
+  bottom: 2px;
+  background: repeating-linear-gradient(90deg, var(--lcd-ink) 0 calc(var(--title-h) * 0.17), transparent calc(var(--title-h) * 0.17) calc(var(--title-h) * 0.22));
+  border-radius: 0;
+}
+.style-mono .row .arrow {
+  width: calc(var(--fs) * 0.42);
+  color: var(--lcd-ink);
+}
+.style-mono .row.sel .arrow {
+  color: #ffffff;
+}
+.style-mono .scrollbar {
+  width: 12px;
+  background: #ffffff;
+  border-left: 2px solid var(--lcd-ink);
+}
+.style-mono .thumb-bar {
+  background: var(--lcd-ink);
+  box-shadow: none;
+}
+.style-mono img,
+.style-mono canvas,
+.style-mono video,
+.style-mono .np-art-layer,
+.style-mono .cf-stage {
+  filter: grayscale(1) contrast(1.15);
+}
+/* Now Playing on the original had no artwork: just the song, centred. */
+.style-mono .np-art {
+  display: none;
+}
+.style-mono .np-meta {
+  left: 16px;
+  right: 16px;
+  align-items: center;
+  text-align: center;
+}
+.style-mono .np-bar {
+  box-shadow: none;
+}
+.style-mono .letter-overlay {
+  background: var(--lcd-ink);
+  border-radius: 4px;
+}
+/* The LCD itself: grey-green unlit, lighter and cooler with the backlight
+   on, and a faint grid between its pixels (it's laid out at about twice the
+   real resolution, so a line every 2px). */
+.style-mono .lcd-tint {
+  background-color: var(--lcd-off);
+  background-image:
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.06) 0 0.5px, transparent 0.5px 2px),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.06) 0 0.5px, transparent 0.5px 2px);
+  transition: background-color 0.35s ease;
+}
+.style-mono.backlit .lcd-tint {
+  background-color: var(--lcd-on);
+}
+/* Asleep, it's just a blank grey LCD. */
+.style-mono .dimmer {
+  background: var(--lcd-off);
+}
+
+/* --- 6th generation: iPod classic and the 3rd generation nano ------------------- */
+.screen.style-classic {
+  --sel-bg: linear-gradient(180deg, #6cb0f7 0%, #3b8ced 48%, #1f72df 52%, #2b7ee6 100%);
+  --tb-bg: linear-gradient(180deg, #fefefe 0%, #eceef0 55%, #dfe2e5 100%);
+  --tb-border: #a3a9af;
+}
+/* Only the highlighted row shows its arrow. */
+.style-classic .row.has-arrow .arrow {
+  visibility: hidden;
+}
+.style-classic .row.sel.has-arrow .arrow {
+  visibility: visible;
+}
+/* Now Playing: the artwork stands on a reflection of itself. */
+.style-classic .np-art {
+  -webkit-box-reflect: below 2px linear-gradient(transparent 62%, rgba(255, 255, 255, 0.32));
+}
+
+/* Menus share the screen with album art: the list on the left half, the art
+   on the right, slowly panning and changing. The title bar covers only the
+   menu's half, with the title on the left. */
+.art-panel {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  right: 0;
+  z-index: 11;
+  display: none;
+  overflow: hidden;
+  background: linear-gradient(160deg, #4a4d52 0%, #24262a 70%, #1b1c1f 100%);
+  box-shadow: inset 1px 0 0 rgba(0, 0, 0, 0.35);
+}
+.screen.split .art-panel {
+  display: block;
+}
+.art-panel img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+  transform-origin: var(--ox, 30%) var(--oy, 40%);
+}
+.art-panel img.show {
+  opacity: 1;
+  animation: kenburns 9s linear both;
+}
+@keyframes kenburns {
+  from {
+    transform: scale(1.05) translate(0, 0);
+  }
+  to {
+    transform: scale(1.32) translate(var(--dx, -4%), var(--dy, 3%));
+  }
+}
+/* No artwork yet: a note, like the real one's "No Songs". */
+.art-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: rgba(255, 255, 255, 0.75);
+  font: 600 13px / 1 var(--font);
+}
+.art-empty::before {
+  content: '♫';
+  font-size: 54px;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.35);
+}
+.art-panel.has-art .art-empty {
+  display: none;
+}
+.screen.split .titlebar {
+  right: 50%;
+  justify-content: flex-start;
+}
+.screen.split .tb-title {
+  margin-left: 8px;
+  max-width: 55%;
+  font-size: 14.5px;
+}
+.screen.split .tb-left {
+  left: auto;
+  right: 38px;
+}
+.screen.split .list-view.split .list,
+.screen.split .list-view.split .letter-overlay {
+  right: 50%;
+}
+.screen.split .list-view.split .letter-overlay {
+  left: 25%;
+}
